@@ -46,6 +46,7 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
     private static final String HIT_SOURCE_PUBLISHED_SNAPSHOT = "PUBLISHED_SNAPSHOT";
     private static final String HIT_SOURCE_DRAFT_RULE = "DRAFT_RULE";
     private static final String HIT_SOURCE_MISS = "MISS";
+    private static final long ACTIVE_NORMATIVE_DEFINITION_CACHE_TTL_MILLIS = 60_000L;
 
     private final VendorMetricMappingRuleMapper mapper;
     private final VendorMetricMappingRuleSnapshotMapper snapshotMapper;
@@ -54,6 +55,7 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
     private final MetricIdentifierResolver metricIdentifierResolver;
     private final ProtocolSecurityDefinitionProvider protocolSecurityDefinitionProvider;
     private final ProductModelNormativeMatcher normativeMatcher = new ProductModelNormativeMatcher();
+    private volatile ActiveNormativeDefinitionCache activeNormativeDefinitionCache;
 
     @Autowired
     public VendorMetricMappingRuntimeServiceImpl(VendorMetricMappingRuleMapper mapper,
@@ -139,10 +141,13 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
         );
         PublishedRuleSnapshotResolution publishedResolution =
                 resolvePublishedRuleSnapshot(product, protocolSelectors, rawIdentifier, logicalChannelCode, false);
-        if (publishedResolution.hasPublishedSnapshots()) {
+        if (publishedResolution.resolution() != null) {
             return publishedResolution.resolution();
         }
-        return resolveInternal(product, protocolSelectors, rawIdentifier, logicalChannelCode, false);
+        MappingResolution draftResolution = resolveInternal(product, protocolSelectors, rawIdentifier, logicalChannelCode, false);
+        return draftResolution == null
+                ? resolveByNormativePrefixFallback(rawIdentifier, logicalChannelCode)
+                : draftResolution;
     }
 
     @Override
@@ -166,7 +171,11 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
                 null,
                 true
         );
-        return resolution == null ? sanitizedIdentifier : resolution.targetNormativeIdentifier();
+        if (resolution != null) {
+            return resolution.targetNormativeIdentifier();
+        }
+        MappingResolution fallbackResolution = resolveByNormativePrefixFallback(sanitizedIdentifier, null);
+        return fallbackResolution == null ? sanitizedIdentifier : fallbackResolution.targetNormativeIdentifier();
     }
 
     public ReplayResolution replayForGovernance(Product product, String rawIdentifier, String logicalChannelCode) {
@@ -607,6 +616,59 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
                 .orElse(normalizedTargetIdentifier);
     }
 
+    private MappingResolution resolveByNormativePrefixFallback(String rawIdentifier, String logicalChannelCode) {
+        if (normativeMetricDefinitionService == null || !StringUtils.hasText(rawIdentifier)) {
+            return null;
+        }
+        List<NormativeMetricDefinition> definitions = loadActiveNormativeDefinitions();
+        if (definitions.isEmpty()) {
+            return null;
+        }
+        List<String> candidates = buildNormativeFallbackCandidates(rawIdentifier, logicalChannelCode);
+        ProductModelNormativeMatcher.NormativeMatchResult match =
+                normativeMatcher.matchPropertyByRawIdentifier(rawIdentifier, candidates, definitions);
+        if (match == null || !StringUtils.hasText(match.normativeIdentifier())) {
+            return null;
+        }
+        return new MappingResolution(
+                null,
+                match.normativeIdentifier(),
+                normalizeText(rawIdentifier),
+                normalizeUpper(logicalChannelCode)
+        );
+    }
+
+    private List<NormativeMetricDefinition> loadActiveNormativeDefinitions() {
+        long now = System.currentTimeMillis();
+        ActiveNormativeDefinitionCache cached = activeNormativeDefinitionCache;
+        if (cached != null && cached.expiresAtMillis() > now) {
+            return cached.definitions();
+        }
+        List<NormativeMetricDefinition> definitions = normativeMetricDefinitionService.listActive();
+        List<NormativeMetricDefinition> safeDefinitions = definitions == null
+                ? List.of()
+                : definitions.stream().filter(Objects::nonNull).toList();
+        activeNormativeDefinitionCache = new ActiveNormativeDefinitionCache(
+                safeDefinitions,
+                now + ACTIVE_NORMATIVE_DEFINITION_CACHE_TTL_MILLIS
+        );
+        return safeDefinitions;
+    }
+
+    private List<String> buildNormativeFallbackCandidates(String rawIdentifier, String logicalChannelCode) {
+        LinkedHashSet<String> candidates = new LinkedHashSet<>();
+        String normalizedRawIdentifier = normalizeText(rawIdentifier);
+        String normalizedLogicalChannelCode = normalizeUpper(logicalChannelCode);
+        if (normalizedRawIdentifier != null) {
+            candidates.add(normalizedRawIdentifier);
+        }
+        if (normalizedLogicalChannelCode != null && normalizedRawIdentifier != null) {
+            candidates.add(normalizedLogicalChannelCode + "." + normalizedRawIdentifier);
+            candidates.add(normalizedLogicalChannelCode);
+        }
+        return List.copyOf(candidates);
+    }
+
     private String resolveProtocolCode(Product product) {
         return normalizeLower(product == null ? null : product.getProtocolCode());
     }
@@ -737,5 +799,9 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
         private static PublishedRuleSnapshotResolution none() {
             return new PublishedRuleSnapshotResolution(false, null);
         }
+    }
+
+    private record ActiveNormativeDefinitionCache(List<NormativeMetricDefinition> definitions,
+                                                  long expiresAtMillis) {
     }
 }

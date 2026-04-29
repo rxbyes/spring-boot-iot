@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -101,8 +102,8 @@ class DeepDisplacementAutoClosureServiceTest {
 
         mockCommonLookups(riskPoint, binding, buildProperty(binding, "12.8"));
         when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(rule));
-        when(linkageRuleMapper.selectList(any())).thenReturn(List.of());
-        when(emergencyPlanMapper.selectList(any())).thenReturn(List.of());
+        lenient().when(linkageRuleMapper.selectList(any())).thenReturn(List.of());
+        lenient().when(emergencyPlanMapper.selectList(any())).thenReturn(List.of());
         when(alarmRecordService.getOne(any())).thenReturn(null);
         when(alarmRecordService.addAlarm(any())).thenAnswer(invocation -> {
             AlarmRecord alarmRecord = invocation.getArgument(0);
@@ -127,6 +128,30 @@ class DeepDisplacementAutoClosureServiceTest {
         verify(eventRecordService).addEvent(eventCaptor.capture());
         assertEquals("red", eventCaptor.getValue().getRiskLevel());
         assertTrue(eventCaptor.getValue().getReviewNotes().contains("\"policySource\":\"RULE_DEFINITION\""));
+    }
+
+    @Test
+    void processShouldMatchNormalizedLeafAliasWhenBindingUsesFullPathMetricIdentifier() {
+        RiskPoint riskPoint = buildRiskPoint(8001L, "info", null);
+        RiskPointDevice binding = buildBinding(8001L, 3002L, "84330701", "L1_LF_1.value", "裂缝量");
+
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(binding), List.of(binding));
+        when(riskPointMapper.selectList(any())).thenReturn(List.of(riskPoint));
+        when(riskPointMapper.selectById(riskPoint.getId())).thenReturn(riskPoint);
+        when(devicePropertyMapper.selectOne(any())).thenReturn(buildProperty(binding.getDeviceId(), "value", "6.2"));
+        lenient().when(linkageRuleMapper.selectList(any())).thenReturn(List.of());
+        lenient().when(emergencyPlanMapper.selectList(any())).thenReturn(List.of());
+        when(alarmRecordService.getOne(any())).thenReturn(null);
+
+        service.process(buildEvent("84330701", Map.of("value", 6.2)));
+
+        ArgumentCaptor<AlarmRecord> alarmCaptor = ArgumentCaptor.forClass(AlarmRecord.class);
+        verify(alarmRecordService).addAlarm(alarmCaptor.capture());
+        assertEquals("yellow", alarmCaptor.getValue().getAlarmLevel());
+
+        ArgumentCaptor<RiskPoint> riskPointCaptor = ArgumentCaptor.forClass(RiskPoint.class);
+        verify(riskPointMapper).updateById(riskPointCaptor.capture());
+        assertEquals("yellow", riskPointCaptor.getValue().getCurrentRiskLevel());
     }
 
     @Test
@@ -311,8 +336,8 @@ class DeepDisplacementAutoClosureServiceTest {
         RiskPointDevice binding = buildBinding(8001L, 3002L, "84330701", "dispsX", "顺滑动方向累计变形量");
 
         mockCommonLookups(riskPoint, binding, buildProperty(binding, "7.5"));
-        when(linkageRuleMapper.selectList(any())).thenReturn(List.of());
-        when(emergencyPlanMapper.selectList(any())).thenReturn(List.of());
+        lenient().when(linkageRuleMapper.selectList(any())).thenReturn(List.of());
+        lenient().when(emergencyPlanMapper.selectList(any())).thenReturn(List.of());
         when(alarmRecordService.getOne(any())).thenReturn(null);
 
         service.process(buildEvent("84330701", Map.of("dispsX", 7.5)));
@@ -326,6 +351,103 @@ class DeepDisplacementAutoClosureServiceTest {
         ArgumentCaptor<RiskPoint> riskPointCaptor = ArgumentCaptor.forClass(RiskPoint.class);
         verify(riskPointMapper).updateById(riskPointCaptor.capture());
         assertEquals("yellow", riskPointCaptor.getValue().getCurrentRiskLevel());
+    }
+
+    @Test
+    void processShouldKeepSingleSignalAsAlarmOnlyForMultiMetricRiskObject() {
+        RiskPoint riskPoint = buildRiskPoint(8001L, "info", 88L);
+        RiskPointDevice currentBinding = buildBinding(8001L, 3002L, "84330701", "dispsX", "dispsX");
+        currentBinding.setId(91001L);
+        RiskPointDevice quietBinding = buildBinding(8001L, 3003L, "84330702", "dispsY", "dispsY");
+        quietBinding.setId(91002L);
+
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(
+                List.of(currentBinding),
+                List.of(currentBinding, quietBinding),
+                List.of(currentBinding, quietBinding)
+        );
+        when(riskPointMapper.selectList(any())).thenReturn(List.of(riskPoint));
+        when(riskPointMapper.selectById(riskPoint.getId())).thenReturn(riskPoint);
+        when(devicePropertyMapper.selectOne(any())).thenReturn(
+                buildProperty(quietBinding, "1.2"),
+                buildProperty(currentBinding, "25.6"),
+                buildProperty(quietBinding, "1.2")
+        );
+        when(alarmRecordService.getOne(any())).thenReturn(null);
+
+        service.process(buildEvent("84330701", Map.of("dispsX", 25.6)));
+
+        ArgumentCaptor<AlarmRecord> alarmCaptor = ArgumentCaptor.forClass(AlarmRecord.class);
+        verify(alarmRecordService).addAlarm(alarmCaptor.capture());
+        assertEquals("red", alarmCaptor.getValue().getAlarmLevel());
+        assertTrue(alarmCaptor.getValue().getRemark().contains("\"reasonCode\":\"SINGLE_SIGNAL_ONLY\""));
+        assertTrue(alarmCaptor.getValue().getRemark().contains("\"triggerResponse\":false"));
+        verify(linkageRuleMapper, never()).selectList(any());
+        verify(emergencyPlanMapper, never()).selectList(any());
+        verify(eventRecordService, never()).addEvent(any());
+        verify(eventRecordService, never()).dispatchEvent(any(), any(), any());
+    }
+
+    @Test
+    void processShouldUseHighestActiveSignalAsConfirmedObjectResponseContext() {
+        RiskPoint riskPoint = buildRiskPoint(8001L, "info", 88L);
+        RiskPointDevice currentBinding = buildBinding(8001L, 3002L, "84330701", "dispsY", "dispsY");
+        currentBinding.setId(91001L);
+        RiskPointDevice redBinding = buildBinding(8001L, 3003L, "84330702", "dispsX", "dispsX");
+        redBinding.setId(91002L);
+        LinkageRule linkageRule = new LinkageRule();
+        linkageRule.setId(8301L);
+        linkageRule.setRuleName("deep displacement red linkage");
+        linkageRule.setTriggerCondition("{\"metric\":\"dispsX\",\"op\":\">=\",\"threshold\":20}");
+        EmergencyPlan emergencyPlan = new EmergencyPlan();
+        emergencyPlan.setId(8401L);
+        emergencyPlan.setPlanName("\u8fb9\u5761\u6df1\u90e8\u4f4d\u79fb\u7ea2\u8272\u5e94\u6025\u9884\u6848");
+        emergencyPlan.setAlarmLevel("red");
+        emergencyPlan.setDescription("\u6df1\u90e8\u4f4d\u79fb\u8fbe\u5230\u7ea2\u8272\u9608\u503c\u65f6\u6267\u884c");
+
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(
+                List.of(currentBinding),
+                List.of(currentBinding, redBinding),
+                List.of(currentBinding, redBinding)
+        );
+        when(riskPointMapper.selectList(any())).thenReturn(List.of(riskPoint));
+        when(riskPointMapper.selectById(riskPoint.getId())).thenReturn(riskPoint);
+        when(devicePropertyMapper.selectOne(any())).thenReturn(
+                buildProperty(redBinding, "25.6"),
+                buildProperty(currentBinding, "12.8"),
+                buildProperty(redBinding, "25.6")
+        );
+        when(linkageRuleMapper.selectList(any())).thenReturn(List.of(linkageRule));
+        when(emergencyPlanMapper.selectList(any())).thenReturn(List.of(emergencyPlan));
+        when(alarmRecordService.getOne(any())).thenReturn(null);
+        when(alarmRecordService.addAlarm(any())).thenAnswer(invocation -> {
+            AlarmRecord alarmRecord = invocation.getArgument(0);
+            alarmRecord.setId(8503L);
+            return alarmRecord;
+        });
+        when(eventRecordService.addEvent(any())).thenAnswer(invocation -> {
+            EventRecord eventRecord = invocation.getArgument(0);
+            eventRecord.setId(8601L);
+            return eventRecord;
+        });
+
+        service.process(buildEvent("84330701", Map.of("dispsY", 12.8)));
+
+        ArgumentCaptor<AlarmRecord> alarmCaptor = ArgumentCaptor.forClass(AlarmRecord.class);
+        verify(alarmRecordService).addAlarm(alarmCaptor.capture());
+        assertEquals("orange", alarmCaptor.getValue().getAlarmLevel());
+        assertTrue(alarmCaptor.getValue().getRemark().contains("\"reasonCode\":\"CONFIRMED_MULTI_SIGNAL\""));
+        assertTrue(alarmCaptor.getValue().getRemark().contains("\"responseSignal\""));
+
+        ArgumentCaptor<EventRecord> eventCaptor = ArgumentCaptor.forClass(EventRecord.class);
+        verify(eventRecordService).addEvent(eventCaptor.capture());
+        assertEquals("red", eventCaptor.getValue().getRiskLevel());
+        assertEquals(3003L, eventCaptor.getValue().getDeviceId());
+        assertEquals("25.6", eventCaptor.getValue().getCurrentValue());
+        assertTrue(eventCaptor.getValue().getReviewNotes().contains("\"metricIdentifier\":\"dispsX\""));
+        assertTrue(eventCaptor.getValue().getReviewNotes().contains("\"id\":8301"));
+        assertTrue(eventCaptor.getValue().getReviewNotes().contains("\"id\":8401"));
+        verify(eventRecordService).dispatchEvent(8601L, 88L, 88L);
     }
 
     @Test
@@ -400,9 +522,13 @@ class DeepDisplacementAutoClosureServiceTest {
     }
 
     private DeviceProperty buildProperty(RiskPointDevice binding, String value) {
+        return buildProperty(binding.getDeviceId(), binding.getMetricIdentifier(), value);
+    }
+
+    private DeviceProperty buildProperty(Long deviceId, String identifier, String value) {
         DeviceProperty property = new DeviceProperty();
-        property.setDeviceId(binding.getDeviceId());
-        property.setIdentifier(binding.getMetricIdentifier());
+        property.setDeviceId(deviceId);
+        property.setIdentifier(identifier);
         property.setPropertyValue(new BigDecimal(value).stripTrailingZeros().toPlainString());
         return property;
     }

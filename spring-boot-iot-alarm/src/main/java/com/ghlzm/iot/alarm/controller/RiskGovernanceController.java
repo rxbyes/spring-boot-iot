@@ -6,6 +6,7 @@ import com.ghlzm.iot.alarm.service.RiskGovernanceService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceDashboardOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceGapItemVO;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceMissingPolicyProductMetricSummaryVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceOpsAlertItemVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceReplayVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceReleaseBatchDiffVO;
@@ -45,6 +46,12 @@ public class RiskGovernanceController {
     @GetMapping("/missing-policies")
     public R<PageResult<RiskGovernanceGapItemVO>> listMissingPolicies(RiskGovernanceGapQuery query) {
         return R.ok(riskGovernanceService.listMissingPolicies(query));
+    }
+
+    @GetMapping("/missing-policies/product-metric-summaries")
+    public R<PageResult<RiskGovernanceMissingPolicyProductMetricSummaryVO>> pageMissingPolicyProductMetricSummaries(
+            RiskGovernanceGapQuery query) {
+        return R.ok(riskGovernanceService.pageMissingPolicyProductMetricSummaries(query));
     }
 
     @GetMapping("/metric-catalogs")

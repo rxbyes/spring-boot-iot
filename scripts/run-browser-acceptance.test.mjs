@@ -51,6 +51,123 @@ test('iot access dry-run loads dedicated smoke plan and prints required routes',
   }
 });
 
+test('quality factory dry-run loads business acceptance and results routes', () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      browserAcceptanceScript,
+      '--dry-run',
+      '--no-append-issues',
+      '--plan=config/automation/quality-factory-web-smoke-plan.json'
+    ],
+    {
+      cwd: repoRoot,
+      encoding: 'utf8'
+    }
+  );
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /"dryRun": true/);
+  assert.match(result.stdout, /"key": "business-acceptance-workbench"/);
+  assert.match(result.stdout, /"key": "automation-results-workbench"/);
+  assert.equal(
+    result.stdout.includes('"route": "/automation-governance?tab=evidence&runId=${target.thresholdEvidenceRunId}"'),
+    true
+  );
+  const plan = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, 'config/automation/quality-factory-web-smoke-plan.json'), 'utf8')
+  );
+  const automationResultsScenario = plan.scenarios.find(
+    (scenario) => scenario.key === 'automation-results-workbench'
+  );
+  assert.ok(
+    automationResultsScenario.steps.some(
+      (step) => step.id === 'automation-results-open-threshold-preview-evidence'
+    )
+  );
+});
+
+test('browser acceptance CLI metadata exposes report files for registry indexing', async () => {
+  const { buildCliMetadataLines } = await import(pathToFileURL(browserAcceptanceScript).href);
+
+  const lines = buildCliMetadataLines({
+    exitCode: 0,
+    summary: {
+      counts: {
+        total: 2,
+        passed: 2,
+        failed: 0
+      }
+    },
+    artifacts: {
+      relative: {
+        reportPath: 'logs/acceptance/quality-factory-browser-report-20260428130723.md',
+        summaryPath: 'logs/acceptance/quality-factory-browser-summary-20260428130723.json',
+        detailPath: 'logs/acceptance/quality-factory-browser-results-20260428130723.json',
+        screenshotsDir: 'logs/acceptance/quality-factory-browser-screenshots-20260428130723'
+      }
+    }
+  });
+
+  assert.deepEqual(lines, [
+    'REPORT_PATH=logs/acceptance/quality-factory-browser-report-20260428130723.md',
+    'REPORT_SUMMARY=logs/acceptance/quality-factory-browser-summary-20260428130723.json',
+    'DETAIL_JSON=logs/acceptance/quality-factory-browser-results-20260428130723.json',
+    'SCREENSHOTS_DIR=logs/acceptance/quality-factory-browser-screenshots-20260428130723',
+    'STATUS=PASSED',
+    'SUMMARY=browser acceptance passed, total=2, passed=2, failed=0'
+  ]);
+});
+
+test('config-driven dry-run filters exact scenario keys', () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      browserAcceptanceScript,
+      '--dry-run',
+      '--no-append-issues',
+      '--plan=config/automation/sample-web-smoke-plan.json',
+      '--scenario-keys=login,product-governance-warning-fallback'
+    ],
+    {
+      cwd: repoRoot,
+      encoding: 'utf8'
+    }
+  );
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const payload = JSON.parse(result.stdout);
+  assert.deepEqual(
+    payload.scenarios.map((scenario) => scenario.key),
+    ['login', 'product-governance-warning-fallback']
+  );
+});
+
+test('p1 onboarding and object insight dry-runs load dedicated plans', () => {
+  for (const [planPath, expectedKey] of [
+    ['config/automation/device-onboarding-web-smoke-plan.json', 'device-onboarding-workbench'],
+    ['config/automation/object-insight-web-smoke-plan.json', 'object-insight-workbench']
+  ]) {
+    const result = spawnSync(
+      process.execPath,
+      [
+        browserAcceptanceScript,
+        '--dry-run',
+        '--no-append-issues',
+        `--plan=${planPath}`
+      ],
+      {
+        cwd: repoRoot,
+        encoding: 'utf8'
+      }
+    );
+
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /"dryRun": true/);
+    assert.match(result.stdout, new RegExp(`"key": "${expectedKey}"`));
+  }
+});
+
 test('config-driven dry-run prefers acceptance env urls over plan defaults', async (t) => {
   const { runCli } = await import(pathToFileURL(browserAcceptanceScript).href);
   const previousFrontendUrl = process.env.IOT_ACCEPTANCE_FRONTEND_URL;
@@ -257,6 +374,18 @@ test('sample web smoke plan matches current login and product/device workbench f
     productGovernanceScenario.steps.every((step) => step.matcher !== '/model-governance/compare'),
     'current product governance smoke should validate workspace reachability instead of old generic compare fallback'
   );
+
+  const unknownCapabilityScenario = scenarios.get('product-governance-unknown-capability');
+  assert.ok(unknownCapabilityScenario, 'unknown capability governance scenario should exist');
+  const unknownCapabilityQueryStep = unknownCapabilityScenario.steps.find(
+    (step) => step.id === 'product-governance-unknown-query'
+  );
+  assert.equal(
+    unknownCapabilityQueryStep?.type,
+    'triggerApi',
+    'unknown capability governance scenario should wait for the product page query response'
+  );
+  assert.equal(unknownCapabilityQueryStep?.matcher, '/api/device/product/page');
 });
 
 test('protocol governance smoke plan expands detail, publish and guard scenarios', () => {

@@ -1,6 +1,8 @@
 package com.ghlzm.iot.report.service;
 
 import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.report.vo.AutomationResultArchiveFacetVO;
+import com.ghlzm.iot.report.vo.AutomationResultArchiveRefreshVO;
 import com.ghlzm.iot.report.vo.AutomationResultEvidenceContentVO;
 import com.ghlzm.iot.report.vo.AutomationResultEvidenceItemVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunDetailVO;
@@ -22,6 +24,8 @@ public interface AutomationResultQueryService {
             String keyword,
             String status,
             String runnerType,
+            String packageCode,
+            String environmentCode,
             String dateFrom,
             String dateTo
     );
@@ -30,6 +34,16 @@ public interface AutomationResultQueryService {
      * 查询最近运行结果。
      */
     List<AutomationResultRunSummaryVO> listRecentRuns(Integer limit);
+
+    /**
+     * 查询归档索引筛选维度。
+     */
+    AutomationResultArchiveFacetVO listFacets();
+
+    /**
+     * 手动刷新归档索引。
+     */
+    AutomationResultArchiveRefreshVO refreshIndex();
 
     /**
      * 查询指定运行详情。

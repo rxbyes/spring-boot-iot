@@ -501,14 +501,13 @@ describe('operations workbench refinement', () => {
     expect(source).not.toContain('Emergency Plans');
   });
 
-  it('removes the standalone hero panel from the automation workbench and aligns it with the shared governance shell', () => {
-    const entrySource = readViewSource('AutomationTestCenterView.vue');
-    const landingSource = readViewSource('RdWorkbenchLandingView.vue');
+  it('keeps the automation governance workbench as the only shared quality shell', () => {
+    const governanceSource = readViewSource('AutomationGovernanceWorkbenchView.vue');
 
-    expect(entrySource).toContain('<RdWorkbenchLandingView />');
-    expect(landingSource).toContain('<StandardPageShell');
-    expect(landingSource).toContain('<StandardWorkbenchPanel');
-    expect(landingSource).toContain('title="研发工场总览"');
+    expect(governanceSource).toContain('<AutomationAssetsWorkspaceSection');
+    expect(governanceSource).toContain('<AutomationExecutionWorkspaceSection');
+    expect(governanceSource).toContain('<AutomationEvidenceWorkspaceSection');
+    expect(governanceSource).not.toContain('研发工场总览');
   });
 
   it('aligns audit-log action columns with adaptive shared row actions', () => {

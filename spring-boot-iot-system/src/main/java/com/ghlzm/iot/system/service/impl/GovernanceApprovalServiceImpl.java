@@ -2,6 +2,10 @@ package com.ghlzm.iot.system.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.framework.observability.TraceContextHolder;
+import com.ghlzm.iot.framework.observability.evidence.BusinessEventLogRecord;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceRecorder;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceStatus;
 import com.ghlzm.iot.system.entity.GovernanceApprovalOrder;
 import com.ghlzm.iot.system.entity.GovernanceApprovalTransition;
 import com.ghlzm.iot.system.entity.GovernanceWorkItem;
@@ -18,11 +22,18 @@ import com.ghlzm.iot.system.service.model.GovernanceImpactSnapshot;
 import com.ghlzm.iot.system.service.model.GovernanceRecommendationSnapshot;
 import com.ghlzm.iot.system.service.model.GovernanceRollbackSnapshot;
 import com.ghlzm.iot.system.service.model.GovernanceSimulationResult;
+import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Governance approval service implementation.
@@ -30,6 +41,7 @@ import org.springframework.util.StringUtils;
 @Service
 public class GovernanceApprovalServiceImpl implements GovernanceApprovalService {
 
+    private static final Long DEFAULT_TENANT_ID = 1L;
     private static final String STATUS_PENDING = "PENDING";
     private static final String STATUS_APPROVED = "APPROVED";
     private static final String STATUS_REJECTED = "REJECTED";
@@ -54,6 +66,8 @@ public class GovernanceApprovalServiceImpl implements GovernanceApprovalService 
     private final GovernanceWorkItemMapper workItemMapper;
     private final GovernancePermissionGuard permissionGuard;
     private final List<GovernanceApprovalActionExecutor> actionExecutors;
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+    private ObservabilityEvidenceRecorder evidenceRecorder = ObservabilityEvidenceRecorder.noop();
 
     public GovernanceApprovalServiceImpl(GovernanceApprovalOrderMapper orderMapper,
                                          GovernanceApprovalTransitionMapper transitionMapper,
@@ -65,6 +79,13 @@ public class GovernanceApprovalServiceImpl implements GovernanceApprovalService 
         this.workItemMapper = workItemMapper;
         this.permissionGuard = permissionGuard;
         this.actionExecutors = actionExecutors == null ? List.of() : List.copyOf(actionExecutors);
+    }
+
+    @Autowired(required = false)
+    public void setObservabilityEvidenceRecorder(ObservabilityEvidenceRecorder evidenceRecorder) {
+        if (evidenceRecorder != null) {
+            this.evidenceRecorder = evidenceRecorder;
+        }
     }
 
     @Override
@@ -158,6 +179,7 @@ public class GovernanceApprovalServiceImpl implements GovernanceApprovalService 
                 order.getActionCode(),
                 executionResult
         );
+        recordApprovalBusinessEvent(order, approverUserId, updatedPayloadJson);
     }
 
     @Override
@@ -780,6 +802,286 @@ public class GovernanceApprovalServiceImpl implements GovernanceApprovalService 
                 || ACTION_VENDOR_MAPPING_RULE_ROLLBACK.equals(normalizedActionCode)
                 || ACTION_PROTOCOL_FAMILY_ROLLBACK.equals(normalizedActionCode)
                 || ACTION_PROTOCOL_DECRYPT_PROFILE_ROLLBACK.equals(normalizedActionCode);
+    }
+
+    private void recordApprovalBusinessEvent(GovernanceApprovalOrder order,
+                                             Long approverUserId,
+                                             String payloadJson) {
+        BusinessEventLogRecord event = buildApprovalBusinessEvent(order, approverUserId, payloadJson);
+        if (event != null) {
+            evidenceRecorder.recordBusinessEvent(event);
+        }
+    }
+
+    private BusinessEventLogRecord buildApprovalBusinessEvent(GovernanceApprovalOrder order,
+                                                              Long approverUserId,
+                                                              String payloadJson) {
+        if (order == null || !StringUtils.hasText(order.getActionCode())) {
+            return null;
+        }
+        JsonNode payload = readPayloadNode(payloadJson);
+        return switch (normalizeText(order.getActionCode())) {
+            case ACTION_PRODUCT_CONTRACT_RELEASE_APPLY -> null;
+            case ACTION_PRODUCT_CONTRACT_ROLLBACK -> buildApprovalEvent(
+                    order,
+                    approverUserId,
+                    "product.contract.rolled_back",
+                    "正式合同批次回滚完成",
+                    "product_contract",
+                    "rollback",
+                    "contract_release_batch",
+                    firstNonBlank(
+                            stringValue(order.getSubjectId()),
+                            stringValue(longAt(payload, "/request/batchId")),
+                            stringValue(longAt(payload, "/execution/result/targetBatchId")),
+                            stringValue(longAt(payload, "/execution/result/rolledBackBatchId"))
+                    ),
+                    buildContractRollbackMetadata(order, payload)
+            );
+            case ACTION_VENDOR_MAPPING_RULE_PUBLISH -> buildApprovalEvent(
+                    order,
+                    approverUserId,
+                    "product.mapping_rule.published",
+                    "映射规则发布完成",
+                    "product_mapping_rule",
+                    "publish",
+                    "vendor_mapping_rule",
+                    firstNonBlank(stringValue(order.getSubjectId()), stringValue(longAt(payload, "/ruleId"))),
+                    buildVendorMappingMetadata(order, payload)
+            );
+            case ACTION_VENDOR_MAPPING_RULE_ROLLBACK -> buildApprovalEvent(
+                    order,
+                    approverUserId,
+                    "product.mapping_rule.rolled_back",
+                    "映射规则回滚完成",
+                    "product_mapping_rule",
+                    "rollback",
+                    "vendor_mapping_rule",
+                    firstNonBlank(stringValue(order.getSubjectId()), stringValue(longAt(payload, "/ruleId"))),
+                    buildVendorMappingMetadata(order, payload)
+            );
+            case ACTION_PROTOCOL_FAMILY_PUBLISH -> buildApprovalEvent(
+                    order,
+                    approverUserId,
+                    "protocol.family.published",
+                    "协议族定义发布完成",
+                    "protocol_governance",
+                    "publish_family",
+                    "protocol_family",
+                    firstNonBlank(stringValue(order.getSubjectId()), stringValue(longAt(payload, "/familyId"))),
+                    buildProtocolFamilyMetadata(order, payload)
+            );
+            case ACTION_PROTOCOL_FAMILY_ROLLBACK -> buildApprovalEvent(
+                    order,
+                    approverUserId,
+                    "protocol.family.rolled_back",
+                    "协议族定义回滚完成",
+                    "protocol_governance",
+                    "rollback_family",
+                    "protocol_family",
+                    firstNonBlank(stringValue(order.getSubjectId()), stringValue(longAt(payload, "/familyId"))),
+                    buildProtocolFamilyMetadata(order, payload)
+            );
+            case ACTION_PROTOCOL_DECRYPT_PROFILE_PUBLISH -> buildApprovalEvent(
+                    order,
+                    approverUserId,
+                    "protocol.decrypt_profile.published",
+                    "协议解密档案发布完成",
+                    "protocol_governance",
+                    "publish_decrypt_profile",
+                    "protocol_decrypt_profile",
+                    firstNonBlank(stringValue(order.getSubjectId()), stringValue(longAt(payload, "/profileId"))),
+                    buildDecryptProfileMetadata(order, payload)
+            );
+            case ACTION_PROTOCOL_DECRYPT_PROFILE_ROLLBACK -> buildApprovalEvent(
+                    order,
+                    approverUserId,
+                    "protocol.decrypt_profile.rolled_back",
+                    "协议解密档案回滚完成",
+                    "protocol_governance",
+                    "rollback_decrypt_profile",
+                    "protocol_decrypt_profile",
+                    firstNonBlank(stringValue(order.getSubjectId()), stringValue(longAt(payload, "/profileId"))),
+                    buildDecryptProfileMetadata(order, payload)
+            );
+            default -> null;
+        };
+    }
+
+    private BusinessEventLogRecord buildApprovalEvent(GovernanceApprovalOrder order,
+                                                      Long approverUserId,
+                                                      String eventCode,
+                                                      String eventName,
+                                                      String domainCode,
+                                                      String actionCode,
+                                                      String objectType,
+                                                      String objectId,
+                                                      Map<String, Object> metadata) {
+        BusinessEventLogRecord event = new BusinessEventLogRecord();
+        event.setTenantId(defaultTenantId(order == null ? null : order.getTenantId()));
+        event.setTraceId(TraceContextHolder.currentOrCreate());
+        event.setEventCode(eventCode);
+        event.setEventName(eventName);
+        event.setDomainCode(domainCode);
+        event.setActionCode(actionCode);
+        event.setObjectType(objectType);
+        event.setObjectId(objectId);
+        event.setActorUserId(approverUserId);
+        event.setResultStatus(ObservabilityEvidenceStatus.SUCCESS);
+        event.setSourceType("GOVERNANCE_APPROVAL");
+        event.setEvidenceType("sys_governance_approval_order");
+        event.setEvidenceId(order == null || order.getId() == null ? null : String.valueOf(order.getId()));
+        event.setOccurredAt(LocalDateTime.now());
+        event.getMetadata().putAll(buildApprovalBaseMetadata(order));
+        if (metadata != null) {
+            event.getMetadata().putAll(metadata);
+        }
+        return event;
+    }
+
+    private Map<String, Object> buildApprovalBaseMetadata(GovernanceApprovalOrder order) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("approvalOrderId", order == null ? null : order.getId());
+        metadata.put("workItemId", order == null ? null : order.getWorkItemId());
+        metadata.put("actionCode", order == null ? null : normalizeText(order.getActionCode()));
+        metadata.put("actionName", order == null ? null : normalizeText(order.getActionName()));
+        metadata.put("subjectType", order == null ? null : normalizeText(order.getSubjectType()));
+        metadata.put("subjectId", order == null ? null : order.getSubjectId());
+        metadata.put("operatorUserId", order == null ? null : order.getOperatorUserId());
+        metadata.put("approverUserId", order == null ? null : order.getApproverUserId());
+        return metadata;
+    }
+
+    private Map<String, Object> buildContractRollbackMetadata(GovernanceApprovalOrder order, JsonNode payload) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("targetBatchId", firstNonNull(
+                longAt(payload, "/execution/result/targetBatchId"),
+                longAt(payload, "/request/batchId"),
+                order == null ? null : order.getSubjectId()
+        ));
+        metadata.put("rolledBackBatchId", longAt(payload, "/execution/result/rolledBackBatchId"));
+        metadata.put("productId", longAt(payload, "/execution/result/productId"));
+        metadata.put("scenarioCode", textAt(payload, "/execution/result/scenarioCode"));
+        metadata.put("releaseSource", textAt(payload, "/execution/result/releaseSource"));
+        metadata.put("releasedFieldCount", intAt(payload, "/execution/result/releasedFieldCount"));
+        metadata.put("restoredFieldCount", intAt(payload, "/execution/result/restoredFieldCount"));
+        metadata.put("rollbackMode", textAt(payload, "/execution/result/rollbackMode"));
+        metadata.put("rollbackLimitations", textAt(payload, "/execution/result/rollbackLimitations"));
+        metadata.put("approvalStatus", textAt(payload, "/execution/result/approvalStatus"));
+        return metadata;
+    }
+
+    private Map<String, Object> buildVendorMappingMetadata(GovernanceApprovalOrder order, JsonNode payload) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("ruleId", firstNonNull(longAt(payload, "/ruleId"), order == null ? null : order.getSubjectId()));
+        metadata.put("productId", longAt(payload, "/productId"));
+        metadata.put("expectedVersionNo", intAt(payload, "/expectedVersionNo"));
+        metadata.put("publishedVersionNo", intAt(payload, "/execution/publishedVersionNo"));
+        metadata.put("lifecycleStatus", textAt(payload, "/execution/lifecycleStatus"));
+        metadata.put("rawIdentifier", textAt(payload, "/rawIdentifier"));
+        metadata.put("logicalChannelCode", textAt(payload, "/logicalChannelCode"));
+        metadata.put("targetNormativeIdentifier", textAt(payload, "/targetNormativeIdentifier"));
+        metadata.put("scopeType", textAt(payload, "/scopeType"));
+        metadata.put("protocolCode", textAt(payload, "/protocolCode"));
+        metadata.put("scenarioCode", textAt(payload, "/scenarioCode"));
+        metadata.put("deviceFamily", textAt(payload, "/deviceFamily"));
+        return metadata;
+    }
+
+    private Map<String, Object> buildProtocolFamilyMetadata(GovernanceApprovalOrder order, JsonNode payload) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("familyId", firstNonNull(longAt(payload, "/familyId"), order == null ? null : order.getSubjectId()));
+        metadata.put("familyCode", textAt(payload, "/familyCode"));
+        metadata.put("protocolCode", textAt(payload, "/protocolCode"));
+        metadata.put("displayName", textAt(payload, "/displayName"));
+        metadata.put("decryptProfileCode", textAt(payload, "/decryptProfileCode"));
+        metadata.put("signAlgorithm", textAt(payload, "/signAlgorithm"));
+        metadata.put("normalizationStrategy", textAt(payload, "/normalizationStrategy"));
+        metadata.put("expectedVersionNo", intAt(payload, "/expectedVersionNo"));
+        metadata.put("publishedVersionNo", intAt(payload, "/execution/publishedVersionNo"));
+        metadata.put("lifecycleStatus", textAt(payload, "/execution/lifecycleStatus"));
+        return metadata;
+    }
+
+    private Map<String, Object> buildDecryptProfileMetadata(GovernanceApprovalOrder order, JsonNode payload) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("profileId", firstNonNull(longAt(payload, "/profileId"), order == null ? null : order.getSubjectId()));
+        metadata.put("profileCode", textAt(payload, "/profileCode"));
+        metadata.put("algorithm", textAt(payload, "/algorithm"));
+        metadata.put("merchantSource", textAt(payload, "/merchantSource"));
+        metadata.put("transformation", textAt(payload, "/transformation"));
+        metadata.put("expectedVersionNo", intAt(payload, "/expectedVersionNo"));
+        metadata.put("publishedVersionNo", intAt(payload, "/execution/publishedVersionNo"));
+        metadata.put("lifecycleStatus", textAt(payload, "/execution/lifecycleStatus"));
+        return metadata;
+    }
+
+    private JsonNode readPayloadNode(String payloadJson) {
+        if (!StringUtils.hasText(payloadJson)) {
+            return null;
+        }
+        try {
+            return objectMapper.readTree(payloadJson);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private String textAt(JsonNode root, String pointer) {
+        JsonNode node = at(root, pointer);
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return null;
+        }
+        String text = node.asText(null);
+        return StringUtils.hasText(text) ? text.trim() : null;
+    }
+
+    private Long longAt(JsonNode root, String pointer) {
+        JsonNode node = at(root, pointer);
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return null;
+        }
+        if (node.isIntegralNumber()) {
+            return node.longValue();
+        }
+        if (node.isTextual()) {
+            try {
+                return Long.parseLong(node.asText().trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private Integer intAt(JsonNode root, String pointer) {
+        JsonNode node = at(root, pointer);
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return null;
+        }
+        if (node.isIntegralNumber()) {
+            return node.intValue();
+        }
+        if (node.isTextual()) {
+            try {
+                return Integer.parseInt(node.asText().trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private JsonNode at(JsonNode root, String pointer) {
+        return root == null || !StringUtils.hasText(pointer) ? null : root.at(pointer);
+    }
+
+    private String stringValue(Long value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private Long defaultTenantId(Long tenantId) {
+        return tenantId == null || tenantId <= 0 ? DEFAULT_TENANT_ID : tenantId;
     }
 
     private enum ApprovalOperation {

@@ -7,6 +7,17 @@
 
       <div class="device-detail-workbench__summary-grid">
         <article
+          class="device-detail-workbench__summary-card device-detail-workbench__summary-card--primary"
+          data-testid="device-detail-summary-primary"
+        >
+          <span class="device-detail-workbench__summary-label">{{ summaryIdentity.label }}</span>
+          <span class="device-detail-workbench__summary-value device-detail-workbench__summary-value--primary">
+            {{ summaryIdentity.title }}
+          </span>
+          <span class="device-detail-workbench__summary-meta">{{ summaryIdentity.meta }}</span>
+        </article>
+
+        <article
           v-for="card in summaryCards"
           :key="card.key"
           class="device-detail-workbench__summary-card"
@@ -73,7 +84,7 @@
         data-testid="device-detail-identity-stage"
       >
         <div class="device-detail-workbench__stage-header">
-          <h3>身份与部署台账</h3>
+          <h3>建档与接入台账</h3>
         </div>
 
         <div class="device-detail-workbench__ledger-grid">
@@ -97,7 +108,7 @@
         data-testid="device-detail-runtime-stage"
       >
         <div class="device-detail-workbench__stage-header">
-          <h3>运行与认证台账</h3>
+          <h3>认证与运行台账</h3>
         </div>
 
         <div class="device-detail-workbench__ledger-grid">
@@ -205,6 +216,12 @@ type SummaryCard = {
   hint: string
 }
 
+type SummaryIdentity = {
+  label: string
+  title: string
+  meta: string
+}
+
 type LedgerItem = {
   key: string
   label: string
@@ -239,6 +256,23 @@ function hasRenderableField(field: LedgerItem) {
 function hasRenderableJsonPreview(value: string) {
   const normalized = value.trim()
   return normalized !== '' && normalized !== '{}' && normalized !== '[]' && normalized !== 'null'
+}
+
+function buildMeta(parts: Array<string | number | null | undefined>, exclude: string[] = []) {
+  const normalized = parts
+    .map((part) => {
+      if (part === undefined || part === null) {
+        return ''
+      }
+      return String(part).trim()
+    })
+    .filter((part) => part && !exclude.includes(part))
+
+  if (!normalized.length) {
+    return emptyDetailValue
+  }
+
+  return Array.from(new Set(normalized)).join(' · ')
 }
 
 function getRegistrationStatusText(value?: number | null) {
@@ -300,32 +334,50 @@ function maskSecret(value?: string | null) {
   return `${value.slice(0, 2)}****${value.slice(-2)}`
 }
 
+const summaryIdentity = computed<SummaryIdentity>(() => {
+  if (isRegistered.value) {
+    const title = toDisplayText(device.value.deviceName || device.value.deviceCode)
+    return {
+      label: '设备身份',
+      title,
+      meta: buildMeta([device.value.deviceCode, device.value.productName], [title])
+    }
+  }
+
+  const title = toDisplayText(device.value.deviceCode || device.value.deviceName)
+  return {
+    label: '待建档线索',
+    title,
+    meta: buildMeta([device.value.productKey, device.value.protocolCode], [title])
+  }
+})
+
 const summaryCards = computed<SummaryCard[]>(() =>
   isRegistered.value
     ? [
         {
-          key: 'productName',
-          label: '产品归属',
-          value: toDisplayText(device.value.productName),
-          hint: '确认产品归属'
-        },
-        {
           key: 'onlineStatus',
           label: '在线状态',
           value: getOnlineStatusText(device.value.onlineStatus),
-          hint: '查看当前连接判断'
+          hint: '先判断当前连接是否稳定'
         },
         {
           key: 'activateStatus',
           label: '激活状态',
           value: getActivateStatusText(device.value.activateStatus),
-          hint: '确认是否已激活'
+          hint: '确认设备是否已完成激活'
         },
         {
           key: 'deviceStatus',
           label: '设备状态',
           value: getDeviceStatusText(device.value.deviceStatus),
-          hint: '确认是否允许接入'
+          hint: '确认当前是否允许继续接入'
+        },
+        {
+          key: 'lastReportTime',
+          label: '最近上报',
+          value: formatDeviceReportTime(device.value.lastReportTime, device.value.updateTime, device.value.createTime),
+          hint: '回看最近一次有效上报'
         }
       ]
     : [
@@ -333,34 +385,32 @@ const summaryCards = computed<SummaryCard[]>(() =>
           key: 'registrationStatus',
           label: '登记状态',
           value: getRegistrationStatusText(device.value.registrationStatus),
-          hint: '先判断是否已建档'
+          hint: '先判断是否已经完成建档'
+        },
+        {
+          key: 'sourceType',
+          label: '来源类型',
+          value: getSourceTypeText(device.value.assetSourceType),
+          hint: '判断当前线索来自哪条收口链路'
         },
         {
           key: 'lastReportTime',
           label: '最近上报',
           value: formatDeviceReportTime(device.value.lastReportTime, device.value.updateTime, device.value.createTime),
-          hint: '定位最近一次上报'
+          hint: '回看最近一次进入平台的报文'
         },
         {
           key: 'lastFailureStage',
           label: '失败阶段',
           value: toDisplayText(device.value.lastFailureStage),
-          hint: '确认当前失败节点'
-        },
-        {
-          key: 'lastErrorMessage',
-          label: '失败摘要',
-          value: toDisplayText(device.value.lastErrorMessage),
-          hint: '提炼当前失败判断'
+          hint: '优先定位当前阻塞在哪个环节'
         }
       ]
 )
 
 const assetOverviewItems = computed<LedgerItem[]>(() => [
-  { key: 'deviceCode', label: '设备编码', value: toDisplayText(device.value.deviceCode), wide: true },
-  { key: 'deviceName', label: '设备名称', value: toDisplayText(device.value.deviceName), wide: true },
-  { key: 'orgName', label: '所属机构', value: toDisplayText(device.value.orgName), wide: true },
   { key: 'productName', label: '产品归属', value: toDisplayText(device.value.productName), wide: true },
+  { key: 'orgName', label: '所属机构', value: toDisplayText(device.value.orgName), wide: true },
   { key: 'address', label: '部署位置', value: toDisplayText(device.value.address), wide: true }
 ])
 
@@ -377,31 +427,18 @@ const runtimeOverviewItems = computed<LedgerItem[]>(() => [
 ])
 
 const identityItems = computed<LedgerItem[]>(() => [
-  { key: 'deviceCode', label: '设备编码', value: toDisplayText(device.value.deviceCode), wide: true },
-  { key: 'deviceName', label: '设备名称', value: toDisplayText(device.value.deviceName), wide: true },
-  { key: 'orgName', label: '所属机构', value: toDisplayText(device.value.orgName), wide: true },
-  { key: 'productName', label: '产品归属', value: toDisplayText(device.value.productName), wide: true },
-  { key: 'address', label: '部署位置', value: toDisplayText(device.value.address), wide: true },
   { key: 'id', label: '设备 ID', value: toDisplayText(device.value.id) },
   { key: 'nodeType', label: '节点类型', value: getNodeTypeText(device.value.nodeType) },
   { key: 'protocolCode', label: '接入协议', value: toDisplayText(device.value.protocolCode) },
   { key: 'firmwareVersion', label: '固件版本', value: toDisplayText(device.value.firmwareVersion) },
-  { key: 'ipAddress', label: 'IP 地址', value: toDisplayText(device.value.ipAddress) }
+  { key: 'ipAddress', label: 'IP 地址', value: toDisplayText(device.value.ipAddress), wide: true }
 ])
 
 const runtimeItems = computed<LedgerItem[]>(() => [
-  { key: 'lastOnlineTime', label: '最近在线', value: formatDateTime(device.value.lastOnlineTime), wide: true },
-  { key: 'lastOfflineTime', label: '最近离线', value: formatDateTime(device.value.lastOfflineTime), wide: true },
-  {
-    key: 'lastReportTime',
-    label: '最近上报',
-    value: formatDeviceReportTime(device.value.lastReportTime, device.value.updateTime, device.value.createTime),
-    wide: true
-  },
   { key: 'createTime', label: '创建时间', value: formatDateTime(device.value.createTime) },
   { key: 'updateTime', label: '更新时间', value: formatDateTime(device.value.updateTime) },
-  { key: 'clientId', label: 'Client ID', value: toDisplayText(device.value.clientId) },
-  { key: 'username', label: '用户名', value: toDisplayText(device.value.username) },
+  { key: 'clientId', label: 'Client ID', value: toDisplayText(device.value.clientId), wide: true },
+  { key: 'username', label: '用户名', value: toDisplayText(device.value.username), wide: true },
   { key: 'password', label: '密码', value: maskSecret(device.value.password) },
   { key: 'deviceSecret', label: '设备密钥', value: maskSecret(device.value.deviceSecret) }
 ])
@@ -438,7 +475,6 @@ const showOverviewStage = computed(() =>
 const showIdentityStage = computed(() => identityItems.value.some(hasRenderableField))
 const showRuntimeStage = computed(() => runtimeItems.value.some(hasRenderableField))
 const showSupportStage = computed(() => supportItems.value.some(hasRenderableField))
-
 const metadataPreview = computed(() => prettyJson(device.value.metadataJson ?? ''))
 const showMetadataStage = computed(() => hasRenderableJsonPreview(metadataPreview.value))
 
@@ -492,6 +528,15 @@ const showPayloadStage = computed(() => hasRenderableJsonPreview(payloadPreview.
   background: rgba(248, 251, 255, 0.96);
 }
 
+.device-detail-workbench__summary-card--primary {
+  grid-column: span 2;
+  gap: 0.42rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.96)),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 8%, transparent), transparent 42%);
+  border-color: color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+}
+
 .device-detail-workbench__summary-label,
 .device-detail-workbench__ledger-label {
   color: var(--text-caption);
@@ -507,10 +552,20 @@ const showPayloadStage = computed(() => hasRenderableJsonPreview(payloadPreview.
   overflow-wrap: anywhere;
 }
 
+.device-detail-workbench__summary-value--primary {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.device-detail-workbench__summary-meta,
 .device-detail-workbench__summary-hint {
   color: var(--text-caption);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.device-detail-workbench__summary-meta {
+  overflow-wrap: anywhere;
 }
 
 .device-detail-workbench__overview-pair {
@@ -568,6 +623,7 @@ const showPayloadStage = computed(() => hasRenderableJsonPreview(payloadPreview.
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .device-detail-workbench__summary-card--primary,
   .device-detail-workbench__ledger-item--wide {
     grid-column: auto;
   }
@@ -577,11 +633,19 @@ const showPayloadStage = computed(() => hasRenderableJsonPreview(payloadPreview.
   .device-detail-workbench__summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .device-detail-workbench__summary-card--primary {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 520px) {
   .device-detail-workbench__summary-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .device-detail-workbench__summary-card--primary {
+    grid-column: auto;
   }
 }
 </style>

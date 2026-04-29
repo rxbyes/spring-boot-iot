@@ -2,12 +2,15 @@ package com.ghlzm.iot.alarm.controller;
 
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.service.RuleDefinitionService;
+import com.ghlzm.iot.alarm.vo.RuleDefinitionBatchAddResultVO;
+import com.ghlzm.iot.alarm.vo.RuleDefinitionEffectivePreviewVO;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.security.GovernancePermissionCodes;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
+import com.ghlzm.iot.system.service.GovernanceApprovalPolicyResolver;
 import java.util.List;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,21 +29,34 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/rule-definition")
 public class RuleDefinitionController {
 
+    private static final String ACTION_RULE_DEFINITION_CREATE = "RULE_DEFINITION_CREATE";
+    private static final String ACTION_RULE_DEFINITION_BATCH_CREATE = "RULE_DEFINITION_BATCH_CREATE";
+    private static final String ACTION_RULE_DEFINITION_UPDATE = "RULE_DEFINITION_UPDATE";
+    private static final String ACTION_RULE_DEFINITION_DELETE = "RULE_DEFINITION_DELETE";
+
     private final RuleDefinitionService ruleDefinitionService;
     private final GovernancePermissionGuard permissionGuard;
+    private final GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver;
 
     public RuleDefinitionController(RuleDefinitionService ruleDefinitionService,
-                                    GovernancePermissionGuard permissionGuard) {
+                                    GovernancePermissionGuard permissionGuard,
+                                    GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver) {
         this.ruleDefinitionService = ruleDefinitionService;
         this.permissionGuard = permissionGuard;
+        this.governanceApprovalPolicyResolver = governanceApprovalPolicyResolver;
     }
 
     @GetMapping("/list")
     public R<List<RuleDefinition>> getRuleList(@RequestParam(required = false) String ruleName,
                                                @RequestParam(required = false) String metricIdentifier,
                                                @RequestParam(required = false) String alarmLevel,
-                                               @RequestParam(required = false) Integer status) {
-        List<RuleDefinition> list = ruleDefinitionService.getRuleList(ruleName, metricIdentifier, alarmLevel, status);
+                                               @RequestParam(required = false) Integer status,
+                                               @RequestParam(required = false) String ruleScope,
+                                               @RequestParam(required = false) String scopeView,
+                                               @RequestParam(required = false) Long productId,
+                                               @RequestParam(required = false) String productType) {
+        List<RuleDefinition> list = ruleDefinitionService.getRuleList(ruleName, metricIdentifier, alarmLevel, status,
+                ruleScope, scopeView, productId, productType);
         return R.ok(list);
     }
 
@@ -49,10 +65,15 @@ public class RuleDefinitionController {
                                                       @RequestParam(required = false) String metricIdentifier,
                                                       @RequestParam(required = false) String alarmLevel,
                                                       @RequestParam(required = false) Integer status,
+                                                      @RequestParam(required = false) String ruleScope,
+                                                      @RequestParam(required = false) String scopeView,
+                                                      @RequestParam(required = false) Long productId,
+                                                      @RequestParam(required = false) String productType,
                                                       @RequestParam(defaultValue = "1") Long pageNum,
                                                       @RequestParam(defaultValue = "10") Long pageSize) {
         PageResult<RuleDefinition> page =
-                ruleDefinitionService.pageRuleList(ruleName, metricIdentifier, alarmLevel, status, pageNum, pageSize);
+                ruleDefinitionService.pageRuleList(ruleName, metricIdentifier, alarmLevel, status, ruleScope,
+                        scopeView, productId, productType, pageNum, pageSize);
         return R.ok(page);
     }
 
@@ -61,14 +82,34 @@ public class RuleDefinitionController {
         return R.ok(ruleDefinitionService.getById(id));
     }
 
+    @GetMapping("/effective-preview")
+    public R<RuleDefinitionEffectivePreviewVO> previewEffectiveRule(@RequestParam(required = false) Long tenantId,
+                                                                    @RequestParam(required = false) Long riskMetricId,
+                                                                    @RequestParam(required = false) String metricIdentifier,
+                                                                    @RequestParam(required = false) Long productId,
+                                                                    @RequestParam(required = false) String productType,
+                                                                    @RequestParam(required = false) Long deviceId,
+                                                                    @RequestParam(required = false) Long riskPointDeviceId) {
+        return R.ok(ruleDefinitionService.previewEffectiveRule(
+                tenantId,
+                riskMetricId,
+                metricIdentifier,
+                productId,
+                productType,
+                deviceId,
+                riskPointDeviceId
+        ));
+    }
+
     @PostMapping("/add")
     public R<RuleDefinition> addRule(@RequestBody RuleDefinition rule,
-                                     @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
+                                     @RequestHeader(value = "X-Governance-Approver-Id", required = false) Long approverUserId,
                                      Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
+        Long resolvedApproverUserId = resolveApproverUserId(ACTION_RULE_DEFINITION_CREATE, currentUserId, approverUserId);
         permissionGuard.requireDualControl(
                 currentUserId,
-                approverUserId,
+                resolvedApproverUserId,
                 "rule-definition-create",
                 GovernancePermissionCodes.RULE_DEFINITION_EDIT,
                 GovernancePermissionCodes.RULE_DEFINITION_APPROVE
@@ -77,14 +118,32 @@ public class RuleDefinitionController {
         return R.ok(rule);
     }
 
-    @PostMapping("/update")
-    public R<RuleDefinition> updateRule(@RequestBody RuleDefinition rule,
-                                        @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
-                                        Authentication authentication) {
+    @PostMapping("/batch-add")
+    public R<RuleDefinitionBatchAddResultVO> batchAddRules(@RequestBody List<RuleDefinition> rules,
+                                                           @RequestHeader(value = "X-Governance-Approver-Id", required = false) Long approverUserId,
+                                                           Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
+        Long resolvedApproverUserId =
+                resolveApproverUserId(ACTION_RULE_DEFINITION_BATCH_CREATE, currentUserId, approverUserId);
         permissionGuard.requireDualControl(
                 currentUserId,
-                approverUserId,
+                resolvedApproverUserId,
+                "rule-definition-batch-create",
+                GovernancePermissionCodes.RULE_DEFINITION_EDIT,
+                GovernancePermissionCodes.RULE_DEFINITION_APPROVE
+        );
+        return R.ok(ruleDefinitionService.batchAddRules(rules));
+    }
+
+    @PostMapping("/update")
+    public R<RuleDefinition> updateRule(@RequestBody RuleDefinition rule,
+                                        @RequestHeader(value = "X-Governance-Approver-Id", required = false) Long approverUserId,
+                                        Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        Long resolvedApproverUserId = resolveApproverUserId(ACTION_RULE_DEFINITION_UPDATE, currentUserId, approverUserId);
+        permissionGuard.requireDualControl(
+                currentUserId,
+                resolvedApproverUserId,
                 "rule-definition-update",
                 GovernancePermissionCodes.RULE_DEFINITION_EDIT,
                 GovernancePermissionCodes.RULE_DEFINITION_APPROVE
@@ -95,12 +154,13 @@ public class RuleDefinitionController {
 
     @PostMapping("/delete/{id}")
     public R<Void> deleteRule(@PathVariable Long id,
-                              @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
+                              @RequestHeader(value = "X-Governance-Approver-Id", required = false) Long approverUserId,
                               Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
+        Long resolvedApproverUserId = resolveApproverUserId(ACTION_RULE_DEFINITION_DELETE, currentUserId, approverUserId);
         permissionGuard.requireDualControl(
                 currentUserId,
-                approverUserId,
+                resolvedApproverUserId,
                 "rule-definition-delete",
                 GovernancePermissionCodes.RULE_DEFINITION_EDIT,
                 GovernancePermissionCodes.RULE_DEFINITION_APPROVE
@@ -114,5 +174,12 @@ public class RuleDefinitionController {
             throw new BizException("未登录或登录状态已失效");
         }
         return principal.userId();
+    }
+
+    private Long resolveApproverUserId(String actionCode, Long currentUserId, Long approverUserId) {
+        if (approverUserId != null && approverUserId > 0) {
+            return approverUserId;
+        }
+        return governanceApprovalPolicyResolver.resolveApproverUserId(actionCode, currentUserId);
     }
 }

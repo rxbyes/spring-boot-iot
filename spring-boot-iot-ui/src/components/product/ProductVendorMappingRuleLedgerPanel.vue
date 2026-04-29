@@ -32,6 +32,7 @@
         </label>
         <div class="product-vendor-rule-ledger__batch-actions">
           <StandardButton
+            v-permission="'iot:product-contract:govern'"
             data-testid="rule-ledger-batch-status-active"
             :disabled="!selectedRuleIds.length || isSubmitting('batch-status-active')"
             @click="handleBatchStatus('ACTIVE')"
@@ -39,6 +40,7 @@
             {{ isSubmitting('batch-status-active') ? '提交中...' : '批量启用' }}
           </StandardButton>
           <StandardButton
+            v-permission="'iot:product-contract:govern'"
             data-testid="rule-ledger-batch-status-disabled"
             :disabled="!selectedRuleIds.length || isSubmitting('batch-status-disabled')"
             @click="handleBatchStatus('DISABLED')"
@@ -96,6 +98,7 @@
 
         <div class="product-vendor-rule-ledger__actions">
           <StandardButton
+            v-permission="'iot:product-contract:govern'"
             v-if="row.coveredByFormalField && row.draftStatus === 'ACTIVE'"
             :data-testid="`rule-ledger-disable-covered-${rowIdentity(row)}`"
             :disabled="isSubmitting(`disable-${rowIdentity(row)}`)"
@@ -104,6 +107,7 @@
             {{ isSubmitting(`disable-${rowIdentity(row)}`) ? '停用中...' : '一键停用' }}
           </StandardButton>
           <StandardButton
+            v-permission="'iot:product-contract:govern'"
             :data-testid="`rule-ledger-preview-hit-${rowIdentity(row)}`"
             :disabled="!row.rawIdentifier || isSubmitting(`preview-${rowIdentity(row)}`)"
             @click="handlePreview(row)"
@@ -111,6 +115,7 @@
             {{ isSubmitting(`preview-${rowIdentity(row)}`) ? '试命中中...' : '试命中' }}
           </StandardButton>
           <StandardButton
+            v-permission="'iot:product-contract:govern'"
             :data-testid="`rule-ledger-submit-publish-${rowIdentity(row)}`"
             :disabled="!row.ruleId || isSubmitting(`publish-${row.ruleId}`)"
             @click="handleSubmitPublish(row)"
@@ -118,6 +123,7 @@
             {{ isSubmitting(`publish-${row.ruleId}`) ? '提交中...' : '提交发布审批' }}
           </StandardButton>
           <StandardButton
+            v-permission="'iot:product-contract:rollback'"
             :data-testid="`rule-ledger-submit-rollback-${rowIdentity(row)}`"
             :disabled="!canRollback(row) || isSubmitting(`rollback-${row.ruleId}`)"
             @click="handleSubmitRollback(row)"
@@ -136,6 +142,7 @@
             @input="handleReplaySampleInput(row, ($event.target as HTMLInputElement).value)"
           />
           <StandardButton
+            v-permission="'iot:product-contract:govern'"
             :data-testid="`rule-ledger-replay-submit-${rowIdentity(row)}`"
             :disabled="!row.rawIdentifier || isSubmitting(`replay-${rowIdentity(row)}`)"
             @click="handleReplay(row)"
@@ -150,10 +157,12 @@
           class="product-vendor-rule-ledger__preview"
         >
           <div v-if="replayStateByRuleId[rowIdentity(row)]" class="product-vendor-rule-ledger__preview-item">
-            <strong>{{ replayStateByRuleId[rowIdentity(row)]?.matched ? '回放命中规则' : '回放未命中规则' }}</strong>
+            <strong>{{ replayMatchedLabel(replayStateByRuleId[rowIdentity(row)]) }}</strong>
             <span v-if="replayStateByRuleId[rowIdentity(row)]?.matched">
-              {{ `${scopeTypeLabel(replayStateByRuleId[rowIdentity(row)]?.matchedScopeType) || '--'} · ${replayStateByRuleId[rowIdentity(row)]?.canonicalIdentifier || replayStateByRuleId[rowIdentity(row)]?.targetNormativeIdentifier || '--'}` }}
+              {{ replaySourceAndScopeLabel(replayStateByRuleId[rowIdentity(row)]) }}
             </span>
+            <span v-if="replayStateByRuleId[rowIdentity(row)]?.matched">{{ replayCanonicalLabel(replayStateByRuleId[rowIdentity(row)]) }}</span>
+            <span>{{ replaySampleLabel(replayStateByRuleId[rowIdentity(row)]) }}</span>
           </div>
           <div v-if="previewStateByRuleId[rowIdentity(row)]" class="product-vendor-rule-ledger__preview-item">
             <span>{{ previewMatchedLabel(previewStateByRuleId[rowIdentity(row)]) }}</span>
@@ -283,6 +292,23 @@ function scopeSignatureValue(row: VendorMetricMappingRuleLedgerRow) {
   }
 }
 
+function scopeDescription(scopeType?: string | null) {
+  switch (scopeType) {
+    case 'PRODUCT':
+      return '当前产品'
+    case 'DEVICE_FAMILY':
+      return '同设备族'
+    case 'SCENARIO':
+      return '同场景'
+    case 'PROTOCOL':
+      return '同协议'
+    case 'TENANT_DEFAULT':
+      return '租户默认'
+    default:
+      return scopeType || '--'
+  }
+}
+
 function isSubmitting(key: string) {
   return submittingKey.value === key
 }
@@ -339,6 +365,14 @@ function previewSourceLabel(preview?: VendorMetricMappingRuleHitPreview | null) 
   const target = preview.targetNormativeIdentifier || '--'
   const source = preview.hitSource || '--'
   return `${source} · ${target}`
+}
+
+function isPreviewCovered(preview?: VendorMetricMappingRuleHitPreview | null) {
+  return Boolean(
+    preview?.matched &&
+      typeof preview.hitSource === 'string' &&
+      preview.hitSource.toUpperCase() === 'PUBLISHED_SNAPSHOT'
+  )
 }
 
 function replayMatchedLabel(replay?: VendorMetricMappingRuleReplay | null) {

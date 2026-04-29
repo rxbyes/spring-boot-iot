@@ -109,7 +109,7 @@ const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
   props: ['eyebrow', 'title', 'description'],
   template: `
-    <section class="product-workbench-panel-stub">
+    <section class="product-workbench-panel-stub standard-workbench-panel--workbench-foundation">
       <p class="product-workbench-panel-stub__eyebrow">{{ eyebrow }}</p>
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
@@ -127,7 +127,7 @@ const StandardPageShellStub = defineComponent({
   name: 'StandardPageShell',
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
-    <section class="standard-page-shell-stub">
+    <section class="standard-page-shell-stub standard-page-shell--workbench-foundation">
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -137,7 +137,7 @@ const StandardPageShellStub = defineComponent({
 const StandardListFilterHeaderStub = defineComponent({
   name: 'StandardListFilterHeader',
   template: `
-    <section class="product-list-filter-header-stub">
+    <section class="product-list-filter-header-stub standard-list-filter-header--workbench-foundation">
       <div class="product-list-filter-header-stub__primary"><slot name="primary" /></div>
       <div class="product-list-filter-header-stub__actions"><slot name="actions" /></div>
     </section>
@@ -159,7 +159,7 @@ const StandardWorkbenchRowActionsStub = defineComponent({
   props: ['variant', 'gap', 'directItems', 'menuItems'],
   emits: ['command'],
   template: `
-    <div class="product-workbench-row-actions-stub" :data-variant="variant">
+    <div class="product-workbench-row-actions-stub standard-workbench-row-actions--quiet" :data-variant="variant">
       <button
         v-for="item in directItems || []"
         :key="item.key || item.command"
@@ -273,6 +273,17 @@ const StandardInlineStateStub = defineComponent({
   template: '<div class="standard-inline-state-stub">{{ message }}</div>'
 })
 
+const EmptyStateStub = defineComponent({
+  name: 'EmptyState',
+  props: ['title', 'description'],
+  template: `
+    <section class="empty-state-stub">
+      <strong class="empty-state-stub__title">{{ title }}</strong>
+      <p class="empty-state-stub__description">{{ description }}</p>
+    </section>
+  `
+})
+
 const ElAlertStub = defineComponent({
   name: 'ElAlert',
   props: ['title', 'type'],
@@ -381,7 +392,7 @@ function mountView() {
         StandardTableTextColumn: StandardTableTextColumnStub,
         CsvColumnSettingDialog: true,
         DeviceListDrawer: DeviceListDrawerStub,
-        EmptyState: true,
+        EmptyState: EmptyStateStub,
         ElAlert: ElAlertStub,
         ElForm: ElFormStub,
         ElFormItem: true,
@@ -473,11 +484,14 @@ describe('ProductWorkbenchView', () => {
     await flushPromises()
     await nextTick()
 
-    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true)
+    expect(wrapper.find('.standard-page-shell--workbench-foundation').exists()).toBe(true)
+    expect(wrapper.find('.standard-workbench-panel--workbench-foundation').exists()).toBe(true)
+    expect(wrapper.find('.standard-list-filter-header--workbench-foundation').exists()).toBe(true)
     expect(wrapper.text()).toContain('产品定义中心')
     expect(wrapper.text()).toContain('新增产品')
-    expect(wrapper.text()).toContain('统一维护产品定义，并承接契约治理、版本治理与风险目录入口。')
+    expect(wrapper.text()).toContain('统一维护产品定义，并作为进入产品工作台的统一入口承接契约、映射与版本治理。')
     expect(wrapper.text()).toContain('当前页同时承接产品定义、契约治理、版本治理与风险目录入口。')
+    expect(wrapper.text()).toContain('当前还没有产品定义，先新增产品，再从这里进入产品工作台继续契约、映射和版本治理。')
     expect(wrapper.text()).not.toContain('PRODUCT CENTER')
   })
 
@@ -1201,6 +1215,8 @@ describe('ProductWorkbenchView', () => {
 
     expect(cardRowActions?.exists()).toBe(true)
     expect(tableRowActions?.exists()).toBe(true)
+    expect(cardRowActions?.classes()).toContain('standard-workbench-row-actions--quiet')
+    expect(tableRowActions?.classes()).toContain('standard-workbench-row-actions--quiet')
     expect(cardRowActions?.props('gap')).toBeUndefined()
     expect(tableRowActions?.props('gap')).toBeUndefined()
     expect(((cardRowActions?.props('directItems') as Array<{ label: string }>) || []).map((item) => item.label)).toEqual([
@@ -1511,6 +1527,9 @@ describe('ProductWorkbenchView', () => {
     expect(source).toContain('standard-list-surface')
     expect(source).toContain('standard-mobile-record-grid')
     expect(source).toContain('standard-mobile-record-card')
+    expect(source).toContain('secondary-prop="productKey"')
+    expect(source).toContain('label="产品"')
+    expect(source).not.toContain('<StandardTableTextColumn prop="productKey" label="产品 Key"')
     expect(source).not.toContain('gap="compact"')
     expect(source).not.toContain("gap: 'compact'")
   })

@@ -16,5 +16,6 @@ public class BusinessAcceptanceModuleResultVO {
     private Integer failedScenarioCount;
     private List<String> failedScenarioTitles;
     private String suggestedDirection;
+    private AutomationFailureDiagnosisVO diagnosis;
     private List<BusinessAcceptanceFailureDetailVO> failureDetails;
 }

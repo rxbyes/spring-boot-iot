@@ -162,6 +162,10 @@ export interface ProductModelGovernanceCompareRow {
   identifier: string;
   normativeIdentifier?: string | null;
   normativeName?: string | null;
+  normativeMatchStatus?: string | null;
+  normativeMatchSource?: string | null;
+  normativeMatchReason?: string | null;
+  normativeCandidates?: string[] | null;
   riskReady?: boolean | null;
   rawIdentifiers?: string[] | null;
   manualCandidate?: ProductModelGovernanceEvidence | null;
@@ -379,6 +383,56 @@ export interface RuntimeMetricDisplayRuleUpsertPayload {
   displayName: string;
   unit?: string | null;
   status?: RuntimeMetricDisplayRuleStatus | null;
+}
+
+export interface NormativeMetricDefinitionImportItem {
+  id?: IdType | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  identifier?: string | null;
+  displayName?: string | null;
+  unit?: string | null;
+  precisionDigits?: number | null;
+  monitorContentCode?: string | null;
+  monitorTypeCode?: string | null;
+  riskEnabled?: number | null;
+  trendEnabled?: number | null;
+  metricDimension?: string | null;
+  thresholdType?: string | null;
+  semanticDirection?: string | null;
+  gisEnabled?: number | null;
+  insightEnabled?: number | null;
+  analyticsEnabled?: number | null;
+  status?: string | null;
+  versionNo?: number | null;
+  metadataJson?: unknown;
+}
+
+export interface NormativeMetricDefinitionImportPayload {
+  items: NormativeMetricDefinitionImportItem[];
+}
+
+export interface NormativeMetricDefinitionImportRow {
+  rowIndex?: number | null;
+  id?: IdType | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  identifier?: string | null;
+  displayName?: string | null;
+  monitorContentCode?: string | null;
+  monitorTypeCode?: string | null;
+  fallbackKey?: string | null;
+  action?: string | null;
+  status?: string | null;
+  message?: string | null;
+}
+
+export interface NormativeMetricDefinitionImportResult {
+  totalCount?: number | null;
+  readyCount?: number | null;
+  conflictCount?: number | null;
+  appliedCount?: number | null;
+  rows?: NormativeMetricDefinitionImportRow[] | null;
 }
 
 export type GovernanceApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';

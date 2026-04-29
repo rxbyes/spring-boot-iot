@@ -1,25 +1,22 @@
 package com.ghlzm.iot.alarm.listener;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.ghlzm.iot.alarm.service.RiskMetricCatalogPublishRule;
-import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogRebuildService;
 import com.ghlzm.iot.common.event.governance.ProductContractReleasedEvent;
 import com.ghlzm.iot.device.entity.ProductMetricResolverSnapshot;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.ProductMetricResolverSnapshotMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.BeanUtils;
 import org.springframework.context.event.EventListener;
-import org.springframework.stereotype.Component;
 import org.springframework.lang.Nullable;
+import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
@@ -31,25 +28,21 @@ import tools.jackson.databind.json.JsonMapper;
 public class ProductContractReleasedEventListener {
 
     private final ProductModelMapper productModelMapper;
-    private final RiskMetricCatalogPublishRule riskMetricCatalogPublishRule;
-    private final RiskMetricCatalogService riskMetricCatalogService;
+    private final RiskMetricCatalogRebuildService riskMetricCatalogRebuildService;
     private final ProductMetricResolverSnapshotMapper resolverSnapshotMapper;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public ProductContractReleasedEventListener(ProductModelMapper productModelMapper,
-                                                RiskMetricCatalogPublishRule riskMetricCatalogPublishRule,
-                                                RiskMetricCatalogService riskMetricCatalogService) {
-        this(productModelMapper, riskMetricCatalogPublishRule, riskMetricCatalogService, null);
+                                                RiskMetricCatalogRebuildService riskMetricCatalogRebuildService) {
+        this(productModelMapper, riskMetricCatalogRebuildService, null);
     }
 
     @Autowired
     public ProductContractReleasedEventListener(ProductModelMapper productModelMapper,
-                                                RiskMetricCatalogPublishRule riskMetricCatalogPublishRule,
-                                                RiskMetricCatalogService riskMetricCatalogService,
+                                                RiskMetricCatalogRebuildService riskMetricCatalogRebuildService,
                                                 @Nullable ProductMetricResolverSnapshotMapper resolverSnapshotMapper) {
         this.productModelMapper = productModelMapper;
-        this.riskMetricCatalogPublishRule = riskMetricCatalogPublishRule;
-        this.riskMetricCatalogService = riskMetricCatalogService;
+        this.riskMetricCatalogRebuildService = riskMetricCatalogRebuildService;
         this.resolverSnapshotMapper = resolverSnapshotMapper;
     }
 
@@ -72,16 +65,13 @@ public class ProductContractReleasedEventListener {
         }
         ResolverSnapshotPayload snapshotPayload = buildResolverSnapshotPayload(event, releasedContracts);
         persistResolverSnapshot(event, snapshotPayload);
-        List<ProductModel> canonicalContracts = canonicalizeContractsForPublishRule(releasedContracts, snapshotPayload.snapshot());
-        Set<String> riskEnabledIdentifiers = riskMetricCatalogPublishRule == null
-                ? Set.of()
-                : riskMetricCatalogPublishRule.resolveRiskEnabledIdentifiers(null, canonicalContracts);
-        riskMetricCatalogService.publishFromReleasedContracts(
-                event.productId(),
-                event.releaseBatchId(),
-                releasedContracts,
-                riskEnabledIdentifiers
-        );
+        if (riskMetricCatalogRebuildService != null) {
+            riskMetricCatalogRebuildService.rebuildReleasedContracts(
+                    event.productId(),
+                    event.releaseBatchId(),
+                    releasedContracts
+            );
+        }
     }
 
     private Set<String> normalizeIdentifiers(List<String> identifiers) {
@@ -150,24 +140,6 @@ public class ProductContractReleasedEventListener {
         }
         row.setSnapshotJson(payload.snapshotJson());
         resolverSnapshotMapper.updateById(row);
-    }
-
-    private List<ProductModel> canonicalizeContractsForPublishRule(List<ProductModel> releasedContracts,
-                                                                   PublishedProductContractSnapshot snapshot) {
-        if (releasedContracts == null || releasedContracts.isEmpty() || snapshot == null) {
-            return releasedContracts == null ? List.of() : releasedContracts;
-        }
-        List<ProductModel> canonicalized = new ArrayList<>();
-        for (ProductModel contract : releasedContracts) {
-            if (contract == null) {
-                continue;
-            }
-            ProductModel copy = new ProductModel();
-            BeanUtils.copyProperties(contract, copy);
-            copy.setIdentifier(snapshot.canonicalAliasOf(contract.getIdentifier()).orElse(contract.getIdentifier()));
-            canonicalized.add(copy);
-        }
-        return canonicalized;
     }
 
     private String writeSnapshotJson(Set<String> publishedIdentifiers, Map<String, String> canonicalAliases) {

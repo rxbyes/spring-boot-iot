@@ -4,8 +4,11 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.NotificationChannel;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.service.NotificationChannelService;
 import com.ghlzm.iot.system.service.SystemErrorNotificationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,11 +28,20 @@ public class NotificationChannelController {
 
       private final NotificationChannelService notificationChannelService;
       private final SystemErrorNotificationService systemErrorNotificationService;
+      private final GovernancePermissionGuard permissionGuard;
 
       public NotificationChannelController(NotificationChannelService notificationChannelService,
                                            SystemErrorNotificationService systemErrorNotificationService) {
+            this(notificationChannelService, systemErrorNotificationService, null);
+      }
+
+      @Autowired
+      public NotificationChannelController(NotificationChannelService notificationChannelService,
+                                           SystemErrorNotificationService systemErrorNotificationService,
+                                           GovernancePermissionGuard permissionGuard) {
             this.notificationChannelService = notificationChannelService;
             this.systemErrorNotificationService = systemErrorNotificationService;
+            this.permissionGuard = permissionGuard;
       }
 
       @GetMapping("/list")
@@ -57,25 +69,39 @@ public class NotificationChannelController {
 
       @PostMapping("/add")
       public R<NotificationChannel> addChannel(@RequestBody NotificationChannel channel, Authentication authentication) {
-            return R.ok(notificationChannelService.addChannel(requireCurrentUserId(authentication), channel));
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "新增通知渠道", GovernancePermissionCodes.CHANNEL_ADD);
+            return R.ok(notificationChannelService.addChannel(currentUserId, channel));
       }
 
       @PutMapping("/update")
       public R<Void> updateChannel(@RequestBody NotificationChannel channel, Authentication authentication) {
-            notificationChannelService.updateChannel(requireCurrentUserId(authentication), channel);
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "编辑通知渠道", GovernancePermissionCodes.CHANNEL_UPDATE);
+            notificationChannelService.updateChannel(currentUserId, channel);
             return R.ok();
       }
 
       @DeleteMapping("/delete/{id}")
       public R<Void> deleteChannel(@PathVariable Long id, Authentication authentication) {
-            notificationChannelService.deleteChannel(requireCurrentUserId(authentication), id);
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "删除通知渠道", GovernancePermissionCodes.CHANNEL_DELETE);
+            notificationChannelService.deleteChannel(currentUserId, id);
             return R.ok();
       }
 
       @PostMapping("/test/{channelCode}")
       public R<Void> testChannel(@PathVariable String channelCode, Authentication authentication) {
-            systemErrorNotificationService.sendTestNotification(requireCurrentUserId(authentication), channelCode);
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "测试通知渠道", GovernancePermissionCodes.CHANNEL_TEST);
+            systemErrorNotificationService.sendTestNotification(currentUserId, channelCode);
             return R.ok();
+      }
+
+      private void requirePermission(Long currentUserId, String actionName, String permissionCode) {
+            if (permissionGuard != null) {
+                  permissionGuard.requireAnyPermission(currentUserId, actionName, permissionCode);
+            }
       }
 
       private Long requireCurrentUserId(Authentication authentication) {

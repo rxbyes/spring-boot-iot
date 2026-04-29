@@ -60,6 +60,20 @@ export interface RiskPointDevice {
       deleted: number;
 }
 
+export interface RiskPointBindMetric {
+      riskMetricId?: IdType | null;
+      metricIdentifier: string;
+      metricName: string;
+}
+
+export interface RiskPointBatchBindDeviceRequest {
+      riskPointId: IdType;
+      deviceId: IdType;
+      deviceCode?: string;
+      deviceName?: string;
+      metrics: RiskPointBindMetric[];
+}
+
 export interface RiskPointBindingSummary {
       riskPointId: IdType;
       boundDeviceCount: number;
@@ -177,6 +191,10 @@ export interface RiskPointBindingReplaceRequest {
       metricName: string;
 }
 
+export interface RiskPointBindingRenameRequest {
+      metricName: string;
+}
+
 export interface RiskPointPendingPromotionItem {
       metricIdentifier: string;
       metricName?: string | null;
@@ -239,7 +257,7 @@ export const deleteRiskPoint = (id: IdType): Promise<ApiEnvelope<void>> => {
 };
 
 // 绑定风险点与设备
-export const bindDevice = (data: Partial<RiskPointDevice>): Promise<ApiEnvelope<GovernanceSubmissionResult>> => {
+export const bindDevice = (data: RiskPointBatchBindDeviceRequest): Promise<ApiEnvelope<GovernanceSubmissionResult>> => {
       return request<GovernanceSubmissionResult>('/api/risk-point/bind-device', { method: 'POST', body: data });
 };
 
@@ -288,6 +306,10 @@ export const removeBinding = (bindingId: IdType): Promise<ApiEnvelope<void>> => 
 
 export const replaceBinding = (bindingId: IdType, body: RiskPointBindingReplaceRequest): Promise<ApiEnvelope<RiskPointBindingMetric>> => {
       return request<RiskPointBindingMetric>(`/api/risk-point/bindings/${bindingId}/replace`, { method: 'POST', body });
+};
+
+export const renameBinding = (bindingId: IdType, body: RiskPointBindingRenameRequest): Promise<ApiEnvelope<RiskPointBindingMetric>> => {
+      return request<RiskPointBindingMetric>(`/api/risk-point/bindings/${bindingId}/rename`, { method: 'POST', body });
 };
 
 export const listPendingBindings = (params: {

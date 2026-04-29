@@ -135,7 +135,11 @@ INSERT INTO sys_governance_approval_policy (
     (99001005, 0, 'GLOBAL', 'PROTOCOL_FAMILY_PUBLISH', 'FIXED_USER', 99000001, 1, '协议族定义发布固定复核人', 1, NOW(), 1, NOW(), 0),
     (99001006, 0, 'GLOBAL', 'PROTOCOL_FAMILY_ROLLBACK', 'FIXED_USER', 99000001, 1, '协议族定义回滚固定复核人', 1, NOW(), 1, NOW(), 0),
     (99001007, 0, 'GLOBAL', 'PROTOCOL_DECRYPT_PROFILE_PUBLISH', 'FIXED_USER', 99000001, 1, '协议解密档案发布固定复核人', 1, NOW(), 1, NOW(), 0),
-    (99001008, 0, 'GLOBAL', 'PROTOCOL_DECRYPT_PROFILE_ROLLBACK', 'FIXED_USER', 99000001, 1, '协议解密档案回滚固定复核人', 1, NOW(), 1, NOW(), 0)
+    (99001008, 0, 'GLOBAL', 'PROTOCOL_DECRYPT_PROFILE_ROLLBACK', 'FIXED_USER', 99000001, 1, '协议解密档案回滚固定复核人', 1, NOW(), 1, NOW(), 0),
+    (99001009, 0, 'GLOBAL', 'RULE_DEFINITION_CREATE', 'FIXED_USER', 99000001, 1, 'threshold policy create fixed reviewer', 1, NOW(), 1, NOW(), 0),
+    (99001010, 0, 'GLOBAL', 'RULE_DEFINITION_BATCH_CREATE', 'FIXED_USER', 99000001, 1, 'threshold policy batch create fixed reviewer', 1, NOW(), 1, NOW(), 0),
+    (99001011, 0, 'GLOBAL', 'RULE_DEFINITION_UPDATE', 'FIXED_USER', 99000001, 1, 'threshold policy update fixed reviewer', 1, NOW(), 1, NOW(), 0),
+    (99001012, 0, 'GLOBAL', 'RULE_DEFINITION_DELETE', 'FIXED_USER', 99000001, 1, 'threshold policy delete fixed reviewer', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     approver_mode = VALUES(approver_mode),
     approver_user_id = VALUES(approver_user_id),
@@ -153,11 +157,22 @@ INSERT INTO sys_menu (
     (93000002, 1, 0, '风险运营', 'risk-ops', '', 'Layout', 'warning', '{"description":"态势、告警与协同闭环","menuTitle":"风险运营","menuHint":"覆盖实时监测、告警运营、事件协同、对象洞察与运营复盘。"}', 20, 0, 0, '', 'risk-ops', 20, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000004, 1, 0, '风险策略', 'risk-config', '', 'Layout', 'operation', '{"description":"对象、阈值与联动配置","menuTitle":"风险策略","menuHint":"覆盖风险对象、阈值策略、联动编排与应急预案库。"}', 30, 0, 0, '', 'risk-config', 30, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000003, 1, 0, '平台治理', 'system-governance', '', 'Layout', 'setting', '{"description":"组织、权限与审计治理","menuTitle":"平台治理","menuHint":"覆盖组织、账号、角色、导航、区域、字典、通知、帮助与审计中心。"}', 40, 0, 0, '', 'system-governance', 40, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93000005, 1, 0, '质量工场', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"研发工场、执行组织与结果基线","menuTitle":"质量工场","menuHint":"覆盖研发资产编排、执行组织与结果基线治理。"}', 50, 0, 0, '', 'quality-workbench', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000005, 1, 0, '质量工场', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"业务验收与自动化治理","menuTitle":"质量工场","menuHint":"覆盖业务验收与自动化治理。"}', 50, 0, 0, '', 'quality-workbench', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000011, 1, 93000001, '智维总览', 'iot-access:overview', '/device-access', 'SectionLandingView', 'connection', '{"caption":"查看接入智维分组能力与标准排障路径","hiddenInSidebar":false}', 9, 1, 1, '/device-access', 'iot-access:overview', 9, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000012, 1, 93000002, '运营总览', 'risk:ops-overview', '/risk-disposal', 'SectionLandingView', 'warning', '{"caption":"查看风险运营主链路与能力入口","hiddenInSidebar":false}', 19, 1, 1, '/risk-disposal', 'risk:ops-overview', 19, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000013, 1, 93000004, '策略总览', 'risk:config-overview', '/risk-config', 'SectionLandingView', 'operation', '{"caption":"查看风险策略分组能力与配置入口","hiddenInSidebar":false}', 29, 1, 1, '/risk-config', 'risk:config-overview', 29, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000014, 1, 93000003, '治理总览', 'system:governance-overview', '/system-management', 'SectionLandingView', 'setting', '{"caption":"查看平台治理分组能力与常用入口","hiddenInSidebar":false}', 39, 1, 1, '/system-management', 'system:governance-overview', 39, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000015, 1, 93000005, '工场总览', 'system:quality-workbench-overview', '/quality-workbench', 'QualityWorkbenchLandingView', 'monitor', '{"caption":"查看质量工场能力与专项入口","hiddenInSidebar":false}', 49, 1, 1, '/quality-workbench', 'system:quality-workbench-overview', 49, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000016, 1, 93000005, '演进蓝图', 'system:future-lab', '/future-lab', 'FutureLabView', 'guide', '{"caption":"预研能力展示与未来扩展方向说明","hiddenInSidebar":true}', 69, 1, 1, '/future-lab', 'system:future-lab', 69, 0, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93001008, 1, 93000001, '无代码接入台', 'iot:device-onboarding', '/device-onboarding', 'DeviceOnboardingWorkbenchView', 'guide', '{"caption":"统一查看接入案例、阻塞原因和下一步动作"}', 10, 1, 1, '/device-onboarding', 'iot:device-onboarding', 10, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001009, 1, 93000001, '协议治理工作台', 'iot:protocol-governance', '/protocol-governance', 'ProtocolGovernanceWorkbenchView', 'guide', '{"caption":"协议族、解密档案与协议模板治理"}', 11, 1, 1, '/protocol-governance', 'iot:protocol-governance', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001001, 1, 93000001, '产品定义中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"产品台账、协议基线与库存归属"}', 11, 1, 1, '/products', 'iot:products', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001008, 1, 93000001, '无代码接入台', 'iot:device-onboarding', '/device-onboarding', 'DeviceOnboardingWorkbenchView', 'guide', '{"caption":"创建接入案例、查看阻塞原因，并跳到协议治理或产品工作台继续处理。"}', 10, 1, 1, '/device-onboarding', 'iot:device-onboarding', 10, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001009, 1, 93000001, '协议治理工作台', 'iot:protocol-governance', '/protocol-governance', 'ProtocolGovernanceWorkbenchView', 'guide', '{"caption":"维护跨产品复用的协议族、解密档案与协议模板。"}', 11, 1, 1, '/protocol-governance', 'iot:protocol-governance', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001001, 1, 93000001, '产品定义中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"维护产品定义，并作为进入产品工作台的统一入口承接契约、映射和版本治理。"}', 11, 1, 1, '/products', 'iot:products', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001065, 1, 93001001, '产品总览', 'iot:products:detail-overview', '/products/:productId/overview', 'ProductDetailWorkbenchView', 'box', '{"caption":"查看产品概览、正式字段规模与最新合同发布状态","hiddenInSidebar":true}', 1165, 1, 1, '/products/:productId/overview', 'iot:products:detail-overview', 1165, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (93001066, 1, 93001001, '产品关联设备', 'iot:products:detail-devices', '/products/:productId/devices', 'ProductDetailWorkbenchView', 'cpu', '{"caption":"查看当前产品下的设备清单、在线状态与最近上报","hiddenInSidebar":true}', 1166, 1, 1, '/products/:productId/devices', 'iot:products:detail-devices', 1166, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (93001067, 1, 93001001, '契约字段', 'iot:products:detail-contracts', '/products/:productId/contracts', 'ProductDetailWorkbenchView', 'document', '{"caption":"样本输入、识别结果、本次生效与当前已生效字段","hiddenInSidebar":true}', 1167, 1, 1, '/products/:productId/contracts', 'iot:products:detail-contracts', 1167, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (93001068, 1, 93001001, '映射规则', 'iot:products:detail-mapping-rules', '/products/:productId/mapping-rules', 'ProductDetailWorkbenchView', 'connection', '{"caption":"厂商字段映射建议、映射规则台账和运行态名称单位治理","hiddenInSidebar":true}', 1168, 1, 1, '/products/:productId/mapping-rules', 'iot:products:detail-mapping-rules', 1168, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (93001069, 1, 93001001, '版本台账', 'iot:products:detail-releases', '/products/:productId/releases', 'ProductDetailWorkbenchView', 'tickets', '{"caption":"发布批次、回滚试算与跨批次差异对账","hiddenInSidebar":true}', 1169, 1, 1, '/products/:productId/releases', 'iot:products:detail-releases', 1169, 0, 1, 1, NOW(), 1, NOW(), 0),
     (93001002, 1, 93000001, '设备资产中心', 'iot:devices', '/devices', 'DeviceWorkbenchView', 'cpu', '{"caption":"设备建档、在线状态与资产运维"}', 12, 1, 1, '/devices', 'iot:devices', 12, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001003, 1, 93000001, '链路验证中心', 'iot:reporting', '/reporting', 'ReportWorkbenchView', 'promotion', '{"caption":"HTTP 上报模拟、payload 回放与联调"}', 13, 1, 1, '/reporting', 'iot:reporting', 13, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001006, 1, 93000001, '异常观测台', 'iot:system-log', '/system-log', 'AuditLogView', 'warning', '{"caption":"研发测试定位系统异常与接入问题"}', 14, 1, 1, '/system-log', 'iot:system-log', 14, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -192,15 +207,8 @@ INSERT INTO sys_menu (
     (93003007, 1, 93000003, '审计中心', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"客户与治理侧业务操作审计"}', 54, 1, 1, '/audit-log', 'system:audit', 54, 1, 1, 1, NOW(), 1, NOW(), 0),
 
     (93003020, 1, 93000005, '业务验收台', 'system:business-acceptance', '/business-acceptance', 'BusinessAcceptanceWorkbenchView', 'finished', '{"caption":"按交付清单运行预置业务验收包"}', 51, 1, 1, '/business-acceptance', 'system:business-acceptance', 51, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003015, 1, 93000005, '研发工场', 'system:rd-workbench', '/rd-workbench', 'RdWorkbenchLandingView', 'edit-pen', '{"caption":"研发自动化资产编排主入口"}', 52, 1, 1, '/rd-workbench', 'system:rd-workbench', 52, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003016, 1, 93000005, '页面盘点台', 'system:rd-automation-inventory', '/rd-automation-inventory', 'AutomationInventoryView', 'document', '{"caption":"页面清单、覆盖缺口与人工补录"}', 53, 1, 1, '/rd-automation-inventory', 'system:rd-automation-inventory', 53, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003017, 1, 93000005, '场景模板台', 'system:rd-automation-templates', '/rd-automation-templates', 'AutomationTemplatesView', 'files', '{"caption":"沉淀页面冒烟、表单提交与列表详情模板"}', 54, 1, 1, '/rd-automation-templates', 'system:rd-automation-templates', 54, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003018, 1, 93000005, '计划编排台', 'system:rd-automation-plans', '/rd-automation-plans', 'AutomationPlansView', 'edit', '{"caption":"维护场景顺序、步骤、断言与导入导出"}', 55, 1, 1, '/rd-automation-plans', 'system:rd-automation-plans', 55, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003019, 1, 93000005, '交付打包台', 'system:rd-automation-handoff', '/rd-automation-handoff', 'AutomationHandoffView', 'promotion', '{"caption":"整理执行建议、基线说明与验收备注"}', 56, 1, 1, '/rd-automation-handoff', 'system:rd-automation-handoff', 56, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003013, 1, 93000005, '执行中心', 'system:automation-execution', '/automation-execution', 'AutomationExecutionView', 'operation', '{"caption":"目标环境、命令预览与统一验收注册表"}', 57, 1, 1, '/automation-execution', 'system:automation-execution', 57, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003014, 1, 93000005, '结果与基线中心', 'system:automation-results', '/automation-results', 'AutomationResultsView', 'data-analysis', '{"caption":"运行结果导入、失败复盘与质量建议"}', 58, 1, 1, '/automation-results', 'system:automation-results', 58, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003012, 1, 93000005, '自动化资产中心（兼容入口）', 'system:automation-assets', '/automation-assets', 'AutomationAssetsView', 'document', '{"caption":"兼容旧入口，第一轮直接落到研发工场总览"}', 59, 1, 1, '/automation-assets', 'system:automation-assets', 59, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003009, 1, 93000005, '自动化工场（兼容入口）', 'system:automation-test', '/automation-test', 'AutomationTestCenterView', 'monitor', '{"caption":"兼容旧入口，第一轮直接落到研发工场总览"}', 60, 1, 1, '/automation-test', 'system:automation-test', 60, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003715, 1, 93003020, '业务验收结果', 'system:business-acceptance:result', '/business-acceptance/results/:runId', 'BusinessAcceptanceResultView', 'finished', '{"caption":"查看业务验收包的模块结论与失败明细","hiddenInSidebar":true}', 5715, 1, 1, '/business-acceptance/results/:runId', 'system:business-acceptance:result', 5715, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (93003015, 1, 93000005, '自动化治理台', 'system:automation-governance', '/automation-governance', 'AutomationGovernanceWorkbenchView', 'operation', '{"caption":"统一承接资产编排、执行配置与结果证据"}', 52, 1, 1, '/automation-governance', 'system:automation-governance', 52, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001011, 1, 93001001, '新增产品', 'iot:products:add', '', '', '', '{"caption":"产品定义中心新增产品按钮权限"}', 1101, 2, 2, '', 'iot:products:add', 1101, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001012, 1, 93001001, '编辑产品', 'iot:products:update', '', '', '', '{"caption":"产品定义中心编辑产品按钮权限"}', 1102, 2, 2, '', 'iot:products:update', 1102, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001013, 1, 93001001, '删除产品', 'iot:products:delete', '', '', '', '{"caption":"产品定义中心删除产品按钮权限"}', 1103, 2, 2, '', 'iot:products:delete', 1103, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -227,7 +235,8 @@ INSERT INTO sys_menu (
     (93003403, 1, 93003010, '删除站内消息', 'system:in-app-message:delete', '', '', '', '{"caption":"删除站内消息按钮权限"}', 3903, 2, 2, '', 'system:in-app-message:delete', 3903, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003501, 1, 93003011, '新增帮助文档', 'system:help-doc:add', '', '', '', '{"caption":"新增帮助文档按钮权限"}', 4001, 2, 2, '', 'system:help-doc:add', 4001, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003502, 1, 93003011, '编辑帮助文档', 'system:help-doc:update', '', '', '', '{"caption":"编辑帮助文档按钮权限"}', 4002, 2, 2, '', 'system:help-doc:update', 4002, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003503, 1, 93003011, '删除帮助文档', 'system:help-doc:delete', '', '', '', '{"caption":"删除帮助文档按钮权限"}', 4003, 2, 2, '', 'system:help-doc:delete', 4003, 1, 1, 1, NOW(), 1, NOW(), 0)
+    (93003503, 1, 93003011, '删除帮助文档', 'system:help-doc:delete', '', '', '', '{"caption":"删除帮助文档按钮权限"}', 4003, 2, 2, '', 'system:help-doc:delete', 4003, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003504, 1, 93003007, '删除审计日志', 'system:audit:delete', '', '', '', '{"caption":"删除审计日志按钮权限"}', 5404, 2, 2, '', 'system:audit:delete', 5404, 1, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     parent_id = VALUES(parent_id),
     menu_name = VALUES(menu_name),
@@ -267,163 +276,82 @@ WHERE tenant_id = 1
   AND menu_code IN ('risk:rule-definition:write', 'risk:linkage-rule:write', 'risk:emergency-plan:write')
   AND deleted = 0;
 
-DELETE FROM sys_role_menu
-WHERE role_id IN (@role_business_id, @role_management_id, @role_ops_id, @role_developer_id, @role_super_admin_id);
+UPDATE sys_role_menu rm
+JOIN sys_menu m ON m.id = rm.menu_id
+SET rm.deleted = 1,
+    rm.update_by = 1,
+    rm.update_time = NOW()
+WHERE m.tenant_id = 1
+  AND m.menu_code IN (
+    'system:rd-workbench',
+    'system:rd-automation-inventory',
+    'system:rd-automation-templates',
+    'system:rd-automation-plans',
+    'system:rd-automation-handoff',
+    'system:automation-assets',
+    'system:automation-execution',
+    'system:automation-results',
+    'system:automation-test',
+    'system:rd-automation-inventory:refresh',
+    'system:rd-automation-inventory:select-uncovered',
+    'system:rd-automation-inventory:generate-scaffold',
+    'system:rd-automation-inventory:manual-page',
+    'system:rd-automation-templates:add-page-smoke',
+    'system:rd-automation-templates:add-form-submit',
+    'system:rd-automation-templates:add-list-detail',
+    'system:rd-automation-plans:import',
+    'system:rd-automation-plans:export',
+    'system:rd-automation-plans:reset',
+    'system:rd-automation-plans:edit',
+    'system:rd-automation-handoff:copy-command',
+    'system:rd-automation-handoff:export-plan',
+    'system:automation-execution:copy-command',
+    'system:automation-results:refresh',
+    'system:automation-results:detail',
+    'system:automation-results:evidence-preview',
+    'system:automation-results:import-json',
+    'system:automation-results:clear-import'
+  )
+  AND rm.deleted = 0;
 
-INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
-VALUES
-    (96010001, 1, @role_business_id, 93000002, 1, NOW(), 1, NOW(), 0),
-    (96010002, 1, @role_business_id, 93002008, 1, NOW(), 1, NOW(), 0),
-    (96010003, 1, @role_business_id, 93002009, 1, NOW(), 1, NOW(), 0),
-    (96010004, 1, @role_business_id, 93002001, 1, NOW(), 1, NOW(), 0),
-    (96010005, 1, @role_business_id, 93002002, 1, NOW(), 1, NOW(), 0),
-    (96010006, 1, @role_business_id, 93001004, 1, NOW(), 1, NOW(), 0),
-    (96010007, 1, @role_business_id, 93002007, 1, NOW(), 1, NOW(), 0),
-    (96010008, 1, @role_business_id, 93000001, 1, NOW(), 1, NOW(), 0),
-    (96010013, 1, @role_business_id, 93000005, 1, NOW(), 1, NOW(), 0),
-    (96010014, 1, @role_business_id, 93003020, 1, NOW(), 1, NOW(), 0),
-    (96010011, 1, @role_business_id, 93001001, 1, NOW(), 1, NOW(), 0),
-    (96010009, 1, @role_business_id, 93001002, 1, NOW(), 1, NOW(), 0),
-    (96010010, 1, @role_business_id, 93001104, 1, NOW(), 1, NOW(), 0),
-    (96010012, 1, @role_business_id, 93001014, 1, NOW(), 1, NOW(), 0),
-
-    (96010021, 1, @role_management_id, 93000002, 1, NOW(), 1, NOW(), 0),
-    (96010022, 1, @role_management_id, 93002008, 1, NOW(), 1, NOW(), 0),
-    (96010023, 1, @role_management_id, 93002009, 1, NOW(), 1, NOW(), 0),
-    (96010024, 1, @role_management_id, 93002001, 1, NOW(), 1, NOW(), 0),
-    (96010025, 1, @role_management_id, 93002002, 1, NOW(), 1, NOW(), 0),
-    (96010026, 1, @role_management_id, 93001004, 1, NOW(), 1, NOW(), 0),
-    (96010027, 1, @role_management_id, 93002007, 1, NOW(), 1, NOW(), 0),
-    (96010028, 1, @role_management_id, 93000004, 1, NOW(), 1, NOW(), 0),
-    (96010029, 1, @role_management_id, 93002003, 1, NOW(), 1, NOW(), 0),
-    (96010030, 1, @role_management_id, 93002004, 1, NOW(), 1, NOW(), 0),
-    (96010031, 1, @role_management_id, 93002005, 1, NOW(), 1, NOW(), 0),
-    (96010032, 1, @role_management_id, 93002006, 1, NOW(), 1, NOW(), 0),
-    (96010033, 1, @role_management_id, 93000003, 1, NOW(), 1, NOW(), 0),
-    (96010034, 1, @role_management_id, 93003001, 1, NOW(), 1, NOW(), 0),
-    (96010035, 1, @role_management_id, 93003002, 1, NOW(), 1, NOW(), 0),
-    (96010036, 1, @role_management_id, 93003003, 1, NOW(), 1, NOW(), 0),
-    (96010037, 1, @role_management_id, 93003004, 1, NOW(), 1, NOW(), 0),
-    (96010038, 1, @role_management_id, 93003005, 1, NOW(), 1, NOW(), 0),
-    (96010039, 1, @role_management_id, 93003006, 1, NOW(), 1, NOW(), 0),
-    (96010040, 1, @role_management_id, 93003007, 1, NOW(), 1, NOW(), 0),
-    (96010041, 1, @role_management_id, 93003101, 1, NOW(), 1, NOW(), 0),
-    (96010042, 1, @role_management_id, 93003102, 1, NOW(), 1, NOW(), 0),
-    (96010043, 1, @role_management_id, 93003104, 1, NOW(), 1, NOW(), 0),
-    (96010044, 1, @role_management_id, 93003201, 1, NOW(), 1, NOW(), 0),
-    (96010045, 1, @role_management_id, 93003202, 1, NOW(), 1, NOW(), 0),
-    (96010046, 1, @role_management_id, 93000001, 1, NOW(), 1, NOW(), 0),
-    (96010170, 1, @role_management_id, 93001008, 1, NOW(), 1, NOW(), 0),
-    (96010052, 1, @role_management_id, 93001001, 1, NOW(), 1, NOW(), 0),
-    (96010047, 1, @role_management_id, 93001002, 1, NOW(), 1, NOW(), 0),
-    (96010048, 1, @role_management_id, 93001101, 1, NOW(), 1, NOW(), 0),
-    (96010049, 1, @role_management_id, 93001102, 1, NOW(), 1, NOW(), 0),
-    (96010050, 1, @role_management_id, 93001103, 1, NOW(), 1, NOW(), 0),
-    (96010051, 1, @role_management_id, 93001104, 1, NOW(), 1, NOW(), 0),
-    (96010057, 1, @role_management_id, 93001105, 1, NOW(), 1, NOW(), 0),
-    (96010058, 1, @role_management_id, 93001106, 1, NOW(), 1, NOW(), 0),
-    (96010053, 1, @role_management_id, 93001011, 1, NOW(), 1, NOW(), 0),
-    (96010054, 1, @role_management_id, 93001012, 1, NOW(), 1, NOW(), 0),
-    (96010055, 1, @role_management_id, 93001013, 1, NOW(), 1, NOW(), 0),
-    (96010056, 1, @role_management_id, 93001014, 1, NOW(), 1, NOW(), 0),
-    (96010131, 1, @role_management_id, 93003010, 1, NOW(), 1, NOW(), 0),
-    (96010132, 1, @role_management_id, 93003011, 1, NOW(), 1, NOW(), 0),
-    (96010133, 1, @role_management_id, 93003401, 1, NOW(), 1, NOW(), 0),
-    (96010134, 1, @role_management_id, 93003402, 1, NOW(), 1, NOW(), 0),
-    (96010135, 1, @role_management_id, 93003403, 1, NOW(), 1, NOW(), 0),
-    (96010136, 1, @role_management_id, 93003501, 1, NOW(), 1, NOW(), 0),
-    (96010137, 1, @role_management_id, 93003502, 1, NOW(), 1, NOW(), 0),
-    (96010138, 1, @role_management_id, 93003503, 1, NOW(), 1, NOW(), 0),
-    (96010145, 1, @role_management_id, 93003022, 1, NOW(), 1, NOW(), 0),
-    (96010148, 1, @role_management_id, 93003023, 1, NOW(), 1, NOW(), 0),
-    (96010151, 1, @role_management_id, 93003024, 1, NOW(), 1, NOW(), 0),
-    (96010152, 1, @role_management_id, 93003025, 1, NOW(), 1, NOW(), 0),
-    (96010142, 1, @role_management_id, 93000005, 1, NOW(), 1, NOW(), 0),
-    (96010143, 1, @role_management_id, 93003020, 1, NOW(), 1, NOW(), 0),
-
-    (96010061, 1, @role_ops_id, 93000001, 1, NOW(), 1, NOW(), 0),
-    (96010171, 1, @role_ops_id, 93001008, 1, NOW(), 1, NOW(), 0),
-    (96010062, 1, @role_ops_id, 93001001, 1, NOW(), 1, NOW(), 0),
-    (96010063, 1, @role_ops_id, 93001002, 1, NOW(), 1, NOW(), 0),
-    (96010064, 1, @role_ops_id, 93001003, 1, NOW(), 1, NOW(), 0),
-    (96010065, 1, @role_ops_id, 93001006, 1, NOW(), 1, NOW(), 0),
-    (96010066, 1, @role_ops_id, 93001007, 1, NOW(), 1, NOW(), 0),
-    (96010067, 1, @role_ops_id, 93001005, 1, NOW(), 1, NOW(), 0),
-    (96010068, 1, @role_ops_id, 93000002, 1, NOW(), 1, NOW(), 0),
-    (96010069, 1, @role_ops_id, 93002008, 1, NOW(), 1, NOW(), 0),
-    (96010070, 1, @role_ops_id, 93002001, 1, NOW(), 1, NOW(), 0),
-    (96010071, 1, @role_ops_id, 93002002, 1, NOW(), 1, NOW(), 0),
-    (96010072, 1, @role_ops_id, 93001004, 1, NOW(), 1, NOW(), 0),
-    (96010073, 1, @role_ops_id, 93000004, 1, NOW(), 1, NOW(), 0),
-    (96010074, 1, @role_ops_id, 93002003, 1, NOW(), 1, NOW(), 0),
-    (96010075, 1, @role_ops_id, 93002004, 1, NOW(), 1, NOW(), 0),
-    (96010076, 1, @role_ops_id, 93001101, 1, NOW(), 1, NOW(), 0),
-    (96010077, 1, @role_ops_id, 93001102, 1, NOW(), 1, NOW(), 0),
-    (96010078, 1, @role_ops_id, 93001103, 1, NOW(), 1, NOW(), 0),
-    (96010079, 1, @role_ops_id, 93001104, 1, NOW(), 1, NOW(), 0),
-    (96010084, 1, @role_ops_id, 93001105, 1, NOW(), 1, NOW(), 0),
-    (96010085, 1, @role_ops_id, 93001106, 1, NOW(), 1, NOW(), 0),
-    (96010080, 1, @role_ops_id, 93001011, 1, NOW(), 1, NOW(), 0),
-    (96010081, 1, @role_ops_id, 93001012, 1, NOW(), 1, NOW(), 0),
-    (96010082, 1, @role_ops_id, 93001013, 1, NOW(), 1, NOW(), 0),
-    (96010083, 1, @role_ops_id, 93001014, 1, NOW(), 1, NOW(), 0),
-    (96010146, 1, @role_ops_id, 93003022, 1, NOW(), 1, NOW(), 0),
-    (96010149, 1, @role_ops_id, 93003023, 1, NOW(), 1, NOW(), 0),
-    (96010153, 1, @role_ops_id, 93003024, 1, NOW(), 1, NOW(), 0),
-    (96010154, 1, @role_ops_id, 93003025, 1, NOW(), 1, NOW(), 0),
-
-    (96010091, 1, @role_developer_id, 93000001, 1, NOW(), 1, NOW(), 0),
-    (96010172, 1, @role_developer_id, 93001008, 1, NOW(), 1, NOW(), 0),
-    (96010092, 1, @role_developer_id, 93001001, 1, NOW(), 1, NOW(), 0),
-    (96010093, 1, @role_developer_id, 93001002, 1, NOW(), 1, NOW(), 0),
-    (96010094, 1, @role_developer_id, 93001003, 1, NOW(), 1, NOW(), 0),
-    (96010095, 1, @role_developer_id, 93001006, 1, NOW(), 1, NOW(), 0),
-    (96010096, 1, @role_developer_id, 93001007, 1, NOW(), 1, NOW(), 0),
-    (96010097, 1, @role_developer_id, 93001005, 1, NOW(), 1, NOW(), 0),
-    (96010098, 1, @role_developer_id, 93000002, 1, NOW(), 1, NOW(), 0),
-    (96010099, 1, @role_developer_id, 93002008, 1, NOW(), 1, NOW(), 0),
-    (96010100, 1, @role_developer_id, 93002009, 1, NOW(), 1, NOW(), 0),
-    (96010101, 1, @role_developer_id, 93002001, 1, NOW(), 1, NOW(), 0),
-    (96010102, 1, @role_developer_id, 93002002, 1, NOW(), 1, NOW(), 0),
-    (96010103, 1, @role_developer_id, 93001004, 1, NOW(), 1, NOW(), 0),
-    (96010104, 1, @role_developer_id, 93000004, 1, NOW(), 1, NOW(), 0),
-    (96010105, 1, @role_developer_id, 93002003, 1, NOW(), 1, NOW(), 0),
-    (96010106, 1, @role_developer_id, 93002004, 1, NOW(), 1, NOW(), 0),
-    (96010107, 1, @role_developer_id, 93002005, 1, NOW(), 1, NOW(), 0),
-    (96010108, 1, @role_developer_id, 93002006, 1, NOW(), 1, NOW(), 0),
-    (96010109, 1, @role_developer_id, 93000005, 1, NOW(), 1, NOW(), 0),
-    (96010144, 1, @role_developer_id, 93003020, 1, NOW(), 1, NOW(), 0),
-    (96010136, 1, @role_developer_id, 93003015, 1, NOW(), 1, NOW(), 0),
-    (96010137, 1, @role_developer_id, 93003016, 1, NOW(), 1, NOW(), 0),
-    (96010138, 1, @role_developer_id, 93003017, 1, NOW(), 1, NOW(), 0),
-    (96010139, 1, @role_developer_id, 93003018, 1, NOW(), 1, NOW(), 0),
-    (96010140, 1, @role_developer_id, 93003019, 1, NOW(), 1, NOW(), 0),
-    (96010121, 1, @role_developer_id, 93003012, 1, NOW(), 1, NOW(), 0),
-    (96010122, 1, @role_developer_id, 93003013, 1, NOW(), 1, NOW(), 0),
-    (96010123, 1, @role_developer_id, 93003014, 1, NOW(), 1, NOW(), 0),
-    (96010110, 1, @role_developer_id, 93003009, 1, NOW(), 1, NOW(), 0),
-    (96010111, 1, @role_developer_id, 93001101, 1, NOW(), 1, NOW(), 0),
-    (96010112, 1, @role_developer_id, 93001102, 1, NOW(), 1, NOW(), 0),
-    (96010113, 1, @role_developer_id, 93001103, 1, NOW(), 1, NOW(), 0),
-    (96010114, 1, @role_developer_id, 93001104, 1, NOW(), 1, NOW(), 0),
-    (96010119, 1, @role_developer_id, 93001105, 1, NOW(), 1, NOW(), 0),
-    (96010120, 1, @role_developer_id, 93001106, 1, NOW(), 1, NOW(), 0),
-    (96010115, 1, @role_developer_id, 93001011, 1, NOW(), 1, NOW(), 0),
-    (96010116, 1, @role_developer_id, 93001012, 1, NOW(), 1, NOW(), 0),
-    (96010117, 1, @role_developer_id, 93001013, 1, NOW(), 1, NOW(), 0),
-    (96010118, 1, @role_developer_id, 93001014, 1, NOW(), 1, NOW(), 0),
-    (96010147, 1, @role_developer_id, 93003022, 1, NOW(), 1, NOW(), 0),
-    (96010150, 1, @role_developer_id, 93003023, 1, NOW(), 1, NOW(), 0),
-    (96010155, 1, @role_developer_id, 93003024, 1, NOW(), 1, NOW(), 0),
-    (96010156, 1, @role_developer_id, 93003025, 1, NOW(), 1, NOW(), 0);
-
-SET @role_menu_id := 96010900;
-INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
-SELECT (@role_menu_id := @role_menu_id + 1), 1, @role_super_admin_id, m.id, 1, NOW(), 1, NOW(), 0
-FROM sys_menu m
-WHERE m.deleted = 0
-  AND @role_super_admin_id IS NOT NULL
-ORDER BY m.sort, m.id;
+UPDATE sys_menu
+SET deleted = 1,
+    visible = 0,
+    status = 0,
+    update_by = 1,
+    update_time = NOW()
+WHERE tenant_id = 1
+  AND menu_code IN (
+    'system:rd-workbench',
+    'system:rd-automation-inventory',
+    'system:rd-automation-templates',
+    'system:rd-automation-plans',
+    'system:rd-automation-handoff',
+    'system:automation-assets',
+    'system:automation-execution',
+    'system:automation-results',
+    'system:automation-test',
+    'system:rd-automation-inventory:refresh',
+    'system:rd-automation-inventory:select-uncovered',
+    'system:rd-automation-inventory:generate-scaffold',
+    'system:rd-automation-inventory:manual-page',
+    'system:rd-automation-templates:add-page-smoke',
+    'system:rd-automation-templates:add-form-submit',
+    'system:rd-automation-templates:add-list-detail',
+    'system:rd-automation-plans:import',
+    'system:rd-automation-plans:export',
+    'system:rd-automation-plans:reset',
+    'system:rd-automation-plans:edit',
+    'system:rd-automation-handoff:copy-command',
+    'system:rd-automation-handoff:export-plan',
+    'system:automation-execution:copy-command',
+    'system:automation-results:refresh',
+    'system:automation-results:detail',
+    'system:automation-results:evidence-preview',
+    'system:automation-results:import-json',
+    'system:automation-results:clear-import'
+  )
+  AND deleted = 0;
 
 -- governance fine-grained permission seeds
 INSERT INTO sys_menu (
@@ -443,10 +371,15 @@ INSERT INTO sys_menu (
     (93001031, 1, 93001009, '协议治理复核', 'iot:protocol-governance:approve', '', '', '', '{"caption":"协议治理发布与回滚双人复核"}', 1131, 2, 2, '', 'iot:protocol-governance:approve', 1131, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002044, 1, 93002003, '风险指标标注', 'risk:metric-catalog:tag', '', '', '', '{"caption":"维护风险指标语义标签"}', 3144, 2, 2, '', 'risk:metric-catalog:tag', 3144, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002051, 1, 93002003, '风险指标复核', 'risk:metric-catalog:approve', '', '', '', '{"caption":"风险指标标注关键写动作双人复核"}', 3145, 2, 2, '', 'risk:metric-catalog:approve', 3145, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002055, 1, 93002003, '风险绑定执行', 'risk:risk-point-binding:execute', '', '', '', '{"caption":"执行风险点正式绑定治理动作"}', 3155, 2, 2, '', 'risk:risk-point-binding:execute', 3155, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002056, 1, 93002003, '风险绑定复核', 'risk:risk-point-binding:approve', '', '', '', '{"caption":"复核风险点正式绑定治理动作"}', 3156, 2, 2, '', 'risk:risk-point-binding:approve', 3156, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002057, 1, 93002003, '待治理转正执行', 'risk:risk-point-pending-promotion:execute', '', '', '', '{"caption":"执行待治理绑定转正动作"}', 3157, 2, 2, '', 'risk:risk-point-pending-promotion:execute', 3157, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002058, 1, 93002003, '待治理转正复核', 'risk:risk-point-pending-promotion:approve', '', '', '', '{"caption":"复核待治理绑定转正动作"}', 3158, 2, 2, '', 'risk:risk-point-pending-promotion:approve', 3158, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002045, 1, 93002004, '阈值策略执行', 'risk:rule-definition:edit', '', '', '', '{"caption":"新增/更新/删除阈值策略"}', 3245, 2, 2, '', 'risk:rule-definition:edit', 3245, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002046, 1, 93002004, '阈值策略复核', 'risk:rule-definition:approve', '', '', '', '{"caption":"阈值策略关键写操作双人复核"}', 3246, 2, 2, '', 'risk:rule-definition:approve', 3246, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002047, 1, 93002005, '联动编排执行', 'risk:linkage-rule:edit', '', '', '', '{"caption":"新增/更新/删除联动规则"}', 3347, 2, 2, '', 'risk:linkage-rule:edit', 3347, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002048, 1, 93002005, '联动编排复核', 'risk:linkage-rule:approve', '', '', '', '{"caption":"联动规则关键写操作双人复核"}', 3348, 2, 2, '', 'risk:linkage-rule:approve', 3348, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002059, 1, 93002005, '联动预案复核', 'risk:linkage-plan:approve', '', '', '', '{"caption":"复核联动预案关键治理动作"}', 3359, 2, 2, '', 'risk:linkage-plan:approve', 3359, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002049, 1, 93002006, '预案执行', 'risk:emergency-plan:edit', '', '', '', '{"caption":"新增/更新/删除应急预案"}', 3449, 2, 2, '', 'risk:emergency-plan:edit', 3449, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002050, 1, 93002006, '预案复核', 'risk:emergency-plan:approve', '', '', '', '{"caption":"预案关键写操作双人复核"}', 3450, 2, 2, '', 'risk:emergency-plan:approve', 3450, 1, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
@@ -463,78 +396,25 @@ ON DUPLICATE KEY UPDATE
     update_time = VALUES(update_time),
     deleted = 0;
 
-SET @extra_role_menu_id := 96010950;
-INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
-SELECT (@extra_role_menu_id := @extra_role_menu_id + 1), 1, role_scope.role_id, role_scope.menu_id, 1, NOW(), 1, NOW(), 0
-FROM (
-    SELECT @role_management_id AS role_id, 93001021 AS menu_id
-    UNION ALL SELECT @role_management_id, 93001029
-    UNION ALL SELECT @role_management_id, 93001022
-    UNION ALL SELECT @role_management_id, 93001023
-    UNION ALL SELECT @role_management_id, 93001024
-    UNION ALL SELECT @role_management_id, 93001025
-    UNION ALL SELECT @role_management_id, 93001026
-    UNION ALL SELECT @role_management_id, 93001027
-    UNION ALL SELECT @role_management_id, 93001028
-    UNION ALL SELECT @role_management_id, 93001030
-    UNION ALL SELECT @role_management_id, 93001031
-    UNION ALL SELECT @role_management_id, 93002044
-    UNION ALL SELECT @role_management_id, 93002051
-    UNION ALL SELECT @role_management_id, 93002045
-    UNION ALL SELECT @role_management_id, 93002046
-    UNION ALL SELECT @role_management_id, 93002047
-    UNION ALL SELECT @role_management_id, 93002048
-    UNION ALL SELECT @role_management_id, 93002049
-    UNION ALL SELECT @role_management_id, 93002050
-    UNION ALL SELECT @role_ops_id, 93001022
-    UNION ALL SELECT @role_ops_id, 93001023
-    UNION ALL SELECT @role_ops_id, 93001024
-    UNION ALL SELECT @role_ops_id, 93001025
-    UNION ALL SELECT @role_ops_id, 93001026
-    UNION ALL SELECT @role_ops_id, 93001027
-    UNION ALL SELECT @role_ops_id, 93001028
-    UNION ALL SELECT @role_ops_id, 93001030
-    UNION ALL SELECT @role_ops_id, 93001031
-    UNION ALL SELECT @role_ops_id, 93002044
-    UNION ALL SELECT @role_ops_id, 93002051
-    UNION ALL SELECT @role_ops_id, 93002045
-    UNION ALL SELECT @role_ops_id, 93002046
-    UNION ALL SELECT @role_ops_id, 93002047
-    UNION ALL SELECT @role_ops_id, 93002048
-    UNION ALL SELECT @role_ops_id, 93002049
-    UNION ALL SELECT @role_ops_id, 93002050
-    UNION ALL SELECT @role_developer_id, 93001021
-    UNION ALL SELECT @role_developer_id, 93001022
-    UNION ALL SELECT @role_developer_id, 93001023
-    UNION ALL SELECT @role_developer_id, 93001024
-    UNION ALL SELECT @role_developer_id, 93001026
-    UNION ALL SELECT @role_developer_id, 93001027
-    UNION ALL SELECT @role_developer_id, 93001030
-    UNION ALL SELECT @role_developer_id, 93002044
-    UNION ALL SELECT @role_developer_id, 93002045
-    UNION ALL SELECT @role_developer_id, 93002047
-    UNION ALL SELECT @role_developer_id, 93002049
-) role_scope
-WHERE role_scope.role_id IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1
-    FROM sys_role_menu rm
-    WHERE rm.tenant_id = 1
-      AND rm.role_id = role_scope.role_id
-      AND rm.menu_id = role_scope.menu_id
-      AND rm.deleted = 0
-  );
-
 INSERT INTO sys_menu (
     id, tenant_id, parent_id, menu_name, menu_code, path, component, icon, meta_json, sort, type, menu_type,
     route_path, permission, sort_no, visible, status, create_by, create_time, update_by, update_time, deleted
 ) VALUES
+    (93001071, 1, 93001008, '创建接入案例', 'iot:device-onboarding:create-case', '', '', '', '{"caption":"无代码接入台创建接入案例"}', 1071, 2, 2, '', 'iot:device-onboarding:create-case', 1071, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001072, 1, 93001008, '编辑接入案例', 'iot:device-onboarding:update-case', '', '', '', '{"caption":"无代码接入台编辑接入案例"}', 1072, 2, 2, '', 'iot:device-onboarding:update-case', 1072, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001073, 1, 93001008, '维护模板包', 'iot:device-onboarding:template-pack', '', '', '', '{"caption":"无代码接入台创建、编辑和预填模板包"}', 1073, 2, 2, '', 'iot:device-onboarding:template-pack', 1073, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001074, 1, 93001008, '批量创建案例', 'iot:device-onboarding:batch-create', '', '', '', '{"caption":"无代码接入台批量创建接入案例"}', 1074, 2, 2, '', 'iot:device-onboarding:batch-create', 1074, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001075, 1, 93001008, '批量套用模板', 'iot:device-onboarding:batch-apply-template', '', '', '', '{"caption":"无代码接入台批量套用模板包"}', 1075, 2, 2, '', 'iot:device-onboarding:batch-apply-template', 1075, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001076, 1, 93001008, '触发接入验收', 'iot:device-onboarding:start-acceptance', '', '', '', '{"caption":"无代码接入台单条或批量触发标准接入验收"}', 1076, 2, 2, '', 'iot:device-onboarding:start-acceptance', 1076, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001077, 1, 93001008, '刷新案例状态', 'iot:device-onboarding:refresh-status', '', '', '', '{"caption":"无代码接入台刷新接入案例步骤和状态"}', 1077, 2, 2, '', 'iot:device-onboarding:refresh-status', 1077, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001032, 1, 93001009, '协议族草稿', 'iot:protocol-governance:family-draft', '', '', '', '{"caption":"维护协议族定义草稿"}', 1132, 2, 2, '', 'iot:protocol-governance:family-draft', 1132, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001033, 1, 93001009, '协议族发布', 'iot:protocol-governance:family-publish', '', '', '', '{"caption":"提交协议族发布审批"}', 1133, 2, 2, '', 'iot:protocol-governance:family-publish', 1133, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001034, 1, 93001009, '协议族回滚', 'iot:protocol-governance:family-rollback', '', '', '', '{"caption":"提交协议族回滚审批"}', 1134, 2, 2, '', 'iot:protocol-governance:family-rollback', 1134, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001035, 1, 93001009, '解密档案草稿', 'iot:protocol-governance:decrypt-draft', '', '', '', '{"caption":"维护解密档案草稿"}', 1135, 2, 2, '', 'iot:protocol-governance:decrypt-draft', 1135, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001036, 1, 93001009, '解密命中试算', 'iot:protocol-governance:decrypt-preview', '', '', '', '{"caption":"查看解密命中试算结果"}', 1136, 2, 2, '', 'iot:protocol-governance:decrypt-preview', 1136, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001037, 1, 93001009, '解密回放', 'iot:protocol-governance:decrypt-replay', '', '', '', '{"caption":"执行解密链路回放"}', 1137, 2, 2, '', 'iot:protocol-governance:decrypt-replay', 1137, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001078, 1, 93001009, '解密档案发布', 'iot:protocol-governance:decrypt-publish', '', '', '', '{"caption":"提交解密档案发布审批"}', 1178, 2, 2, '', 'iot:protocol-governance:decrypt-publish', 1178, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001079, 1, 93001009, '解密档案回滚', 'iot:protocol-governance:decrypt-rollback', '', '', '', '{"caption":"提交解密档案回滚审批"}', 1179, 2, 2, '', 'iot:protocol-governance:decrypt-rollback', 1179, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001038, 1, 93001009, '协议模板草稿', 'iot:protocol-governance:template-draft', '', '', '', '{"caption":"维护协议模板草稿"}', 1138, 2, 2, '', 'iot:protocol-governance:template-draft', 1138, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001039, 1, 93001009, '模板回放', 'iot:protocol-governance:template-replay', '', '', '', '{"caption":"执行协议模板回放"}', 1139, 2, 2, '', 'iot:protocol-governance:template-replay', 1139, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001040, 1, 93001009, '模板发布', 'iot:protocol-governance:template-publish', '', '', '', '{"caption":"发布协议模板快照"}', 1140, 2, 2, '', 'iot:protocol-governance:template-publish', 1140, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -553,6 +433,8 @@ INSERT INTO sys_menu (
     (93001053, 1, 93001002, '导出选中', 'iot:devices:export-selected', '', '', '', '{"caption":"导出选中的设备结果"}', 1253, 2, 2, '', 'iot:devices:export-selected', 1253, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001054, 1, 93001002, '导出当前结果', 'iot:devices:export-current', '', '', '', '{"caption":"导出当前筛选结果"}', 1254, 2, 2, '', 'iot:devices:export-current', 1254, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001055, 1, 93001002, '对象洞察跳转', 'iot:devices:insight', '', '', '', '{"caption":"从设备资产中心跳转对象洞察"}', 1255, 2, 2, '', 'iot:devices:insight', 1255, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001070, 1, 93001002, '设备操作', 'iot:device-capability:view', '', '', '', '{"caption":"打开设备操作抽屉并查看可执行能力"}', 1270, 2, 2, '', 'iot:device-capability:view', 1270, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001080, 1, 93001002, '设备命令下发', 'iot:device-capability:execute', '', '', '', '{"caption":"执行设备能力命令下发"}', 1280, 2, 2, '', 'iot:device-capability:execute', 1280, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001056, 1, 93001003, '结果复盘工作区', 'iot:reporting:replay-workspace', '', '', '', '{"caption":"切换结果复盘工作区"}', 1356, 2, 2, '', 'iot:reporting:replay-workspace', 1356, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001057, 1, 93001003, '模拟上报工作区', 'iot:reporting:simulate-workspace', '', '', '', '{"caption":"切换模拟上报工作区"}', 1357, 2, 2, '', 'iot:reporting:simulate-workspace', 1357, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001058, 1, 93001003, '最近会话工作区', 'iot:reporting:recent-workspace', '', '', '', '{"caption":"切换最近会话工作区"}', 1358, 2, 2, '', 'iot:reporting:recent-workspace', 1358, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -649,18 +531,25 @@ INSERT INTO sys_menu (
     (93003646, 1, 93003022, '影响分析', 'system:governance-approval:impact', '', '', '', '{"caption":"查看审批影响分析"}', 5246, 2, 2, '', 'system:governance-approval:impact', 5246, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003701, 1, 93003020, '发起验收', 'system:business-acceptance:launch', '', '', '', '{"caption":"发起业务验收"}', 5701, 2, 2, '', 'system:business-acceptance:launch', 5701, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003702, 1, 93003020, '打开结果', 'system:business-acceptance:open-result', '', '', '', '{"caption":"打开最近一次验收结果"}', 5702, 2, 2, '', 'system:business-acceptance:open-result', 5702, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003703, 1, 93003016, '刷新盘点', 'system:rd-automation-inventory:refresh', '', '', '', '{"caption":"刷新页面盘点结果"}', 5303, 2, 2, '', 'system:rd-automation-inventory:refresh', 5303, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003704, 1, 93003016, '勾选未覆盖', 'system:rd-automation-inventory:select-uncovered', '', '', '', '{"caption":"勾选未覆盖页面"}', 5304, 2, 2, '', 'system:rd-automation-inventory:select-uncovered', 5304, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003705, 1, 93003016, '生成脚手架', 'system:rd-automation-inventory:generate-scaffold', '', '', '', '{"caption":"一键生成自动化脚手架"}', 5305, 2, 2, '', 'system:rd-automation-inventory:generate-scaffold', 5305, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003706, 1, 93003017, '新增页面冒烟模板', 'system:rd-automation-templates:add-page-smoke', '', '', '', '{"caption":"新增页面冒烟模板"}', 5406, 2, 2, '', 'system:rd-automation-templates:add-page-smoke', 5406, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003707, 1, 93003017, '新增表单提交模板', 'system:rd-automation-templates:add-form-submit', '', '', '', '{"caption":"新增表单提交模板"}', 5407, 2, 2, '', 'system:rd-automation-templates:add-form-submit', 5407, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003708, 1, 93003017, '新增列表详情模板', 'system:rd-automation-templates:add-list-detail', '', '', '', '{"caption":"新增列表详情模板"}', 5408, 2, 2, '', 'system:rd-automation-templates:add-list-detail', 5408, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003709, 1, 93003018, '导入计划', 'system:rd-automation-plans:import', '', '', '', '{"caption":"导入自动化计划"}', 5509, 2, 2, '', 'system:rd-automation-plans:import', 5509, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003710, 1, 93003018, '导出计划', 'system:rd-automation-plans:export', '', '', '', '{"caption":"导出自动化计划 JSON"}', 5510, 2, 2, '', 'system:rd-automation-plans:export', 5510, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003711, 1, 93003018, '重置计划', 'system:rd-automation-plans:reset', '', '', '', '{"caption":"恢复默认自动化计划"}', 5511, 2, 2, '', 'system:rd-automation-plans:reset', 5511, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003712, 1, 93003019, '复制命令', 'system:rd-automation-handoff:copy-command', '', '', '', '{"caption":"复制交付命令"}', 5612, 2, 2, '', 'system:rd-automation-handoff:copy-command', 5612, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003713, 1, 93003019, '导出计划文件', 'system:rd-automation-handoff:export-plan', '', '', '', '{"caption":"导出交付计划"}', 5613, 2, 2, '', 'system:rd-automation-handoff:export-plan', 5613, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003714, 1, 93003013, '复制执行命令', 'system:automation-execution:copy-command', '', '', '', '{"caption":"复制执行中心命令"}', 5714, 2, 2, '', 'system:automation-execution:copy-command', 5714, 1, 1, 1, NOW(), 1, NOW(), 0)
+    (93003703, 1, 93003015, '刷新盘点', 'system:automation-governance:assets:inventory-refresh', '', '', '', '{"caption":"刷新自动化治理台页面盘点结果"}', 5303, 2, 2, '', 'system:automation-governance:assets:inventory-refresh', 5303, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003704, 1, 93003015, '勾选未覆盖', 'system:automation-governance:assets:inventory-select-uncovered', '', '', '', '{"caption":"勾选自动化治理台未覆盖页面"}', 5304, 2, 2, '', 'system:automation-governance:assets:inventory-select-uncovered', 5304, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003705, 1, 93003015, '生成脚手架', 'system:automation-governance:assets:inventory-generate-scaffold', '', '', '', '{"caption":"一键生成自动化治理台页面脚手架"}', 5305, 2, 2, '', 'system:automation-governance:assets:inventory-generate-scaffold', 5305, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003706, 1, 93003015, '新增页面冒烟模板', 'system:automation-governance:assets:templates-add-page-smoke', '', '', '', '{"caption":"新增自动化治理台页面冒烟模板"}', 5406, 2, 2, '', 'system:automation-governance:assets:templates-add-page-smoke', 5406, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003707, 1, 93003015, '新增表单提交模板', 'system:automation-governance:assets:templates-add-form-submit', '', '', '', '{"caption":"新增自动化治理台表单提交模板"}', 5407, 2, 2, '', 'system:automation-governance:assets:templates-add-form-submit', 5407, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003708, 1, 93003015, '新增列表详情模板', 'system:automation-governance:assets:templates-add-list-detail', '', '', '', '{"caption":"新增自动化治理台列表详情模板"}', 5408, 2, 2, '', 'system:automation-governance:assets:templates-add-list-detail', 5408, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003709, 1, 93003015, '导入计划', 'system:automation-governance:assets:plans-import', '', '', '', '{"caption":"导入自动化治理台计划"}', 5509, 2, 2, '', 'system:automation-governance:assets:plans-import', 5509, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003710, 1, 93003015, '导出计划', 'system:automation-governance:assets:plans-export', '', '', '', '{"caption":"导出自动化治理台计划 JSON"}', 5510, 2, 2, '', 'system:automation-governance:assets:plans-export', 5510, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003711, 1, 93003015, '重置计划', 'system:automation-governance:assets:plans-reset', '', '', '', '{"caption":"恢复自动化治理台默认计划"}', 5511, 2, 2, '', 'system:automation-governance:assets:plans-reset', 5511, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003712, 1, 93003015, '复制命令', 'system:automation-governance:assets:handoff-copy-command', '', '', '', '{"caption":"复制自动化治理台交付命令"}', 5612, 2, 2, '', 'system:automation-governance:assets:handoff-copy-command', 5612, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003713, 1, 93003015, '导出计划文件', 'system:automation-governance:assets:handoff-export-plan', '', '', '', '{"caption":"导出自动化治理台交付计划"}', 5613, 2, 2, '', 'system:automation-governance:assets:handoff-export-plan', 5613, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003714, 1, 93003015, '复制执行命令', 'system:automation-governance:execution:copy-command', '', '', '', '{"caption":"复制自动化治理台执行命令"}', 5714, 2, 2, '', 'system:automation-governance:execution:copy-command', 5714, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003716, 1, 93003015, '刷新结果台账', 'system:automation-governance:evidence:refresh', '', '', '', '{"caption":"刷新自动化治理台结果证据台账"}', 5816, 2, 2, '', 'system:automation-governance:evidence:refresh', 5816, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003717, 1, 93003015, '查看运行详情', 'system:automation-governance:evidence:detail', '', '', '', '{"caption":"查看自动化治理台运行详情"}', 5817, 2, 2, '', 'system:automation-governance:evidence:detail', 5817, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003718, 1, 93003015, '查看证据原文', 'system:automation-governance:evidence:evidence-preview', '', '', '', '{"caption":"查看自动化治理台结果证据原文"}', 5818, 2, 2, '', 'system:automation-governance:evidence:evidence-preview', 5818, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003719, 1, 93003015, '导入结果 JSON', 'system:automation-governance:evidence:import-json', '', '', '', '{"caption":"兼容导入自动化治理台外部结果 JSON"}', 5819, 2, 2, '', 'system:automation-governance:evidence:import-json', 5819, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003720, 1, 93003015, '清空导入结果', 'system:automation-governance:evidence:clear-import', '', '', '', '{"caption":"清空自动化治理台兼容导入结果"}', 5820, 2, 2, '', 'system:automation-governance:evidence:clear-import', 5820, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003721, 1, 93003015, '编辑计划编排', 'system:automation-governance:assets:plans-edit', '', '', '', '{"caption":"维护自动化治理台计划场景、步骤、接口与变量捕获"}', 5521, 2, 2, '', 'system:automation-governance:assets:plans-edit', 5521, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003722, 1, 93003015, '维护自定义页面', 'system:automation-governance:assets:inventory-manual-page', '', '', '', '{"caption":"新增或删除自动化治理台页面盘点补录页面"}', 5322, 2, 2, '', 'system:automation-governance:assets:inventory-manual-page', 5322, 1, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     parent_id = VALUES(parent_id),
     menu_name = VALUES(menu_name),
@@ -681,73 +570,342 @@ ON DUPLICATE KEY UPDATE
     update_time = VALUES(update_time),
     deleted = 0;
 
-SET @menu_permission_role_menu_id := 96011000;
-INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
-SELECT (@menu_permission_role_menu_id := @menu_permission_role_menu_id + 1), 1, parent_rm.role_id, child.id, 1, NOW(), 1, NOW(), 0
-FROM sys_menu child
-JOIN sys_menu parent
-  ON parent.id = child.parent_id
- AND parent.tenant_id = 1
- AND parent.deleted = 0
-JOIN sys_role_menu parent_rm
-  ON parent_rm.menu_id = parent.id
- AND parent_rm.tenant_id = 1
- AND parent_rm.deleted = 0
-WHERE child.tenant_id = 1
-  AND child.deleted = 0
-  AND child.id = 93001009
-  AND parent_rm.role_id IN (@role_business_id, @role_management_id, @role_ops_id, @role_developer_id)
-  AND NOT EXISTS (
-      SELECT 1
-      FROM sys_role_menu existed
-      WHERE existed.tenant_id = 1
-        AND existed.role_id = parent_rm.role_id
-        AND existed.menu_id = child.id
-        AND existed.deleted = 0
-  );
+DELETE FROM sys_role_menu
+WHERE role_id IN (@role_business_id, @role_management_id, @role_ops_id, @role_developer_id, @role_super_admin_id);
+
+SET @role_menu_rebaseline_id := GREATEST(COALESCE((SELECT MAX(id) FROM sys_role_menu), 0), 96010000);
 
 INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
-SELECT (@menu_permission_role_menu_id := @menu_permission_role_menu_id + 1), 1, parent_rm.role_id, child.id, 1, NOW(), 1, NOW(), 0
+SELECT (@role_menu_rebaseline_id := @role_menu_rebaseline_id + 1), 1, grant_scope.role_id, m.id, 1, NOW(), 1, NOW(), 0
+FROM (
+    SELECT @role_business_id AS role_id, 'risk-ops' AS menu_code
+    UNION SELECT @role_business_id, 'risk:ops-overview'
+    UNION SELECT @role_business_id, 'risk:monitoring'
+    UNION SELECT @role_business_id, 'risk:monitoring-gis'
+    UNION SELECT @role_business_id, 'risk:alarm'
+    UNION SELECT @role_business_id, 'risk:event'
+    UNION SELECT @role_business_id, 'iot:insight'
+    UNION SELECT @role_business_id, 'risk:report'
+    UNION SELECT @role_business_id, 'quality-workbench'
+    UNION SELECT @role_business_id, 'system:quality-workbench-overview'
+    UNION SELECT @role_business_id, 'system:business-acceptance'
+    UNION SELECT @role_business_id, 'system:business-acceptance:result'
+    UNION SELECT @role_business_id, 'iot-access'
+    UNION SELECT @role_business_id, 'iot-access:overview'
+    UNION SELECT @role_business_id, 'iot:products'
+    UNION SELECT @role_business_id, 'iot:products:detail-overview'
+    UNION SELECT @role_business_id, 'iot:products:detail-devices'
+    UNION SELECT @role_business_id, 'iot:products:detail-contracts'
+    UNION SELECT @role_business_id, 'iot:products:detail-mapping-rules'
+    UNION SELECT @role_business_id, 'iot:products:detail-releases'
+    UNION SELECT @role_business_id, 'iot:devices'
+    UNION SELECT @role_management_id, 'risk-ops'
+    UNION SELECT @role_management_id, 'risk:ops-overview'
+    UNION SELECT @role_management_id, 'risk:monitoring'
+    UNION SELECT @role_management_id, 'risk:monitoring-gis'
+    UNION SELECT @role_management_id, 'risk:alarm'
+    UNION SELECT @role_management_id, 'risk:event'
+    UNION SELECT @role_management_id, 'iot:insight'
+    UNION SELECT @role_management_id, 'risk:report'
+    UNION SELECT @role_management_id, 'risk-config'
+    UNION SELECT @role_management_id, 'risk:config-overview'
+    UNION SELECT @role_management_id, 'risk:point'
+    UNION SELECT @role_management_id, 'risk:rule-definition'
+    UNION SELECT @role_management_id, 'risk:linkage-rule'
+    UNION SELECT @role_management_id, 'risk:emergency-plan'
+    UNION SELECT @role_management_id, 'system-governance'
+    UNION SELECT @role_management_id, 'system:governance-overview'
+    UNION SELECT @role_management_id, 'system:organization'
+    UNION SELECT @role_management_id, 'system:user'
+    UNION SELECT @role_management_id, 'system:role'
+    UNION SELECT @role_management_id, 'system:menu'
+    UNION SELECT @role_management_id, 'system:region'
+    UNION SELECT @role_management_id, 'system:dict'
+    UNION SELECT @role_management_id, 'system:channel'
+    UNION SELECT @role_management_id, 'system:in-app-message'
+    UNION SELECT @role_management_id, 'system:help-doc'
+    UNION SELECT @role_management_id, 'system:governance-task'
+    UNION SELECT @role_management_id, 'system:governance-ops'
+    UNION SELECT @role_management_id, 'system:governance-approval'
+    UNION SELECT @role_management_id, 'system:governance-security'
+    UNION SELECT @role_management_id, 'system:audit'
+    UNION SELECT @role_management_id, 'system:audit:delete'
+    UNION SELECT @role_management_id, 'iot-access'
+    UNION SELECT @role_management_id, 'iot-access:overview'
+    UNION SELECT @role_management_id, 'iot:device-onboarding'
+    UNION SELECT @role_management_id, 'iot:protocol-governance'
+    UNION SELECT @role_management_id, 'iot:products'
+    UNION SELECT @role_management_id, 'iot:products:detail-overview'
+    UNION SELECT @role_management_id, 'iot:products:detail-devices'
+    UNION SELECT @role_management_id, 'iot:products:detail-contracts'
+    UNION SELECT @role_management_id, 'iot:products:detail-mapping-rules'
+    UNION SELECT @role_management_id, 'iot:products:detail-releases'
+    UNION SELECT @role_management_id, 'iot:devices'
+    UNION SELECT @role_management_id, 'quality-workbench'
+    UNION SELECT @role_management_id, 'system:quality-workbench-overview'
+    UNION SELECT @role_management_id, 'system:business-acceptance'
+    UNION SELECT @role_management_id, 'system:business-acceptance:result'
+    UNION SELECT @role_ops_id, 'iot-access'
+    UNION SELECT @role_ops_id, 'iot-access:overview'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance'
+    UNION SELECT @role_ops_id, 'iot:products'
+    UNION SELECT @role_ops_id, 'iot:products:detail-overview'
+    UNION SELECT @role_ops_id, 'iot:products:detail-devices'
+    UNION SELECT @role_ops_id, 'iot:products:detail-contracts'
+    UNION SELECT @role_ops_id, 'iot:products:detail-mapping-rules'
+    UNION SELECT @role_ops_id, 'iot:products:detail-releases'
+    UNION SELECT @role_ops_id, 'iot:devices'
+    UNION SELECT @role_ops_id, 'iot:reporting'
+    UNION SELECT @role_ops_id, 'iot:system-log'
+    UNION SELECT @role_ops_id, 'iot:message-trace'
+    UNION SELECT @role_ops_id, 'iot:file-debug'
+    UNION SELECT @role_ops_id, 'risk-ops'
+    UNION SELECT @role_ops_id, 'risk:ops-overview'
+    UNION SELECT @role_ops_id, 'risk:monitoring'
+    UNION SELECT @role_ops_id, 'risk:alarm'
+    UNION SELECT @role_ops_id, 'risk:event'
+    UNION SELECT @role_ops_id, 'iot:insight'
+    UNION SELECT @role_ops_id, 'system-governance'
+    UNION SELECT @role_ops_id, 'system:governance-overview'
+    UNION SELECT @role_ops_id, 'system:governance-security'
+    UNION SELECT @role_ops_id, 'system:governance-approval'
+    UNION SELECT @role_ops_id, 'system:governance-task'
+    UNION SELECT @role_ops_id, 'system:governance-ops'
+    UNION SELECT @role_developer_id, 'iot-access'
+    UNION SELECT @role_developer_id, 'iot-access:overview'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance'
+    UNION SELECT @role_developer_id, 'iot:products'
+    UNION SELECT @role_developer_id, 'iot:products:detail-overview'
+    UNION SELECT @role_developer_id, 'iot:products:detail-devices'
+    UNION SELECT @role_developer_id, 'iot:products:detail-contracts'
+    UNION SELECT @role_developer_id, 'iot:products:detail-mapping-rules'
+    UNION SELECT @role_developer_id, 'iot:products:detail-releases'
+    UNION SELECT @role_developer_id, 'iot:devices'
+    UNION SELECT @role_developer_id, 'iot:reporting'
+    UNION SELECT @role_developer_id, 'iot:system-log'
+    UNION SELECT @role_developer_id, 'iot:message-trace'
+    UNION SELECT @role_developer_id, 'iot:file-debug'
+    UNION SELECT @role_developer_id, 'quality-workbench'
+    UNION SELECT @role_developer_id, 'system:quality-workbench-overview'
+    UNION SELECT @role_developer_id, 'system:automation-governance'
+    UNION SELECT @role_developer_id, 'risk-config'
+    UNION SELECT @role_developer_id, 'risk:config-overview'
+    UNION SELECT @role_developer_id, 'risk:rule-definition'
+    UNION SELECT @role_developer_id, 'risk:linkage-rule'
+    UNION SELECT @role_developer_id, 'risk:emergency-plan'
+) grant_scope
+JOIN sys_menu m
+  ON m.menu_code = grant_scope.menu_code
+ AND m.tenant_id = 1
+ AND m.deleted = 0
+WHERE grant_scope.role_id IS NOT NULL
+ORDER BY grant_scope.role_id, m.sort, m.id
+ON DUPLICATE KEY UPDATE
+    deleted = 0,
+    update_by = VALUES(update_by),
+    update_time = NOW();
+
+INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
+SELECT (@role_menu_rebaseline_id := @role_menu_rebaseline_id + 1), 1, grant_scope.role_id, m.id, 1, NOW(), 1, NOW(), 0
+FROM (
+    SELECT @role_business_id AS role_id, 'risk:alarm:detail' AS menu_code
+    UNION SELECT @role_business_id, 'risk:alarm:confirm'
+    UNION SELECT @role_business_id, 'risk:alarm:suppress'
+    UNION SELECT @role_business_id, 'risk:alarm:close'
+    UNION SELECT @role_business_id, 'risk:event:detail'
+    UNION SELECT @role_business_id, 'risk:event:dispatch'
+    UNION SELECT @role_business_id, 'risk:event:close'
+    UNION SELECT @role_business_id, 'system:business-acceptance:launch'
+    UNION SELECT @role_business_id, 'system:business-acceptance:open-result'
+    UNION SELECT @role_business_id, 'iot:products:export'
+    UNION SELECT @role_business_id, 'iot:devices:detail'
+    UNION SELECT @role_business_id, 'iot:devices:export'
+    UNION SELECT @role_business_id, 'iot:devices:insight'
+    UNION SELECT @role_ops_id, 'iot:devices:add'
+    UNION SELECT @role_ops_id, 'iot:devices:update'
+    UNION SELECT @role_ops_id, 'iot:devices:export'
+    UNION SELECT @role_ops_id, 'iot:devices:import'
+    UNION SELECT @role_ops_id, 'iot:devices:replace'
+    UNION SELECT @role_ops_id, 'iot:devices:detail'
+    UNION SELECT @role_ops_id, 'iot:devices:export-config'
+    UNION SELECT @role_ops_id, 'iot:devices:export-selected'
+    UNION SELECT @role_ops_id, 'iot:devices:export-current'
+    UNION SELECT @role_ops_id, 'iot:devices:insight'
+    UNION SELECT @role_ops_id, 'iot:device-capability:view'
+    UNION SELECT @role_ops_id, 'iot:device-capability:execute'
+    UNION SELECT @role_ops_id, 'iot:products:add'
+    UNION SELECT @role_ops_id, 'iot:products:update'
+    UNION SELECT @role_ops_id, 'iot:products:export'
+    UNION SELECT @role_ops_id, 'iot:product-contract:govern'
+    UNION SELECT @role_ops_id, 'iot:product-contract:release'
+    UNION SELECT @role_ops_id, 'iot:product-contract:rollback'
+    UNION SELECT @role_ops_id, 'iot:product-contract:approve'
+    UNION SELECT @role_ops_id, 'iot:vendor-mapping-rule:suggestion'
+    UNION SELECT @role_ops_id, 'iot:vendor-mapping-rule:ledger'
+    UNION SELECT @role_ops_id, 'iot:vendor-mapping-rule:preview'
+    UNION SELECT @role_ops_id, 'iot:vendor-mapping-rule:replay'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:create-case'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:update-case'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:template-pack'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:batch-create'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:batch-apply-template'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:start-acceptance'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:refresh-status'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:edit'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:approve'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:family-draft'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:family-publish'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:family-rollback'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-draft'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-preview'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-replay'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-publish'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-rollback'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:template-draft'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:template-replay'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:template-publish'
+    UNION SELECT @role_ops_id, 'iot:reporting:replay-workspace'
+    UNION SELECT @role_ops_id, 'iot:reporting:simulate-workspace'
+    UNION SELECT @role_ops_id, 'iot:reporting:recent-workspace'
+    UNION SELECT @role_ops_id, 'iot:reporting:jump-message-trace'
+    UNION SELECT @role_ops_id, 'iot:reporting:copy-actual-payload'
+    UNION SELECT @role_ops_id, 'iot:reporting:copy-response'
+    UNION SELECT @role_ops_id, 'iot:message-trace:detail'
+    UNION SELECT @role_ops_id, 'iot:message-trace:timeline'
+    UNION SELECT @role_ops_id, 'iot:message-trace:payload-comparison'
+    UNION SELECT @role_ops_id, 'iot:secret-custody:view'
+    UNION SELECT @role_ops_id, 'iot:secret-custody:rotate'
+    UNION SELECT @role_ops_id, 'iot:secret-custody:approve'
+    UNION SELECT @role_ops_id, 'risk:alarm:detail'
+    UNION SELECT @role_ops_id, 'risk:alarm:confirm'
+    UNION SELECT @role_ops_id, 'risk:alarm:suppress'
+    UNION SELECT @role_ops_id, 'risk:alarm:close'
+    UNION SELECT @role_ops_id, 'risk:event:detail'
+    UNION SELECT @role_ops_id, 'risk:event:dispatch'
+    UNION SELECT @role_ops_id, 'risk:event:close'
+    UNION SELECT @role_ops_id, 'system:governance-task:decision-context'
+    UNION SELECT @role_ops_id, 'system:governance-task:dispatch'
+    UNION SELECT @role_ops_id, 'system:governance-task:replay'
+    UNION SELECT @role_ops_id, 'system:governance-task:ack'
+    UNION SELECT @role_ops_id, 'system:governance-task:block'
+    UNION SELECT @role_ops_id, 'system:governance-task:close'
+    UNION SELECT @role_ops_id, 'system:governance-task:replay-feedback'
+    UNION SELECT @role_ops_id, 'system:governance-ops:replay'
+    UNION SELECT @role_ops_id, 'system:governance-ops:ack'
+    UNION SELECT @role_ops_id, 'system:governance-ops:suppress'
+    UNION SELECT @role_ops_id, 'system:governance-ops:close'
+    UNION SELECT @role_ops_id, 'system:governance-ops:replay-feedback'
+    UNION SELECT @role_developer_id, 'iot:normative-library:write'
+    UNION SELECT @role_developer_id, 'iot:products:add'
+    UNION SELECT @role_developer_id, 'iot:products:update'
+    UNION SELECT @role_developer_id, 'iot:products:export'
+    UNION SELECT @role_developer_id, 'iot:product-contract:govern'
+    UNION SELECT @role_developer_id, 'iot:product-contract:release'
+    UNION SELECT @role_developer_id, 'iot:product-contract:rollback'
+    UNION SELECT @role_developer_id, 'iot:product-contract:ledger'
+    UNION SELECT @role_developer_id, 'iot:product-contract:diff'
+    UNION SELECT @role_developer_id, 'iot:vendor-mapping-rule:suggestion'
+    UNION SELECT @role_developer_id, 'iot:vendor-mapping-rule:ledger'
+    UNION SELECT @role_developer_id, 'iot:vendor-mapping-rule:preview'
+    UNION SELECT @role_developer_id, 'iot:vendor-mapping-rule:replay'
+    UNION SELECT @role_developer_id, 'iot:devices:detail'
+    UNION SELECT @role_developer_id, 'iot:devices:export'
+    UNION SELECT @role_developer_id, 'iot:devices:insight'
+    UNION SELECT @role_developer_id, 'iot:device-capability:view'
+    UNION SELECT @role_developer_id, 'iot:device-capability:execute'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:create-case'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:update-case'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:template-pack'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:batch-create'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:batch-apply-template'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:start-acceptance'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:refresh-status'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:edit'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:family-draft'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:family-publish'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:family-rollback'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-draft'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-preview'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-replay'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-publish'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-rollback'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:template-draft'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:template-replay'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:template-publish'
+    UNION SELECT @role_developer_id, 'iot:reporting:replay-workspace'
+    UNION SELECT @role_developer_id, 'iot:reporting:simulate-workspace'
+    UNION SELECT @role_developer_id, 'iot:reporting:recent-workspace'
+    UNION SELECT @role_developer_id, 'iot:reporting:jump-message-trace'
+    UNION SELECT @role_developer_id, 'iot:reporting:copy-actual-payload'
+    UNION SELECT @role_developer_id, 'iot:reporting:copy-response'
+    UNION SELECT @role_developer_id, 'iot:message-trace:detail'
+    UNION SELECT @role_developer_id, 'iot:message-trace:timeline'
+    UNION SELECT @role_developer_id, 'iot:message-trace:payload-comparison'
+    UNION SELECT @role_developer_id, 'risk:rule-definition:edit'
+    UNION SELECT @role_developer_id, 'risk:linkage-rule:edit'
+    UNION SELECT @role_developer_id, 'risk:emergency-plan:edit'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:inventory-refresh'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:inventory-select-uncovered'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:inventory-generate-scaffold'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:inventory-manual-page'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:templates-add-page-smoke'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:templates-add-form-submit'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:templates-add-list-detail'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:plans-import'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:plans-export'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:plans-reset'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:plans-edit'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:handoff-copy-command'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:handoff-export-plan'
+    UNION SELECT @role_developer_id, 'system:automation-governance:execution:copy-command'
+    UNION SELECT @role_developer_id, 'system:automation-governance:evidence:refresh'
+    UNION SELECT @role_developer_id, 'system:automation-governance:evidence:detail'
+    UNION SELECT @role_developer_id, 'system:automation-governance:evidence:evidence-preview'
+    UNION SELECT @role_developer_id, 'system:automation-governance:evidence:import-json'
+    UNION SELECT @role_developer_id, 'system:automation-governance:evidence:clear-import'
+) grant_scope
+JOIN sys_menu m
+  ON m.menu_code = grant_scope.menu_code
+ AND m.tenant_id = 1
+ AND m.deleted = 0
+WHERE grant_scope.role_id IS NOT NULL
+ORDER BY grant_scope.role_id, m.sort, m.id
+ON DUPLICATE KEY UPDATE
+    deleted = 0,
+    update_by = VALUES(update_by),
+    update_time = NOW();
+
+INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
+SELECT (@role_menu_rebaseline_id := @role_menu_rebaseline_id + 1), 1, @role_management_id, child.id, 1, NOW(), 1, NOW(), 0
 FROM sys_menu child
-JOIN sys_menu parent
-  ON parent.id = child.parent_id
- AND parent.tenant_id = 1
- AND parent.deleted = 0
 JOIN sys_role_menu parent_rm
-  ON parent_rm.menu_id = parent.id
+  ON parent_rm.menu_id = child.parent_id
  AND parent_rm.tenant_id = 1
+ AND parent_rm.role_id = @role_management_id
  AND parent_rm.deleted = 0
 WHERE child.tenant_id = 1
   AND child.deleted = 0
-  AND child.id IN (
-      93001032, 93001033, 93001034, 93001035, 93001036, 93001037, 93001038, 93001039, 93001040,
-      93001041, 93001042, 93001043, 93001044, 93001045, 93001046, 93001047, 93001048, 93001049, 93001050,
-      93001051, 93001052, 93001053, 93001054, 93001055,
-      93001056, 93001057, 93001058, 93001059, 93001060, 93001061,
-      93001062, 93001063, 93001064,
-      93002031, 93002032, 93002033, 93002034, 93002035, 93002036, 93002037, 93002038,
-      93002039, 93002040, 93002041, 93002042,
-      93002052, 93002053, 93002054,
-      93003601, 93003602, 93003603, 93003604, 93003605,
-      93003606, 93003607, 93003608, 93003609, 93003610,
-      93003611, 93003612, 93003613, 93003614, 93003615, 93003616, 93003617, 93003618,
-      93003619, 93003620, 93003621, 93003622, 93003623,
-      93003624, 93003625, 93003626, 93003627,
-      93003628, 93003629, 93003630, 93003631, 93003632, 93003633, 93003634,
-      93003635, 93003636, 93003637, 93003638, 93003639,
-      93003640, 93003641, 93003642, 93003643, 93003644, 93003645, 93003646,
-      93003701, 93003702, 93003703, 93003704, 93003705, 93003706, 93003707, 93003708,
-      93003709, 93003710, 93003711, 93003712, 93003713, 93003714
-  )
-  AND parent_rm.role_id IN (@role_business_id, @role_management_id, @role_ops_id, @role_developer_id)
-  AND NOT EXISTS (
-      SELECT 1
-      FROM sys_role_menu existed
-      WHERE existed.tenant_id = 1
-        AND existed.role_id = parent_rm.role_id
-        AND existed.menu_id = child.id
-        AND existed.deleted = 0
-  );
+  AND child.type = 2
+  AND @role_management_id IS NOT NULL
+ORDER BY child.sort, child.id
+ON DUPLICATE KEY UPDATE
+    deleted = 0,
+    update_by = VALUES(update_by),
+    update_time = NOW();
+
+INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
+SELECT (@role_menu_rebaseline_id := @role_menu_rebaseline_id + 1), 1, @role_super_admin_id, m.id, 1, NOW(), 1, NOW(), 0
+FROM sys_menu m
+WHERE m.tenant_id = 1
+  AND m.deleted = 0
+  AND @role_super_admin_id IS NOT NULL
+ORDER BY m.sort, m.id
+ON DUPLICATE KEY UPDATE
+    deleted = 0,
+    update_by = VALUES(update_by),
+    update_time = NOW();
 -- =========================
 -- 2) IoT 产品/设备/消息基线
 -- =========================
@@ -804,13 +962,13 @@ INSERT INTO iot_normative_metric_definition (
     (920011, 1, 'phase2-gnss', 'GNSS', 'gpsInitial', 'GNSS 原始观测基础数据', NULL, 0, 'L1', 'GP', 0, 0,
      'raw_observation', 'snapshot', 'REFERENCE_ONLY', 0, 0, 0, 'ACTIVE', 1,
      JSON_OBJECT('usage', 'raw_observation', 'metricRole', 'CONTEXT')),
-    (920012, 1, 'phase2-gnss', 'GNSS', 'gpsTotalX', 'GNSS 累计位移 X', 'mm', 4, 'L1', 'GP', 1, 1,
+    (920012, 1, 'phase2-gnss', 'GNSS', 'gpsTotalX', 'X方向累计变形量', 'mm', 4, 'L1', 'GP', 1, 1,
      'displacement', 'absolute', 'HIGHER_IS_RISKIER', 1, 1, 1, 'ACTIVE', 1,
      JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'GNSS', 'metricRole', 'PRIMARY')),
-    (920013, 1, 'phase2-gnss', 'GNSS', 'gpsTotalY', 'GNSS 累计位移 Y', 'mm', 4, 'L1', 'GP', 1, 1,
+    (920013, 1, 'phase2-gnss', 'GNSS', 'gpsTotalY', 'Y方向累计变形量', 'mm', 4, 'L1', 'GP', 1, 1,
      'displacement', 'absolute', 'HIGHER_IS_RISKIER', 1, 1, 1, 'ACTIVE', 1,
      JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'GNSS', 'metricRole', 'PRIMARY')),
-    (920014, 1, 'phase2-gnss', 'GNSS', 'gpsTotalZ', 'GNSS 累计位移 Z', 'mm', 4, 'L1', 'GP', 1, 1,
+    (920014, 1, 'phase2-gnss', 'GNSS', 'gpsTotalZ', 'Z方向累计变形量', 'mm', 4, 'L1', 'GP', 1, 1,
      'displacement', 'absolute', 'HIGHER_IS_RISKIER', 1, 1, 1, 'ACTIVE', 1,
      JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'GNSS', 'metricRole', 'PRIMARY')),
     (920015, 1, 'phase2-gnss', 'GNSS', 'sensor_state', '传感器状态', NULL, 0, 'S1', 'ZT', 0, 0,
@@ -830,8 +988,93 @@ INSERT INTO iot_normative_metric_definition (
      JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'RAIN_GAUGE', 'metricRole', 'PRIMARY')),
     (920032, 1, 'phase4-rain-gauge', 'RAIN_GAUGE', 'totalValue', '累计雨量', 'mm', 2, 'L3', 'YL', 0, 1,
      'rainfall', 'cumulative', 'HIGHER_IS_RISKIER', 0, 1, 1, 'ACTIVE', 1,
-     JSON_OBJECT('thresholdKind', 'cumulative', 'riskCategory', 'RAIN_GAUGE', 'metricRole', 'CONTEXT'))
+     JSON_OBJECT('thresholdKind', 'cumulative', 'riskCategory', 'RAIN_GAUGE', 'metricRole', 'CONTEXT')),
+    (920033, 1, 'phase3-weather', 'AIR_TEMPERATURE', 'value', '气温', '℃', 2, 'L3', 'QW', 0, 1,
+     'temperature', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'WEATHER', 'metricRole', 'CONTEXT')),
+    (920034, 1, 'phase3-water-surface', 'SURFACE_WATER', 'temp', '地表水温', '℃', 2, 'L3', 'DB', 0, 1,
+     'temperature', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'SURFACE_WATER', 'metricRole', 'CONTEXT')),
+    (920035, 1, 'phase3-water-surface', 'SURFACE_WATER', 'value', '地表水位', 'm', 3, 'L3', 'DB', 0, 1,
+     'water_level', 'absolute', 'HIGHER_IS_RISKIER', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'SURFACE_WATER', 'metricRole', 'PRIMARY')),
+    (920041, 1, 'phase5-mud-level', 'MUD_LEVEL', 'value', '泥水位高程', 'm', 3, 'L4', 'NW', 0, 1,
+     'water_level', 'absolute', 'HIGHER_IS_RISKIER', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'MUD_LEVEL', 'metricRole', 'PRIMARY')),
+    (920051, 1, 'phase6-radar', 'RADAR', 'X', '雷达 X 坐标', 'm', 3, 'L4', 'LD', 0, 1,
+     'position', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'RADAR', 'metricRole', 'CONTEXT')),
+    (920052, 1, 'phase6-radar', 'RADAR', 'Y', '雷达 Y 坐标', 'm', 3, 'L4', 'LD', 0, 1,
+     'position', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'RADAR', 'metricRole', 'CONTEXT')),
+    (920053, 1, 'phase6-radar', 'RADAR', 'Z', '雷达 Z 坐标', 'm', 3, 'L4', 'LD', 0, 1,
+     'position', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'RADAR', 'metricRole', 'CONTEXT')),
+    (920054, 1, 'phase6-radar', 'RADAR', 'speed', '雷达移动速度', 'm/s', 3, 'L4', 'LD', 0, 1,
+     'speed', 'absolute', 'HIGHER_IS_RISKIER', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'RADAR', 'metricRole', 'PRIMARY')),
+    (920101, 1, 'phase1-vibration', 'VIBRATION', 'PLX', 'X 轴振动频率', 'Hz', 3, 'L1', 'ZD', 0, 1,
+     'frequency', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'VIBRATION', 'metricRole', 'CONTEXT')),
+    (920102, 1, 'phase1-vibration', 'VIBRATION', 'PLY', 'Y 轴振动频率', 'Hz', 3, 'L1', 'ZD', 0, 1,
+     'frequency', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'VIBRATION', 'metricRole', 'CONTEXT')),
+    (920103, 1, 'phase1-vibration', 'VIBRATION', 'PLZ', 'Z 轴振动频率', 'Hz', 3, 'L1', 'ZD', 0, 1,
+     'frequency', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'VIBRATION', 'metricRole', 'CONTEXT')),
+    (920104, 1, 'phase1-vibration', 'VIBRATION', 'value', '振动幅度', 'mm', 3, 'L1', 'ZD', 0, 1,
+     'vibration_amplitude', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'VIBRATION', 'metricRole', 'PRIMARY')),
+    (920105, 1, 'phase1-vibration', 'VIBRATION', 'SJX', 'X 轴瞬时位移', 'mm', 3, 'L1', 'ZD', 0, 1,
+     'displacement', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'VIBRATION', 'metricRole', 'CONTEXT')),
+    (920106, 1, 'phase1-vibration', 'VIBRATION', 'SJY', 'Y 轴瞬时位移', 'mm', 3, 'L1', 'ZD', 0, 1,
+     'displacement', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'VIBRATION', 'metricRole', 'CONTEXT')),
+    (920107, 1, 'phase1-vibration', 'VIBRATION', 'SJZ', 'Z 轴瞬时位移', 'mm', 3, 'L1', 'ZD', 0, 1,
+     'displacement', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'VIBRATION', 'metricRole', 'CONTEXT')),
+    (920108, 1, 'phase1-vibration', 'VIBRATION', 'SJValue', '合方向瞬时位移', 'mm', 3, 'L1', 'ZD', 0, 1,
+     'displacement', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'VIBRATION', 'metricRole', 'CONTEXT')),
+    (920109, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'amplitude', '地声幅度', 'dB', 2, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920110, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'energy', '地声能量', 'mV·ms', 2, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920111, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'ringing', '振铃计数', 'num.', 0, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920112, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'risetime', '上升时间', 'μs', 0, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920113, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'risecount', '上升计数', 'num.', 0, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920114, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'duration', '持续时间', 'μs', 0, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920115, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'arrivaltime', '到达时间', 'μs', 0, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920116, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'RMS', '有效值电压', 'V', 3, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920117, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'ASL', '平均信号电平', 'dB', 2, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920118, 1, 'phase3-settlement', 'SETTLEMENT', 'value', '沉降量', 'mm', 3, 'L3', 'CJ', 0, 1,
+     'settlement', 'absolute', 'HIGHER_IS_RISKIER', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'SETTLEMENT', 'metricRole', 'PRIMARY')),
+    (920119, 1, 'phase3-air-pressure', 'AIR_PRESSURE', 'value', '气压', 'kPa', 3, 'L3', 'QY', 0, 1,
+     'air_pressure', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'AIR_PRESSURE', 'metricRole', 'PRIMARY')),
+    (920120, 1, 'phase4-surface-flow-speed', 'SURFACE_FLOW_SPEED', 'value', '表面流速', 'm/s', 3, 'L4', 'BMLS', 0, 1,
+     'flow_speed', 'absolute', 'HIGHER_IS_RISKIER', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'SURFACE_FLOW_SPEED', 'metricRole', 'PRIMARY'))
 ON DUPLICATE KEY UPDATE
+    identifier = VALUES(identifier),
     display_name = VALUES(display_name),
     unit = VALUES(unit),
     precision_digits = VALUES(precision_digits),
@@ -899,7 +1142,7 @@ ON DUPLICATE KEY UPDATE
     report_time = VALUES(report_time),
     update_time = NOW();
 
-INSERT INTO iot_device_message_log (
+INSERT INTO iot_message_log (
     id, tenant_id, device_id, product_id, trace_id, device_code, product_key, message_type, topic, payload, report_time, create_time
 ) VALUES
     (5001, 1, 2001, 1001, 'trace-accept-http-0001', 'accept-http-device-01', 'accept-http-product-01', 'property', '/sys/accept-http-product-01/accept-http-device-01/thing/property/post',
@@ -1691,6 +1934,7 @@ INSERT INTO `iot_product` (
       (202603192100560270, 1, 'zjhy-warning-sound-light-alarm-v1', '浙江华源 预警型 声光报警器', 'mqtt-json', 1, 'JSON', '浙江华源', '预警型声光报警设备，协议 mqtt-json，直连接入', 1, '原始 productKey: zjhy_sound_light_alarm', NULL, NULL, 0),
       (202603192100560259, 1, 'nf-collect-rtu-v1', '南方测绘 采集型 遥测终端', 'mqtt-json', 1, 'JSON', '南方测绘', '采集型遥测终端设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_rtu', NULL, NULL, 0),
       (202603192100560258, 1, 'nf-monitor-laser-rangefinder-v1', '南方测绘 监测型 激光测距仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型激光测距设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_laser_rangefinder', NULL, NULL, 0),
+      (202603192100560256, 1, 'nf-monitor-water-surface-v1', '南方测绘 监测型 地表水位监测仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型地表水位设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_water_surface', NULL, NULL, 0),
       (202603192100560257, 1, 'zhd-monitor-tiltmeter-v1', '中海达 监测型 倾角仪', 'mqtt-json', 1, 'JSON', '中海达', '监测型倾角设备，协议 mqtt-json，直连接入', 1, '原始 productKey: hitarget_tiltmeter', NULL, NULL, 0),
       (202603192100560255, 1, 'nf-monitor-crack-meter-v1', '南方测绘 监测型 裂缝计', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型裂缝监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_crack_meter', NULL, NULL, 0),
       (202603192100560254, 1, 'nf-monitor-mud-level-meter-v1', '南方测绘 监测型 泥位计', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型泥位监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_mud_level_meter', NULL, NULL, 0),
@@ -1701,7 +1945,8 @@ INSERT INTO `iot_product` (
       (202603192100560249, 1, 'zhd-monitor-gnss-base-station-v1', '中海达 监测型 GNSS基准站', 'mqtt-json', 1, 'JSON', '中海达', '监测型 GNSS 基准站设备，协议 mqtt-json，直连接入', 1, '原始 productKey: hitarget_gnss_base_station', NULL, NULL, 0),
       (202603192100560248, 1, 'nf-monitor-gnss-base-station-v1', '南方测绘 监测型 GNSS基准站', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型 GNSS 基准站设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_gnss_base_station', NULL, NULL, 0),
       (202603192100560247, 1, 'zhd-monitor-gnss-monitor-v1', '中海达 监测型 GNSS位移监测仪', 'mqtt-json', 1, 'JSON', '中海达', '监测型 GNSS 位移监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: hitarget_gnss_monitor', NULL, NULL, 0),
-      (202603192100560246, 1, 'nf-monitor-gnss-monitor-v1', '南方测绘 监测型 GNSS位移监测仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型 GNSS 位移监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_gnss_monitor', NULL, NULL, 0);
+      (202603192100560246, 1, 'nf-monitor-gnss-monitor-v1', '南方测绘 监测型 GNSS位移监测仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型 GNSS 位移监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_gnss_monitor', NULL, NULL, 0),
+      (202603192100560245, 1, 'nf-monitor-radar-v1', '南方测绘 监测型 雷达监测仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型雷达设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_radar', NULL, NULL, 0);
 
 -- collector-child 共享 dev 基线：采集器 / 激光测距 / 深部位移 / 单台深部位移
 INSERT INTO iot_product_model (
@@ -1716,6 +1961,12 @@ INSERT INTO iot_product_model (
     (202604110200021, 1, 202603192100560250, 'property', 'dispsX', '顺滑动方向累计变形量', 'double', JSON_OBJECT('unit', 'mm', 'precision', 4), 1, 0, '深部位移顺滑动方向累计变形量', NOW(), NOW(), 0),
     (202604110200022, 1, 202603192100560250, 'property', 'dispsY', '垂直坡面方向累计变形量', 'double', JSON_OBJECT('unit', 'mm', 'precision', 4), 2, 0, '深部位移垂直坡面方向累计变形量', NOW(), NOW(), 0),
     (202604110200023, 1, 202603192100560250, 'property', 'sensor_state', '传感器状态', 'int', JSON_OBJECT('category', 'state'), 3, 0, '深部位移传感器状态', NOW(), NOW(), 0),
+    (202604110200041, 1, 202603192100560256, 'property', 'temp', '地表水温', 'double', JSON_OBJECT('unit', '℃', 'category', 'water_surface'), 1, 0, '地表水温', NOW(), NOW(), 0),
+    (202604110200042, 1, 202603192100560256, 'property', 'value', '地表水位', 'double', JSON_OBJECT('unit', 'm', 'precision', 3), 2, 0, '地表水位', NOW(), NOW(), 0),
+    (202604110200051, 1, 202603192100560245, 'property', 'X', '雷达X', 'double', JSON_OBJECT('unit', 'mm', 'precision', 4), 1, 0, '雷达 X 轴位移', NOW(), NOW(), 0),
+    (202604110200052, 1, 202603192100560245, 'property', 'Y', '雷达Y', 'double', JSON_OBJECT('unit', 'mm', 'precision', 4), 2, 0, '雷达 Y 轴位移', NOW(), NOW(), 0),
+    (202604110200053, 1, 202603192100560245, 'property', 'Z', '雷达Z', 'double', JSON_OBJECT('unit', 'mm', 'precision', 4), 3, 0, '雷达 Z 轴位移', NOW(), NOW(), 0),
+    (202604110200054, 1, 202603192100560245, 'property', 'speed', '雷达速度', 'double', JSON_OBJECT('unit', 'mm/s', 'precision', 4), 4, 0, '雷达速度', NOW(), NOW(), 0),
     (202604110200031, 1, 202603192100560253, 'property', 'value', '当前雨量', 'double', JSON_OBJECT('unit', 'mm', 'precision', 2), 1, 0, '翻斗式雨量计当前雨量', NOW(), NOW(), 0),
     (202604110200032, 1, 202603192100560253, 'property', 'totalValue', '累计雨量', 'double', JSON_OBJECT('unit', 'mm', 'precision', 2), 2, 0, '翻斗式雨量计累计雨量', NOW(), NOW(), 0)
 ON DUPLICATE KEY UPDATE
@@ -1772,6 +2023,24 @@ SET metadata_json = JSON_SET(
         JSON_OBJECT(
             'customMetrics',
             JSON_ARRAY(
+                JSON_OBJECT('identifier', 'temp', 'displayName', '地表水温', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 10),
+                JSON_OBJECT('identifier', 'value', 'displayName', '地表水位', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 20)
+            )
+        )
+    ),
+    update_by = 1,
+    update_time = NOW(),
+    deleted = 0
+WHERE tenant_id = 1
+  AND product_key = 'nf-monitor-water-surface-v1';
+
+UPDATE iot_product
+SET metadata_json = JSON_SET(
+        COALESCE(metadata_json, JSON_OBJECT()),
+        '$.objectInsight',
+        JSON_OBJECT(
+            'customMetrics',
+            JSON_ARRAY(
                 JSON_OBJECT('identifier', 'dispsX', 'displayName', '顺滑动方向累计变形量', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 10),
                 JSON_OBJECT('identifier', 'dispsY', 'displayName', '垂直坡面方向累计变形量', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 20),
                 JSON_OBJECT('identifier', 'sensor_state', 'displayName', '传感器状态', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 30)
@@ -1783,6 +2052,26 @@ SET metadata_json = JSON_SET(
     deleted = 0
 WHERE tenant_id = 1
   AND product_key = 'nf-monitor-deep-displacement-v1';
+
+UPDATE iot_product
+SET metadata_json = JSON_SET(
+        COALESCE(metadata_json, JSON_OBJECT()),
+        '$.objectInsight',
+        JSON_OBJECT(
+            'customMetrics',
+            JSON_ARRAY(
+                JSON_OBJECT('identifier', 'X', 'displayName', '雷达X', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 10),
+                JSON_OBJECT('identifier', 'Y', 'displayName', '雷达Y', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 20),
+                JSON_OBJECT('identifier', 'Z', 'displayName', '雷达Z', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 30),
+                JSON_OBJECT('identifier', 'speed', 'displayName', '雷达速度', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 40)
+            )
+        )
+    ),
+    update_by = 1,
+    update_time = NOW(),
+    deleted = 0
+WHERE tenant_id = 1
+  AND product_key = 'nf-monitor-radar-v1';
 
 UPDATE iot_product
 SET metadata_json = JSON_SET(
@@ -1811,7 +2100,19 @@ INSERT INTO iot_vendor_metric_mapping_rule (
     (202604110800001, 1, 'PRODUCT', 202603192100560253, 'mqtt-json', 'phase4-rain-gauge', 'RAIN_GAUGE',
      'L3_YL_1.value', 'L3_YL_1', NULL, NULL, 'value', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0),
     (202604110800002, 1, 'PRODUCT', 202603192100560253, 'mqtt-json', 'phase4-rain-gauge', 'RAIN_GAUGE',
-     'L3_YL_1.totalValue', 'L3_YL_1', NULL, NULL, 'totalValue', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0)
+     'L3_YL_1.totalValue', 'L3_YL_1', NULL, NULL, 'totalValue', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0),
+    (202604110800011, 1, 'PRODUCT', 202603192100560256, 'mqtt-json', 'phase3-water-surface', 'WATER_SURFACE',
+     'L3_DB_1.temp', 'L3_DB_1', NULL, NULL, 'temp', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0),
+    (202604110800012, 1, 'PRODUCT', 202603192100560256, 'mqtt-json', 'phase3-water-surface', 'WATER_SURFACE',
+     'L3_DB_1.value', 'L3_DB_1', NULL, NULL, 'value', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0),
+    (202604110800021, 1, 'PRODUCT', 202603192100560245, 'mqtt-json', 'phase6-radar', 'RADAR',
+     'L4_LD_1.X', 'L4_LD_1', NULL, NULL, 'X', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0),
+    (202604110800022, 1, 'PRODUCT', 202603192100560245, 'mqtt-json', 'phase6-radar', 'RADAR',
+     'L4_LD_1.Y', 'L4_LD_1', NULL, NULL, 'Y', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0),
+    (202604110800023, 1, 'PRODUCT', 202603192100560245, 'mqtt-json', 'phase6-radar', 'RADAR',
+     'L4_LD_1.Z', 'L4_LD_1', NULL, NULL, 'Z', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0),
+    (202604110800024, 1, 'PRODUCT', 202603192100560245, 'mqtt-json', 'phase6-radar', 'RADAR',
+     'L4_LD_1.speed', 'L4_LD_1', NULL, NULL, 'speed', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     product_id = VALUES(product_id),
     protocol_code = VALUES(protocol_code),
@@ -1828,6 +2129,29 @@ ON DUPLICATE KEY UPDATE
     update_by = 1,
     update_time = NOW(),
     deleted = 0;
+
+UPDATE iot_device d
+JOIN iot_product p ON p.id = d.product_id
+SET d.device_name = CONCAT('激光测距-', d.device_code),
+    d.update_by = 1,
+    d.update_time = NOW()
+WHERE d.deleted = 0
+  AND p.deleted = 0
+  AND p.product_key = 'nf-monitor-laser-rangefinder-v1'
+  AND (
+    d.device_name LIKE 'NF-LASER-%'
+    OR d.device_name = '拉杆裂缝计'
+  );
+
+UPDATE iot_device d
+JOIN iot_product p ON p.id = d.product_id
+SET d.device_name = CONCAT('裂缝计-', d.device_code),
+    d.update_by = 1,
+    d.update_time = NOW()
+WHERE d.deleted = 0
+  AND p.deleted = 0
+  AND p.product_key = 'nf-monitor-crack-meter-v1'
+  AND (d.device_name LIKE 'NF-CRACK-%' OR d.device_name = d.device_code);
 
 INSERT INTO iot_device (
     id, tenant_id, org_id, org_name, product_id, device_name, device_code, device_secret, client_id, username, password,
@@ -1878,44 +2202,44 @@ INSERT INTO iot_device (
     ip_address, last_online_time, last_report_time, longitude, latitude, address, metadata_json,
     remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (202018108, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018108', '202018108', '123456', '202018108', '202018108', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018109, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018109', '202018109', '123456', '202018109', '202018109', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018110, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018110', '202018110', '123456', '202018110', '202018110', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018111, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018111', '202018111', '123456', '202018111', '202018111', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018112, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018112', '202018112', '123456', '202018112', '202018112', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018113, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018113', '202018113', '123456', '202018113', '202018113', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018114, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018114', '202018114', '123456', '202018114', '202018114', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018115, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018115', '202018115', '123456', '202018115', '202018115', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018116, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018116', '202018116', '123456', '202018116', '202018116', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018117, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018117', '202018117', '123456', '202018117', '202018117', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018118, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018118', '202018118', '123456', '202018118', '202018118', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018119, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018119', '202018119', '123456', '202018119', '202018119', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018120, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018120', '202018120', '123456', '202018120', '202018120', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018121, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018121', '202018121', '123456', '202018121', '202018121', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018122, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018122', '202018122', '123456', '202018122', '202018122', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018123, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018123', '202018123', '123456', '202018123', '202018123', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018124, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018124', '202018124', '123456', '202018124', '202018124', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018125, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018125', '202018125', '123456', '202018125', '202018125', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018126, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018126', '202018126', '123456', '202018126', '202018126', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018127, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018127', '202018127', '123456', '202018127', '202018127', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018128, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018128', '202018128', '123456', '202018128', '202018128', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018129, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018129', '202018129', '123456', '202018129', '202018129', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018130, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018130', '202018130', '123456', '202018130', '202018130', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018131, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018131', '202018131', '123456', '202018131', '202018131', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018132, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018132', '202018132', '123456', '202018132', '202018132', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018133, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018133', '202018133', '123456', '202018133', '202018133', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018134, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018134', '202018134', '123456', '202018134', '202018134', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018135, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018135', '202018135', '123456', '202018135', '202018135', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018136, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018136', '202018136', '123456', '202018136', '202018136', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018137, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018137', '202018137', '123456', '202018137', '202018137', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018138, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018138', '202018138', '123456', '202018138', '202018138', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018139, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018139', '202018139', '123456', '202018139', '202018139', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018140, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018140', '202018140', '123456', '202018140', '202018140', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018141, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018141', '202018141', '123456', '202018141', '202018141', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018142, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018142', '202018142', '123456', '202018142', '202018142', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018143, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018143', '202018143', '123456', '202018143', '202018143', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018144, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018144', '202018144', '123456', '202018144', '202018144', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018145, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018145', '202018145', '123456', '202018145', '202018145', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0)
+    (202018108, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018108', '202018108', '123456', '202018108', '202018108', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018109, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018109', '202018109', '123456', '202018109', '202018109', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018110, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018110', '202018110', '123456', '202018110', '202018110', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018111, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018111', '202018111', '123456', '202018111', '202018111', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018112, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018112', '202018112', '123456', '202018112', '202018112', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018113, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018113', '202018113', '123456', '202018113', '202018113', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018114, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018114', '202018114', '123456', '202018114', '202018114', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018115, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018115', '202018115', '123456', '202018115', '202018115', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018116, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018116', '202018116', '123456', '202018116', '202018116', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018117, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018117', '202018117', '123456', '202018117', '202018117', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018118, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018118', '202018118', '123456', '202018118', '202018118', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018119, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018119', '202018119', '123456', '202018119', '202018119', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018120, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018120', '202018120', '123456', '202018120', '202018120', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018121, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018121', '202018121', '123456', '202018121', '202018121', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018122, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018122', '202018122', '123456', '202018122', '202018122', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018123, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018123', '202018123', '123456', '202018123', '202018123', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018124, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018124', '202018124', '123456', '202018124', '202018124', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018125, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018125', '202018125', '123456', '202018125', '202018125', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018126, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018126', '202018126', '123456', '202018126', '202018126', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018127, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018127', '202018127', '123456', '202018127', '202018127', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018128, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018128', '202018128', '123456', '202018128', '202018128', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018129, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018129', '202018129', '123456', '202018129', '202018129', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018130, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018130', '202018130', '123456', '202018130', '202018130', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018131, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018131', '202018131', '123456', '202018131', '202018131', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018132, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018132', '202018132', '123456', '202018132', '202018132', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018133, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018133', '202018133', '123456', '202018133', '202018133', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018134, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018134', '202018134', '123456', '202018134', '202018134', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018135, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018135', '202018135', '123456', '202018135', '202018135', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018136, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018136', '202018136', '123456', '202018136', '202018136', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018137, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018137', '202018137', '123456', '202018137', '202018137', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018138, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018138', '202018138', '123456', '202018138', '202018138', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018139, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018139', '202018139', '123456', '202018139', '202018139', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018140, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018140', '202018140', '123456', '202018140', '202018140', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018141, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018141', '202018141', '123456', '202018141', '202018141', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018142, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018142', '202018142', '123456', '202018142', '202018142', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018143, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018143', '202018143', '123456', '202018143', '202018143', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018144, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018144', '202018144', '123456', '202018144', '202018144', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018145, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018145', '202018145', '123456', '202018145', '202018145', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     org_id = VALUES(org_id),
     org_name = VALUES(org_name),
@@ -1944,22 +2268,22 @@ INSERT INTO iot_device (
     ip_address, last_online_time, last_report_time, longitude, latitude, address, metadata_json,
     remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (202018186, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018186', '202018186', '123456', '202018186', '202018186', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018187, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018187', '202018187', '123456', '202018187', '202018187', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018188, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018188', '202018188', '123456', '202018188', '202018188', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018189, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018189', '202018189', '123456', '202018189', '202018189', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018190, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018190', '202018190', '123456', '202018190', '202018190', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018191, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018191', '202018191', '123456', '202018191', '202018191', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018192, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018192', '202018192', '123456', '202018192', '202018192', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018193, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018193', '202018193', '123456', '202018193', '202018193', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018194, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018194', '202018194', '123456', '202018194', '202018194', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018195, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018195', '202018195', '123456', '202018195', '202018195', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018196, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018196', '202018196', '123456', '202018196', '202018196', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018197, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018197', '202018197', '123456', '202018197', '202018197', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018198, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018198', '202018198', '123456', '202018198', '202018198', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018200, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018200', '202018200', '123456', '202018200', '202018200', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018201, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018201', '202018201', '123456', '202018201', '202018201', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
-    (202018203, 1, 7101, '平台运维中心', 202603192100560258, 'NF-LASER-202018203', '202018203', '123456', '202018203', '202018203', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0)
+    (202018186, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018186', '202018186', '123456', '202018186', '202018186', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018187, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018187', '202018187', '123456', '202018187', '202018187', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018188, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018188', '202018188', '123456', '202018188', '202018188', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018189, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018189', '202018189', '123456', '202018189', '202018189', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018190, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018190', '202018190', '123456', '202018190', '202018190', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018191, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018191', '202018191', '123456', '202018191', '202018191', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018192, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018192', '202018192', '123456', '202018192', '202018192', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018193, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018193', '202018193', '123456', '202018193', '202018193', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018194, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018194', '202018194', '123456', '202018194', '202018194', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018195, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018195', '202018195', '123456', '202018195', '202018195', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018196, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018196', '202018196', '123456', '202018196', '202018196', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018197, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018197', '202018197', '123456', '202018197', '202018197', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018198, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018198', '202018198', '123456', '202018198', '202018198', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018200, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018200', '202018200', '123456', '202018200', '202018200', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018201, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018201', '202018201', '123456', '202018201', '202018201', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0),
+    (202018203, 1, 7101, '平台运维中心', 202603192100560258, '激光测距-202018203', '202018203', '123456', '202018203', '202018203', '123456', 'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, 'shared-dev-laser-child', JSON_OBJECT('seedFamily', 'laser-child'), 'laser child baseline', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     org_id = VALUES(org_id),
     org_name = VALUES(org_name),

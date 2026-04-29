@@ -77,6 +77,7 @@ interface InsightCapabilitySource {
   deviceMetadataJson?: string | null;
   productMetadataJson?: string | null;
   metadataJson?: string | null;
+  topologyRole?: 'collector_parent' | 'collector_child' | 'standalone' | null;
 }
 
 interface RuntimeMetricCandidate {
@@ -188,6 +189,7 @@ export function getInsightCapabilityProfile(source: {
   deviceMetadataJson?: string | null;
   productMetadataJson?: string | null;
   metadataJson?: string | null;
+  topologyRole?: 'collector_parent' | 'collector_child' | 'standalone' | null;
 }): InsightCapabilityProfile {
   const deviceCode = source.deviceCode?.trim();
   const productName = source.productName?.trim() ?? '';
@@ -218,7 +220,9 @@ function buildRuntimeProfile(source: InsightCapabilitySource): InsightCapability
     riskPointName: source.riskPointName
   });
   const config = RUNTIME_TEMPLATE_CONFIG[objectType];
-  const candidates = (source.properties ?? []).flatMap((item) => toRuntimeCandidate(item));
+  const candidates = (source.properties ?? [])
+    .flatMap((item) => toRuntimeCandidate(item))
+    .filter((item) => shouldIncludeInsightIdentifier(item.identifier, source.topologyRole));
   if (!candidates.length) {
     return {
       ...GENERIC_MONITORING_PROFILE,
@@ -377,7 +381,36 @@ function resolveMetadataCustomMetrics(
   const parsed = parseObjectInsightMetadata(metadataJson);
   return parsed
     .map((item) => buildConfiguredMetricDefinition(item.identifier, item, profile, source))
-    .filter((item): item is InsightCustomMetricDefinition => Boolean(item));
+    .filter((item): item is InsightCustomMetricDefinition => Boolean(item))
+    .filter((item) => shouldIncludeInsightIdentifier(item.identifier, source.topologyRole));
+}
+
+const CHILD_ONLY_IDENTIFIERS = ['dispsx', 'dispsy', 'value', 'sensor_state'];
+const PARENT_RUNTIME_IDENTIFIER_HINTS = [
+  'signal_4g', 'battery', 'temp', 'humidity', 'ext_power_volt', 'solar_volt',
+  'battery_dump_energy', 'battery_volt', 'supply_power', 'consume_power',
+  'temp_out', 'humidity_out', 'lon', 'lat', 'signal_nb', 'signal_db', 'sw_version'
+];
+
+function shouldIncludeInsightIdentifier(
+  identifier: string,
+  topologyRole?: 'collector_parent' | 'collector_child' | 'standalone' | null
+) {
+  const normalizedIdentifier = normalizeOptionalText(identifier).toLowerCase();
+  if (!normalizedIdentifier || !topologyRole || topologyRole === 'standalone') {
+    return true;
+  }
+  if (topologyRole === 'collector_parent') {
+    return !CHILD_ONLY_IDENTIFIERS.some((childOnly) =>
+      normalizedIdentifier === childOnly || normalizedIdentifier.endsWith(`.${childOnly}`)
+    );
+  }
+  if (topologyRole === 'collector_child') {
+    return !PARENT_RUNTIME_IDENTIFIER_HINTS.some((parentHint) =>
+      normalizedIdentifier.includes(parentHint) && !normalizedIdentifier.includes('sensor_state')
+    );
+  }
+  return true;
 }
 
 function buildConfiguredMetricDefinition(

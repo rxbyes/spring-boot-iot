@@ -1,8 +1,15 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { computed, defineComponent, inject, provide } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import GovernanceSecurityView from '@/views/GovernanceSecurityView.vue'
+
+const governanceSecurityViewSource = readFileSync(
+  resolve(import.meta.dirname, '../../views/GovernanceSecurityView.vue'),
+  'utf8'
+)
 
 const { mockGetGovernancePermissionMatrix, mockPageDeviceSecretRotationLogs } = vi.hoisted(() => ({
   mockGetGovernancePermissionMatrix: vi.fn(),
@@ -271,5 +278,12 @@ describe('GovernanceSecurityView', () => {
     expect(wrapper.text()).toContain('合同发布')
     expect(wrapper.text()).toContain('device-3001')
     expect(wrapper.text()).toContain('ROT-3001-AAAA0001')
+  })
+
+  it('keeps governance and device identity columns on the shared stacked grammar', () => {
+    expect(governanceSecurityViewSource).toContain('secondary-prop="domainName"')
+    expect(governanceSecurityViewSource).not.toContain('<StandardTableTextColumn prop="domainName" label="治理域"')
+    expect(governanceSecurityViewSource).toContain('secondary-prop="productKey"')
+    expect(governanceSecurityViewSource).not.toContain('<StandardTableTextColumn prop="productKey" label="产品 Key"')
   })
 })

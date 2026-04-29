@@ -18,4 +18,5 @@ public class AutomationResultRunResultVO {
     private String summary;
     private List<String> evidenceFiles;
     private Map<String, Object> details;
+    private AutomationFailureDiagnosisVO diagnosis;
 }

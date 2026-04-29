@@ -32,7 +32,7 @@ defineOptions({
 
 type ButtonType = '' | 'primary' | 'success' | 'warning' | 'info' | 'danger'
 type ButtonSize = '' | 'large' | 'default' | 'small'
-type ButtonAction = 'default' | 'query' | 'add' | 'reset' | 'delete' | 'batch' | 'refresh' | 'confirm' | 'cancel'
+type ButtonAction = 'default' | 'query' | 'add' | 'reset' | 'delete' | 'batch' | 'refresh' | 'confirm' | 'cancel' | 'view'
 type ButtonTone = 'solid' | 'secondary' | 'link' | 'text'
 const attrs = useAttrs()
 
@@ -78,13 +78,15 @@ const actionDefaults: Record<ButtonAction, { type: ButtonType; tone: ButtonTone;
   batch: { type: 'primary', tone: 'solid' },
   refresh: { type: '', tone: 'secondary' },
   confirm: { type: 'primary', tone: 'solid' },
-  cancel: { type: '', tone: 'secondary' }
+  cancel: { type: '', tone: 'secondary' },
+  view: { type: '', tone: 'secondary' }
 }
 
-const resolvedType = computed<ButtonType>(() => props.type || actionDefaults[props.action].type)
-const resolvedPlain = computed(() => props.plain ?? actionDefaults[props.action].plain ?? false)
-const resolvedLink = computed(() => props.link ?? actionDefaults[props.action].link ?? false)
-const resolvedText = computed(() => props.text ?? actionDefaults[props.action].text ?? false)
+const resolvedActionConfig = computed(() => actionDefaults[props.action] ?? actionDefaults.default)
+const resolvedType = computed<ButtonType>(() => props.type || resolvedActionConfig.value.type)
+const resolvedPlain = computed(() => props.plain ?? resolvedActionConfig.value.plain ?? false)
+const resolvedLink = computed(() => props.link ?? resolvedActionConfig.value.link ?? false)
+const resolvedText = computed(() => props.text ?? resolvedActionConfig.value.text ?? false)
 const resolvedSize = computed<ButtonSize>(() => props.size || 'default')
 const resolvedTone = computed<ButtonTone>(() => {
   if (resolvedLink.value) {
@@ -93,7 +95,7 @@ const resolvedTone = computed<ButtonTone>(() => {
   if (resolvedText.value) {
     return 'text'
   }
-  return actionDefaults[props.action].tone
+  return resolvedActionConfig.value.tone
 })
 const classes = computed(() => [
   `standard-button--${props.action}`,

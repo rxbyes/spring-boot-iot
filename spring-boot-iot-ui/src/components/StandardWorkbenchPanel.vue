@@ -1,5 +1,7 @@
 <template>
-  <div class="standard-workbench-panel ops-workbench standard-list-view">
+  <div
+    class="standard-workbench-panel ops-workbench standard-list-view standard-workbench-panel--workbench-foundation"
+  >
     <PanelCard class="ops-hero-card ops-table-card standard-workbench-panel__card">
       <template #header>
         <div class="standard-workbench-panel__header">
@@ -14,7 +16,10 @@
         </div>
       </template>
 
-      <section v-if="showFilters || showFiltersExtra" class="standard-workbench-panel__filters">
+      <section
+        v-if="showFilters || showFiltersExtra"
+        class="standard-workbench-panel__filters standard-workbench-panel__filters--compact"
+      >
         <slot name="filters" />
         <div v-if="showFiltersExtra" class="standard-workbench-panel__filters-extra">
           <slot name="filters-extra" />
@@ -77,8 +82,12 @@ withDefaults(defineProps<{
 
 <style scoped>
 .standard-workbench-panel {
-  --ops-workbench-gap: var(--ops-workbench-gap);
+  --standard-workbench-panel-gap: var(--standard-workbench-gap, var(--ops-workbench-gap, 0.72rem));
   min-width: 0;
+}
+
+.standard-workbench-panel--workbench-foundation {
+  --standard-workbench-gap: var(--standard-workbench-gap, 0.64rem);
 }
 
 .standard-workbench-panel__card {
@@ -145,11 +154,18 @@ withDefaults(defineProps<{
 .standard-workbench-panel__notices,
 .standard-workbench-panel__toolbar,
 .standard-workbench-panel__inline-state {
-  margin-bottom: var(--ops-workbench-gap, 0.72rem);
+  margin-bottom: var(--standard-workbench-panel-gap);
 }
 
 .standard-workbench-panel__filters-extra {
   margin-top: 0.5rem;
+}
+
+.standard-workbench-panel__filters--compact {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .standard-workbench-panel__body {
@@ -157,7 +173,7 @@ withDefaults(defineProps<{
 }
 
 .standard-workbench-panel__pagination {
-  margin-top: var(--ops-workbench-gap, 0.72rem);
+  margin-top: var(--standard-workbench-panel-gap);
 }
 
 @media (max-width: 720px) {

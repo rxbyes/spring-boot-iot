@@ -2,6 +2,8 @@ import { request } from './request';
 import type { PageResult } from '../types/api';
 import type {
   AcceptanceRegistryRunSummary,
+  AutomationResultArchiveFacets,
+  AutomationResultArchiveRefreshResult,
   AutomationResultEvidenceContent,
   AutomationResultEvidenceItem,
   AutomationResultRecentRun,
@@ -27,6 +29,8 @@ export function pageAutomationResults(params: AutomationResultRunPageQuery) {
   appendQueryParam(query, 'keyword', params.keyword);
   appendQueryParam(query, 'status', params.status);
   appendQueryParam(query, 'runnerType', params.runnerType);
+  appendQueryParam(query, 'packageCode', params.packageCode);
+  appendQueryParam(query, 'environmentCode', params.environmentCode);
   appendQueryParam(query, 'dateFrom', params.dateFrom);
   appendQueryParam(query, 'dateTo', params.dateTo);
 
@@ -42,6 +46,20 @@ export function listRecentAutomationResults(limit = 10) {
   return request<AutomationResultRecentRun[]>(
     `/api/report/automation-results/recent?${params.toString()}`,
     { method: 'GET' }
+  );
+}
+
+export function listAutomationResultFacets() {
+  return request<AutomationResultArchiveFacets>(
+    '/api/report/automation-results/facets',
+    { method: 'GET' }
+  );
+}
+
+export function refreshAutomationResultIndex() {
+  return request<AutomationResultArchiveRefreshResult>(
+    '/api/report/automation-results/refresh-index',
+    { method: 'POST' }
   );
 }
 

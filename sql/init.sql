@@ -5,9 +5,6 @@ SET NAMES utf8mb4;
 
 -- 本文件由 scripts/schema/render_artifacts.py 生成，不要手工编辑。
 
--- 兼容视图
-DROP VIEW IF EXISTS iot_message_log;
-
 -- 活跃 MySQL 表
 DROP TABLE IF EXISTS sys_user_role;
 DROP TABLE IF EXISTS sys_user;
@@ -16,6 +13,7 @@ DROP TABLE IF EXISTS sys_role_menu;
 DROP TABLE IF EXISTS sys_role;
 DROP TABLE IF EXISTS sys_region;
 DROP TABLE IF EXISTS sys_organization;
+DROP TABLE IF EXISTS sys_observability_span_log;
 DROP TABLE IF EXISTS sys_notification_channel;
 DROP TABLE IF EXISTS sys_menu;
 DROP TABLE IF EXISTS sys_in_app_message_read;
@@ -25,6 +23,7 @@ DROP TABLE IF EXISTS sys_in_app_message;
 DROP TABLE IF EXISTS sys_help_document;
 DROP TABLE IF EXISTS sys_dict_item;
 DROP TABLE IF EXISTS sys_dict;
+DROP TABLE IF EXISTS sys_business_event_log;
 DROP TABLE IF EXISTS sys_audit_log;
 DROP TABLE IF EXISTS sys_governance_replay_feedback;
 DROP TABLE IF EXISTS sys_governance_approval_transition;
@@ -49,13 +48,15 @@ DROP TABLE IF EXISTS iot_product_contract_release_batch;
 DROP TABLE IF EXISTS iot_product;
 DROP TABLE IF EXISTS iot_onboarding_template_pack;
 DROP TABLE IF EXISTS iot_normative_metric_definition;
+DROP TABLE IF EXISTS iot_message_log_archive_batch;
+DROP TABLE IF EXISTS iot_message_log_archive;
+DROP TABLE IF EXISTS iot_message_log;
 DROP TABLE IF EXISTS iot_device_secret_rotation_log;
 DROP TABLE IF EXISTS iot_device_relation;
 DROP TABLE IF EXISTS iot_device_property;
 DROP TABLE IF EXISTS iot_device_online_session;
 DROP TABLE IF EXISTS iot_device_onboarding_case;
 DROP TABLE IF EXISTS iot_device_metric_latest;
-DROP TABLE IF EXISTS iot_device_message_log;
 DROP TABLE IF EXISTS iot_device_invalid_report_state;
 DROP TABLE IF EXISTS iot_device_access_error_log;
 DROP TABLE IF EXISTS iot_device;
@@ -456,6 +457,11 @@ CREATE TABLE rule_definition (
   risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',
   metric_identifier VARCHAR(64) NOT NULL COMMENT '测点标识符',
   metric_name VARCHAR(64) DEFAULT NULL COMMENT '测点名称',
+  rule_scope VARCHAR(32) NOT NULL DEFAULT 'METRIC' COMMENT '策略作用域',
+  product_type VARCHAR(32) DEFAULT NULL COMMENT '产品类型模板',
+  product_id BIGINT DEFAULT NULL COMMENT '产品ID',
+  device_id BIGINT DEFAULT NULL COMMENT '设备ID',
+  risk_point_device_id BIGINT DEFAULT NULL COMMENT '风险点设备绑定ID',
   expression VARCHAR(256) DEFAULT NULL COMMENT '表达式',
   duration INT NOT NULL DEFAULT 0 COMMENT '持续时间(秒)',
   alarm_level VARCHAR(20) DEFAULT NULL COMMENT '适用告警等级（红/橙/黄/蓝）',
@@ -470,11 +476,16 @@ CREATE TABLE rule_definition (
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
   PRIMARY KEY (id),
   KEY idx_metric_identifier (metric_identifier),
-  KEY idx_rule_definition_metric_catalog (risk_metric_id)
+  KEY idx_rule_definition_metric_catalog (risk_metric_id),
+  KEY idx_rule_definition_product_type_metric (product_type, risk_metric_id, metric_identifier),
+  KEY idx_rule_definition_product_metric (product_id, risk_metric_id, metric_identifier),
+  KEY idx_rule_definition_device_metric (device_id, risk_metric_id, metric_identifier),
+  KEY idx_rule_definition_binding_metric (risk_point_device_id, risk_metric_id, metric_identifier)
 ) COMMENT='阈值规则表';
 
 -- 表：iot_command_record
 -- 说明：设备命令记录表
+
 CREATE TABLE iot_command_record (
   id BIGINT NOT NULL COMMENT '主键',
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
@@ -618,28 +629,6 @@ CREATE TABLE iot_device_invalid_report_state (
   KEY idx_invalid_report_device_resolved (device_code, product_key, resolved, last_seen_time),
   KEY idx_invalid_report_reason_time (reason_code, last_seen_time)
 ) COMMENT='无效 MQTT 上报最新态表';
-
--- 表：iot_device_message_log
--- 说明：设备消息日志表
-CREATE TABLE iot_device_message_log (
-  id BIGINT NOT NULL COMMENT '主键',
-  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
-  device_id BIGINT NOT NULL COMMENT '设备ID',
-  product_id BIGINT DEFAULT NULL COMMENT '产品ID',
-  message_type VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）',
-  topic VARCHAR(255) DEFAULT NULL COMMENT '主题',
-  payload JSON DEFAULT NULL COMMENT '原始消息',
-  report_time DATETIME NOT NULL COMMENT '上报时间',
-  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',
-  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
-  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',
-  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '日志创建时间',
-  PRIMARY KEY (id),
-  KEY idx_device_time (device_id, report_time),
-  KEY idx_message_type (message_type),
-  KEY idx_trace_id (trace_id),
-  KEY idx_device_code_time (device_code, report_time)
-) COMMENT='设备消息日志表';
 
 -- 表：iot_device_metric_latest
 -- 说明：时序最新值投影表
@@ -793,6 +782,78 @@ CREATE TABLE iot_device_secret_rotation_log (
   KEY idx_device_rotation_device_time (device_id, rotate_time),
   KEY idx_device_rotation_batch (rotation_batch_id)
 ) COMMENT='设备密钥轮换日志表';
+
+-- 表：iot_message_log
+-- 说明：设备消息日志表
+CREATE TABLE iot_message_log (
+  id BIGINT NOT NULL COMMENT '主键',
+  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+  device_id BIGINT NOT NULL COMMENT '设备ID',
+  product_id BIGINT DEFAULT NULL COMMENT '产品ID',
+  message_type VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）',
+  topic VARCHAR(255) DEFAULT NULL COMMENT '主题',
+  payload JSON DEFAULT NULL COMMENT '原始消息',
+  report_time DATETIME NOT NULL COMMENT '上报时间',
+  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',
+  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
+  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '日志创建时间',
+  PRIMARY KEY (id),
+  KEY idx_device_time (device_id, report_time),
+  KEY idx_message_type (message_type),
+  KEY idx_trace_id (trace_id),
+  KEY idx_device_code_time (device_code, report_time)
+) COMMENT='设备消息日志表';
+
+-- 表：iot_message_log_archive
+-- 说明：设备消息日志冷归档表
+CREATE TABLE iot_message_log_archive (
+  id BIGINT NOT NULL COMMENT '主键',
+  original_log_id BIGINT NOT NULL COMMENT '原热表日志ID',
+  archive_batch_id BIGINT NOT NULL COMMENT '归档批次ID',
+  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+  device_id BIGINT NOT NULL COMMENT '设备ID',
+  product_id BIGINT DEFAULT NULL COMMENT '产品ID',
+  message_type VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）',
+  topic VARCHAR(255) DEFAULT NULL COMMENT '主题',
+  payload JSON DEFAULT NULL COMMENT '原始消息',
+  report_time DATETIME NOT NULL COMMENT '上报时间',
+  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',
+  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
+  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',
+  create_time DATETIME NOT NULL COMMENT '原日志创建时间',
+  archived_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '归档时间',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_original_log_id (original_log_id),
+  KEY idx_archive_batch_id (archive_batch_id),
+  KEY idx_trace_id_report_time (trace_id, report_time),
+  KEY idx_device_code_report_time (device_code, report_time)
+) COMMENT='设备消息日志冷归档表';
+
+-- 表：iot_message_log_archive_batch
+-- 说明：设备消息日志冷归档批次表
+CREATE TABLE iot_message_log_archive_batch (
+  id BIGINT NOT NULL COMMENT '主键',
+  batch_no VARCHAR(64) NOT NULL COMMENT '批次号',
+  source_table VARCHAR(64) NOT NULL COMMENT '来源热表',
+  governance_mode VARCHAR(16) NOT NULL COMMENT '治理模式',
+  status VARCHAR(32) NOT NULL COMMENT '批次状态',
+  retention_days INT NOT NULL COMMENT '保留天数',
+  cutoff_at DATETIME NOT NULL COMMENT '过期阈值时间',
+  confirm_report_path VARCHAR(500) DEFAULT NULL COMMENT '确认报告路径',
+  confirm_report_generated_at DATETIME DEFAULT NULL COMMENT '确认报告生成时间',
+  confirmed_expired_rows INT NOT NULL DEFAULT 0 COMMENT '确认过期行数',
+  candidate_rows INT NOT NULL DEFAULT 0 COMMENT '候选过期行数',
+  archived_rows INT NOT NULL DEFAULT 0 COMMENT '已归档行数',
+  deleted_rows INT NOT NULL DEFAULT 0 COMMENT '已删除行数',
+  failed_reason VARCHAR(1000) DEFAULT NULL COMMENT '失败原因',
+  artifacts_json JSON DEFAULT NULL COMMENT '批次附加证据',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_batch_no (batch_no),
+  KEY idx_source_status_time (source_table, status, create_time)
+) COMMENT='设备消息日志冷归档批次表';
 
 -- 表：iot_normative_metric_definition
 -- 说明：规范字段定义表
@@ -1374,6 +1435,42 @@ CREATE TABLE sys_audit_log (
   KEY idx_audit_deleted_request_method_time (deleted, request_method, operation_time, create_time, id)
 ) COMMENT='审计日志表';
 
+-- 表：sys_business_event_log
+-- 说明：业务事件日志表
+CREATE TABLE sys_business_event_log (
+  id BIGINT NOT NULL COMMENT '主键',
+  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',
+  event_code VARCHAR(128) NOT NULL COMMENT '业务事件编码',
+  event_name VARCHAR(128) DEFAULT NULL COMMENT '业务事件名称',
+  domain_code VARCHAR(64) NOT NULL COMMENT '业务域编码',
+  action_code VARCHAR(64) NOT NULL COMMENT '业务动作编码',
+  object_type VARCHAR(64) DEFAULT NULL COMMENT '业务对象类型',
+  object_id VARCHAR(128) DEFAULT NULL COMMENT '业务对象标识',
+  object_name VARCHAR(255) DEFAULT NULL COMMENT '业务对象名称',
+  actor_user_id BIGINT DEFAULT NULL COMMENT '操作者用户ID',
+  actor_name VARCHAR(64) DEFAULT NULL COMMENT '操作者名称',
+  result_status VARCHAR(32) NOT NULL DEFAULT 'SUCCESS' COMMENT '事件结果状态',
+  source_type VARCHAR(32) NOT NULL DEFAULT 'SYSTEM' COMMENT '事件来源类型',
+  evidence_type VARCHAR(64) DEFAULT NULL COMMENT '关联证据类型',
+  evidence_id VARCHAR(128) DEFAULT NULL COMMENT '关联证据标识',
+  request_method VARCHAR(16) DEFAULT NULL COMMENT '请求方法',
+  request_uri VARCHAR(255) DEFAULT NULL COMMENT '请求URI',
+  duration_ms BIGINT DEFAULT NULL COMMENT '耗时毫秒',
+  error_code VARCHAR(64) DEFAULT NULL COMMENT '错误编码',
+  error_message VARCHAR(500) DEFAULT NULL COMMENT '错误摘要',
+  metadata_json JSON DEFAULT NULL COMMENT '事件扩展元数据',
+  occurred_at DATETIME NOT NULL COMMENT '事件发生时间',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
+  PRIMARY KEY (id),
+  KEY idx_business_event_trace (trace_id),
+  KEY idx_business_event_domain_time (deleted, domain_code, occurred_at, id),
+  KEY idx_business_event_code_time (event_code, occurred_at),
+  KEY idx_business_event_object (object_type, object_id),
+  KEY idx_business_event_result_time (result_status, occurred_at)
+) COMMENT='业务事件日志表';
+
 -- 表：sys_dict
 -- 说明：字典表
 CREATE TABLE sys_dict (
@@ -1596,6 +1693,37 @@ CREATE TABLE sys_notification_channel (
   KEY idx_channel_deleted_type_sort (deleted, channel_type, sort_no, id)
 ) COMMENT='通知渠道表';
 
+-- 表：sys_observability_span_log
+-- 说明：可观测调用片段日志表
+CREATE TABLE sys_observability_span_log (
+  id BIGINT NOT NULL COMMENT '主键',
+  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',
+  parent_span_id BIGINT DEFAULT NULL COMMENT '父调用片段标识',
+  span_type VARCHAR(64) NOT NULL COMMENT '调用片段类型',
+  span_name VARCHAR(128) NOT NULL COMMENT '调用片段名称',
+  domain_code VARCHAR(64) DEFAULT NULL COMMENT '业务域编码',
+  event_code VARCHAR(128) DEFAULT NULL COMMENT '关联事件编码',
+  object_type VARCHAR(64) DEFAULT NULL COMMENT '业务对象类型',
+  object_id VARCHAR(128) DEFAULT NULL COMMENT '业务对象标识',
+  transport_type VARCHAR(32) DEFAULT NULL COMMENT '传输类型',
+  status VARCHAR(32) NOT NULL DEFAULT 'SUCCESS' COMMENT '调用片段状态',
+  duration_ms BIGINT DEFAULT NULL COMMENT '耗时毫秒',
+  started_at DATETIME NOT NULL COMMENT '开始时间',
+  finished_at DATETIME DEFAULT NULL COMMENT '结束时间',
+  error_class VARCHAR(255) DEFAULT NULL COMMENT '异常类型',
+  error_message VARCHAR(500) DEFAULT NULL COMMENT '异常摘要',
+  tags_json JSON DEFAULT NULL COMMENT '调用片段标签数据',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
+  PRIMARY KEY (id),
+  KEY idx_observability_span_trace (trace_id),
+  KEY idx_observability_span_type_time (span_type, started_at),
+  KEY idx_observability_span_status_time (status, started_at),
+  KEY idx_observability_span_event (event_code, started_at),
+  KEY idx_observability_span_object (object_type, object_id)
+) COMMENT='可观测调用片段日志表';
+
 -- 表：sys_organization
 -- 说明：组织机构表
 CREATE TABLE sys_organization (
@@ -1756,8 +1884,3 @@ CREATE TABLE sys_user_role (
   KEY idx_user_id (user_id),
   KEY idx_role_id (role_id)
 ) COMMENT='用户角色关联表';
-
--- 视图：iot_message_log
--- 说明：设备消息日志兼容视图
-CREATE OR REPLACE VIEW iot_message_log AS
-SELECT id, tenant_id, device_id, product_id, trace_id, device_code, product_key, message_type, topic, payload, report_time, create_time FROM iot_device_message_log;

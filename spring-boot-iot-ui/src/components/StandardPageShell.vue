@@ -1,5 +1,5 @@
 <template>
-  <section class="standard-page-shell">
+  <section class="standard-page-shell standard-page-shell--workbench-foundation">
     <nav
       v-if="showBreadcrumbs && breadcrumbs.length"
       class="standard-page-shell__breadcrumbs"
@@ -22,7 +22,11 @@
       </template>
     </nav>
 
-    <div v-if="showHeadline" class="standard-page-shell__headline">
+    <div
+      v-if="showHeadline"
+      class="standard-page-shell__headline"
+      :class="{ 'standard-page-shell__headline--balanced': Boolean($slots.actions) }"
+    >
       <div class="standard-page-shell__copy">
         <p v-if="eyebrow" class="standard-page-shell__eyebrow">{{ eyebrow }}</p>
         <h1 v-if="showTitle && title" class="standard-page-shell__title">{{ title }}</h1>
@@ -74,6 +78,10 @@ const showHeadline = computed(() => Boolean(props.eyebrow) || (props.showTitle &
   min-width: 0;
 }
 
+.standard-page-shell--workbench-foundation {
+  gap: 0.66rem;
+}
+
 .standard-page-shell__breadcrumbs {
   display: flex;
   flex-wrap: wrap;
@@ -116,6 +124,15 @@ const showHeadline = computed(() => Boolean(props.eyebrow) || (props.showTitle &
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.88rem;
+}
+
+.standard-page-shell__headline--balanced {
+  padding-bottom: 0.08rem;
+  border-bottom: 1px solid color-mix(
+    in srgb,
+    var(--workbench-surface-border, var(--line-panel)) 82%,
+    transparent
+  );
 }
 
 .standard-page-shell__copy {

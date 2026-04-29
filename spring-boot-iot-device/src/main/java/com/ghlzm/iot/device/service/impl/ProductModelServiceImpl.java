@@ -483,40 +483,80 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             return;
         }
         String scenarioCode = normativeMatcher.resolveScenarioCode(product);
-        if (!StringUtils.hasText(scenarioCode)) {
-            return;
-        }
-        List<NormativeMetricDefinition> definitions = safeNormativeDefinitions(
-                normativeMetricDefinitionService.listByScenario(scenarioCode)
-        );
-        if (definitions.isEmpty()) {
-            return;
-        }
+        List<NormativeMetricDefinition> scenarioDefinitions = StringUtils.hasText(scenarioCode)
+                ? safeNormativeDefinitions(normativeMetricDefinitionService.listByScenario(scenarioCode))
+                : List.of();
+        List<NormativeMetricDefinition> activeDefinitions = List.of();
         Map<String, String> displayAliases = resolveNormativeDisplayAliases(product);
         for (ProductModelGovernanceCompareRowVO row : compareResult.getCompareRows()) {
             if (row == null || !MODEL_TYPE_PROPERTY.equals(normalizeOptional(row.getModelType()))) {
                 continue;
             }
             String identifier = normalizeOptional(row.getIdentifier());
-            if (identifier == null || definitions.stream().noneMatch(item -> identifier.equals(item.getIdentifier()))) {
+            if (identifier == null) {
                 continue;
             }
-            ProductModelNormativeMatcher.NormativeMatchResult match = normativeMatcher.matchProperty(
+            List<String> rawIdentifiers = resolveRawIdentifiers(row);
+            ProductModelNormativeMatcher.NormativeMatchResult match = findNormativeMatch(
                     identifier,
-                    resolveRawIdentifiers(row),
-                    definitions
+                    rawIdentifiers,
+                    scenarioDefinitions,
+                    activeDefinitions
             );
             if (match == null) {
+                if (activeDefinitions.isEmpty()) {
+                    activeDefinitions = safeNormativeDefinitions(normativeMetricDefinitionService.listActive());
+                }
+                match = findNormativeMatch(identifier, rawIdentifiers, List.of(), activeDefinitions);
+            }
+            if (!isNormativeMatchResolved(match) && !rawIdentifiers.isEmpty()) {
+                match = normativeMatcher.matchPropertyByRawIdentifier(identifier, rawIdentifiers, scenarioDefinitions);
+            }
+            if (!isNormativeMatchResolved(match) && !rawIdentifiers.isEmpty()) {
+                if (activeDefinitions.isEmpty()) {
+                    activeDefinitions = safeNormativeDefinitions(normativeMetricDefinitionService.listActive());
+                }
+                match = normativeMatcher.matchPropertyByRawIdentifier(identifier, rawIdentifiers, activeDefinitions);
+            }
+            if (match == null) {
+                row.setNormativeMatchStatus(ProductModelNormativeMatcher.MATCH_STATUS_MISSED);
+                row.setNormativeMatchReason("未找到可用规范定义");
+                continue;
+            }
+            row.setNormativeMatchStatus(match.matchStatus());
+            row.setNormativeMatchSource(match.matchSource());
+            row.setNormativeMatchReason(match.matchReason());
+            row.setNormativeCandidates(match.normativeCandidates());
+            row.setRawIdentifiers(match.rawIdentifiers());
+            if (!ProductModelNormativeMatcher.MATCH_STATUS_MATCHED.equals(match.matchStatus())) {
+                row.setRiskReady(false);
                 continue;
             }
             row.setNormativeIdentifier(match.normativeIdentifier());
             row.setNormativeName(displayAliases.getOrDefault(match.normativeIdentifier(), match.normativeName()));
             row.setRiskReady(match.riskReady());
-            row.setRawIdentifiers(match.rawIdentifiers());
             if (match.riskReady() && !row.getRiskFlags().contains("risk_ready")) {
                 row.getRiskFlags().add("risk_ready");
             }
         }
+    }
+
+    private boolean isNormativeMatchResolved(ProductModelNormativeMatcher.NormativeMatchResult match) {
+        return match != null
+                && !ProductModelNormativeMatcher.MATCH_STATUS_MISSED.equals(match.matchStatus());
+    }
+
+    private ProductModelNormativeMatcher.NormativeMatchResult findNormativeMatch(String identifier,
+                                                                                  List<String> rawIdentifiers,
+                                                                                  List<NormativeMetricDefinition> scenarioDefinitions,
+                                                                                  List<NormativeMetricDefinition> activeDefinitions) {
+        if (!scenarioDefinitions.isEmpty() && scenarioDefinitions.stream().anyMatch(item -> identifier.equals(item.getIdentifier()))) {
+            return normativeMatcher.matchProperty(identifier, rawIdentifiers, scenarioDefinitions);
+        }
+        if (!activeDefinitions.isEmpty() && activeDefinitions.stream().anyMatch(item -> identifier.equals(item.getIdentifier()))) {
+            return normativeMatcher.matchProperty(identifier, rawIdentifiers, activeDefinitions);
+        }
+        return null;
     }
 
     private Map<String, String> resolveNormativeDisplayAliases(Product product) {
@@ -825,13 +865,17 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         if (DEVICE_STRUCTURE_COMPOSITE.equals(deviceStructure)) {
             return CONTRACT_IDENTIFIER_MODE_DIRECT;
         }
+        String snapshotSampleType = snapshot == null ? null : normalizeOptional(snapshot.sampleType());
         if (snapshot != null
-                && SAMPLE_TYPE_STATUS.equals(normalizeOptional(snapshot.sampleType()))
+                && SAMPLE_TYPE_STATUS.equals(snapshotSampleType)
                 && snapshot.leaves().stream()
                 .map(ManualLeafEvidence::identifier)
                 .map(this::normalizeOptional)
                 .anyMatch(identifier -> identifier != null && identifier.startsWith(STATUS_PREFIX))) {
             return CONTRACT_IDENTIFIER_MODE_FULL_PATH;
+        }
+        if (!SAMPLE_TYPE_STATUS.equals(snapshotSampleType)) {
+            return CONTRACT_IDENTIFIER_MODE_DIRECT;
         }
         boolean hasPublishedStatusFullPath = (existingModels == null ? List.<ProductModel>of() : existingModels).stream()
                 .map(ProductModel::getIdentifier)

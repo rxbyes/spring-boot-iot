@@ -107,8 +107,12 @@
         <template v-else-if="hasRecords">
           <el-table ref="tableRef" :data="pagedAlarmList" border stripe @selection-change="handleSelectionChange">
             <el-table-column type="selection" width="48" />
-            <StandardTableTextColumn prop="alarmCode" label="告警编号" :width="180" />
-            <StandardTableTextColumn prop="alarmTitle" label="告警标题" :min-width="220" />
+            <StandardTableTextColumn
+              prop="alarmTitle"
+              label="告警"
+              secondary-prop="alarmCode"
+              :min-width="240"
+            />
             <el-table-column prop="alarmLevel" label="告警等级" width="100">
               <template #default="{ row }">
                 <el-tag :type="getAlarmLevelType(row.alarmLevel)" round>{{ getAlarmLevelText(row.alarmLevel) }}</el-tag>
@@ -116,7 +120,12 @@
             </el-table-column>
             <StandardTableTextColumn prop="regionName" label="区域" :width="120" />
             <StandardTableTextColumn prop="riskPointName" label="风险点" :width="150" />
-            <StandardTableTextColumn prop="deviceName" label="设备名称" :width="150" />
+            <StandardTableTextColumn
+              prop="deviceName"
+              label="设备"
+              secondary-prop="deviceCode"
+              :min-width="180"
+            />
             <StandardTableTextColumn prop="metricName" label="测点名称" :width="150" />
             <StandardTableTextColumn prop="currentValue" label="当前值" :width="120" />
             <StandardTableTextColumn prop="thresholdValue" label="阈值" :width="120" />

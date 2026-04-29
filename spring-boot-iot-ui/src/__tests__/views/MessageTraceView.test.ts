@@ -62,7 +62,7 @@ const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
   props: ['eyebrow', 'title', 'description'],
   template: `
-    <section class="message-trace-workbench-stub">
+    <section class="message-trace-workbench-stub standard-workbench-panel--workbench-foundation">
       <header>
         <p>{{ eyebrow }}</p>
         <h2>{{ title }}</h2>
@@ -84,7 +84,7 @@ const StandardPageShellStub = defineComponent({
   name: 'StandardPageShell',
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
-    <section class="standard-page-shell-stub">
+    <section class="standard-page-shell-stub standard-page-shell--workbench-foundation">
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -95,14 +95,16 @@ const IotAccessTabWorkspaceStub = defineComponent({
   name: 'IotAccessTabWorkspace',
   props: ['items'],
   template: `
-    <section class="iot-access-tab-workspace-stub">
-      <button
-        v-for="item in items || []"
-        :key="item.key"
-        type="button"
-      >
-        {{ item.label }}
-      </button>
+    <section class="iot-access-tab-workspace-stub iot-access-tab-workspace--workbench">
+      <nav class="iot-access-tab-workspace__tabs iot-access-tab-workspace__tabs--segmented">
+        <button
+          v-for="item in items || []"
+          :key="item.key"
+          type="button"
+        >
+          {{ item.label }}
+        </button>
+      </nav>
       <slot :active-key="items?.[0]?.key" />
     </section>
   `
@@ -111,7 +113,7 @@ const IotAccessTabWorkspaceStub = defineComponent({
 const StandardListFilterHeaderStub = defineComponent({
   name: 'StandardListFilterHeader',
   template: `
-    <section class="message-trace-filter-stub">
+    <section class="message-trace-filter-stub standard-list-filter-header--workbench-foundation">
       <div><slot name="primary" /></div>
       <div><slot name="advanced" /></div>
       <div><slot name="actions" /></div>
@@ -192,7 +194,7 @@ const StandardWorkbenchRowActionsStub = defineComponent({
   props: ['variant', 'gap', 'directItems', 'menuItems', 'menuLabel'],
   emits: ['command'],
   template: `
-    <div class="message-trace-row-actions-stub" :data-variant="variant" :data-menu-label="menuLabel">
+    <div class="message-trace-row-actions-stub standard-workbench-row-actions--quiet" :data-variant="variant" :data-menu-label="menuLabel">
       <button
         v-for="item in directItems || []"
         :key="item.key || item.command"
@@ -559,6 +561,139 @@ describe('MessageTraceView', () => {
       productKey: 'stored-product',
       topic: '/sys/stored-product/stored-device-01/thing/property/post'
     }));
+  });
+
+  it('shows a latest-gap inbound notice when opened from device insight diagnostics', async () => {
+    const now = new Date().toISOString();
+    window.sessionStorage.setItem('iot-access:diagnostic-context', JSON.stringify({
+      storedAt: Date.now(),
+      context: {
+        sourcePage: 'insight',
+        deviceCode: 'insight-device-01',
+        traceId: 'trace-insight-001',
+        topic: '/sys/insight-product/insight-device-01/thing/property/post',
+        reportStatus: 'timeline-missing',
+        capturedAt: now
+      }
+    }));
+    mockRoute.query = {
+      traceId: 'trace-insight-001'
+    };
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const inboundNotice = wrapper.find('[data-testid="message-trace-inbound-notice"]');
+    expect(inboundNotice.exists()).toBe(true);
+    expect(inboundNotice.text()).toContain('来自对象洞察台');
+    expect(inboundNotice.text()).toContain('当前正在补 latest 链路');
+    expect(inboundNotice.text()).toContain('沿着 deviceCode、traceId 和 Topic 回到主链路复盘');
+  });
+
+  it('keeps latest-gap continuity inside the detail drawer and lets us return to insight', async () => {
+    const now = new Date().toISOString();
+    vi.mocked(messageApi.getMessageFlowTrace).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        traceId: 'trace-001',
+        sessionId: 'session-001',
+        flowType: 'MQTT',
+        status: 'COMPLETED',
+        deviceCode: 'demo-device-01',
+        productKey: 'demo-product',
+        topic: '/sys/demo-product/demo-device-01/thing/property/post',
+        protocolCode: 'mqtt-json',
+        messageType: 'property',
+        startedAt: '2026-03-23 10:00:00',
+        finishedAt: '2026-03-23 10:00:01',
+        totalCostMs: 90,
+        steps: [
+          {
+            stage: 'INGRESS',
+            handlerClass: 'UpMessageProcessingPipeline',
+            handlerMethod: 'ingress',
+            status: 'SUCCESS',
+            costMs: 1,
+            startedAt: '2026-03-23 10:00:00',
+            finishedAt: '2026-03-23 10:00:00',
+            summary: {},
+            errorClass: '',
+            errorMessage: '',
+            branch: ''
+          }
+        ]
+      }
+    });
+    window.sessionStorage.setItem('iot-access:diagnostic-context', JSON.stringify({
+      storedAt: Date.now(),
+      context: {
+        sourcePage: 'insight',
+        deviceCode: 'demo-device-01',
+        traceId: 'trace-001',
+        topic: '/sys/demo-product/demo-device-01/thing/property/post',
+        reportStatus: 'timeline-missing',
+        capturedAt: now
+      }
+    }));
+    mockRoute.query = {
+      traceId: 'trace-001'
+    };
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    const continuity = wrapper.find('[data-testid="message-trace-detail-continuity"]');
+    expect(continuity.exists()).toBe(true);
+    expect(continuity.text()).toContain('来自对象洞察台');
+    expect(continuity.text()).toContain('当前正在补 latest 链路');
+    expect(continuity.text()).toContain('主链路证据已接住');
+    const priorityGuide = wrapper.find('[data-testid="message-trace-detail-priority-guide"]');
+    expect(priorityGuide.exists()).toBe(true);
+    expect(priorityGuide.text()).toContain('先看');
+    expect(priorityGuide.text()).toContain('时间线状态');
+    expect(priorityGuide.text()).toContain('再看');
+    expect(priorityGuide.text()).toContain('Payload 对照');
+    expect(wrapper.find('[data-testid="message-trace-detail-summary-stage"]').classes()).toContain(
+      'message-trace-detail-workbench__stage--contextual'
+    );
+    expect(wrapper.find('[data-testid="message-trace-detail-timeline-stage"]').classes()).toContain(
+      'message-trace-detail-workbench__stage--evidence-primary'
+    );
+    expect(wrapper.find('[data-testid="message-trace-detail-payload-stage"]').classes()).toContain(
+      'message-trace-detail-workbench__stage--evidence-secondary'
+    );
+    expect(wrapper.find('[data-testid="message-trace-detail-timeline-stage"]').text()).toContain('先看时间线状态和处理节点，确认 latest 写入落在哪一段。');
+    expect(wrapper.find('[data-testid="message-trace-detail-payload-stage"]').text()).toContain('再核对 latest 写入前后的原始、解密和解析差异。');
+    expect(wrapper.find('[data-testid="message-trace-timeline-card-status"]').classes()).toContain(
+      'message-trace-detail-workbench__timeline-card--spotlight'
+    );
+    expect(wrapper.find('[data-testid="message-trace-timeline-card-steps"]').classes()).toContain(
+      'message-trace-detail-workbench__timeline-card--spotlight'
+    );
+    expect(wrapper.find('[data-testid="message-trace-timeline-card-owner"]').classes()).toContain(
+      'message-trace-detail-workbench__timeline-card--context'
+    );
+    expect(wrapper.find('[data-testid="message-trace-timeline-card-storage"]').classes()).toContain(
+      'message-trace-detail-workbench__timeline-card--context'
+    );
+
+    await findButtonByText(wrapper, '回对象洞察继续排查')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/insight',
+      query: {
+        deviceCode: 'demo-device-01'
+      }
+    });
   });
 
   it('restores a unified keyword from route query and sends it to both list and stats apis', async () => {
@@ -1044,8 +1179,11 @@ describe('MessageTraceView', () => {
 
     const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub);
 
-    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true);
+    expect(wrapper.find('.standard-page-shell--workbench-foundation').exists()).toBe(true);
+    expect(wrapper.find('.standard-workbench-panel--workbench-foundation').exists()).toBe(true);
+    expect(wrapper.find('.standard-list-filter-header--workbench-foundation').exists()).toBe(true);
     expect(wrapper.find('.iot-access-tab-workspace-stub').exists()).toBe(true);
+    expect(wrapper.find('.iot-access-tab-workspace__tabs--segmented').exists()).toBe(true);
     expect(detailDrawer.props('eyebrow')).toBeUndefined();
     expect(messageApi.getMessageFlowOpsOverview).not.toHaveBeenCalled();
     expect(messageApi.getMessageFlowRecentSessions).not.toHaveBeenCalled();
@@ -1407,9 +1545,24 @@ describe('MessageTraceView', () => {
 
     expect(source).toContain('class="message-trace-table-wrap standard-list-surface"');
     expect(source).toContain('<StandardWorkbenchRowActions');
+    expect(source).toContain('secondary-prop="deviceCode"');
+    expect(source).toContain('label="Trace / 设备"');
+    expect(source).not.toContain('<StandardTableTextColumn prop="deviceCode" label="设备编码"');
     expect(source).toContain('standard-mobile-record-grid');
     expect(source).not.toContain('gap="compact"');
     expect(source).not.toContain("gap: 'compact'");
+  });
+
+  it('marks trace row-action stubs with the quiet shared workbench modifier', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const rowActions = wrapper.findAll('.message-trace-row-actions-stub');
+    expect(rowActions.length).toBeGreaterThan(0);
+    rowActions.forEach((item) => {
+      expect(item.classes()).toContain('standard-workbench-row-actions--quiet');
+    });
   });
 
 });

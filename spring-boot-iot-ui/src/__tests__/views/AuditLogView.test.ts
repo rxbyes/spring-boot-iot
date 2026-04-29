@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { computed, defineComponent, inject, nextTick, provide, ref } from 'vue';
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ElMessage } from 'element-plus';
 
 import AuditLogView from '@/views/AuditLogView.vue';
 import {
@@ -10,8 +11,21 @@ import {
   getAuditLogById,
   getBusinessAuditStats,
   getSystemErrorStats,
-  pageLogs
+  pageLogs,
+  pageSystemErrorClusters
 } from '@/api/auditLog';
+import {
+  getObservabilityMessageArchiveBatchCompare,
+  getObservabilityMessageArchiveBatchOverview,
+  getObservabilityMessageArchiveBatchReportPreview,
+  getTraceEvidence,
+  listObservabilitySlowSpanSummaries,
+  listObservabilitySlowSpanTrends,
+  pageObservabilityMessageArchiveBatches,
+  pageObservabilityScheduledTasks,
+  pageObservabilitySpans
+} from '@/api/observability';
+import { splitWorkbenchRowActions } from '@/utils/adaptiveActionColumn';
 
 const { mockRoute, mockRouter } = vi.hoisted(() => ({
   mockRoute: {
@@ -31,10 +45,23 @@ vi.mock('vue-router', () => ({
 
 vi.mock('@/api/auditLog', () => ({
   pageLogs: vi.fn(),
+  pageSystemErrorClusters: vi.fn(),
   getAuditLogById: vi.fn(),
   deleteAuditLog: vi.fn(),
   getSystemErrorStats: vi.fn(),
   getBusinessAuditStats: vi.fn()
+}));
+
+vi.mock('@/api/observability', () => ({
+  getObservabilityMessageArchiveBatchCompare: vi.fn(),
+  getObservabilityMessageArchiveBatchOverview: vi.fn(),
+  getObservabilityMessageArchiveBatchReportPreview: vi.fn(),
+  pageObservabilityMessageArchiveBatches: vi.fn(),
+  pageObservabilityScheduledTasks: vi.fn(),
+  listObservabilitySlowSpanSummaries: vi.fn(),
+  listObservabilitySlowSpanTrends: vi.fn(),
+  pageObservabilitySpans: vi.fn(),
+  getTraceEvidence: vi.fn()
 }));
 
 vi.mock('@/utils/confirm', () => ({
@@ -56,6 +83,17 @@ vi.mock('element-plus', async (importOriginal) => {
 
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+function createDeferred<T>() {
+  let resolvePromise!: (value: T) => void;
+  const promise = new Promise<T>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return {
+    promise,
+    resolve: resolvePromise
+  };
+}
+
 function installSessionStorageMock(value?: Record<string, string>) {
   const store = new Map<string, string>(Object.entries(value || {}));
   Object.defineProperty(window, 'sessionStorage', {
@@ -73,14 +111,61 @@ function installSessionStorageMock(value?: Record<string, string>) {
 }
 
 function findButtonByText(wrapper: ReturnType<typeof mountView>, text: string) {
-  return wrapper.findAll('button').find((button) => button.text().includes(text));
+  const buttons = wrapper.findAll('button');
+  return (
+    buttons.find((button) => button.text().trim() === text) ||
+    buttons.find((button) => button.text().includes(text))
+  );
+}
+
+async function triggerSystemLogTab(
+  wrapper: ReturnType<typeof mountView>,
+  key: 'errors' | 'hotspots' | 'archives'
+) {
+  const button = wrapper.get(`[data-testid="system-log-tab-${key}"]`);
+  await button.trigger('click');
+  await flushPromises();
+  await nextTick();
+}
+
+async function clickButtonByText(
+  wrapper: ReturnType<typeof mountView>,
+  text: string,
+  within?: ReturnType<typeof mountView> | ReturnType<typeof mount>
+) {
+  const scope = within ?? wrapper;
+  const button =
+    scope.findAll('button').find((candidate) => candidate.text().trim() === text) ||
+    scope.findAll('button').find((candidate) => candidate.text().includes(text));
+  if (!button) {
+    throw new Error(`Missing button: ${text}`);
+  }
+  await button.trigger('click');
+  await flushPromises();
+  await nextTick();
+}
+
+function getErrorPanel(wrapper: ReturnType<typeof mountView>) {
+  return wrapper.findComponent({ name: 'AuditLogErrorTabPanel' });
+}
+
+async function openClusterStage(wrapper: ReturnType<typeof mountView>) {
+  getErrorPanel(wrapper).vm.$emit('open-clusters');
+  await flushPromises();
+  await nextTick();
+}
+
+async function applyCluster(wrapper: ReturnType<typeof mountView>, clusterKey: string) {
+  getErrorPanel(wrapper).vm.$emit('apply-cluster', clusterKey);
+  await flushPromises();
+  await nextTick();
 }
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
   props: ['eyebrow', 'title', 'description'],
   template: `
-    <section class="audit-log-workbench-stub">
+    <section class="audit-log-workbench-stub standard-workbench-panel--workbench-foundation">
       <header>
         <p>{{ eyebrow }}</p>
         <h2>{{ title }}</h2>
@@ -102,9 +187,45 @@ const StandardPageShellStub = defineComponent({
   name: 'StandardPageShell',
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
-    <section class="standard-page-shell-stub">
+    <section class="standard-page-shell-stub standard-page-shell--workbench-foundation">
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
+    </section>
+  `
+});
+
+const IotAccessTabWorkspaceStub = defineComponent({
+  name: 'IotAccessTabWorkspace',
+  props: ['items', 'modelValue', 'defaultKey', 'variant'],
+  emits: ['update:modelValue', 'change'],
+  computed: {
+    activeKey(): string {
+      return String(this.modelValue || this.defaultKey || this.items?.[0]?.key || '');
+    }
+  },
+  methods: {
+    handleTabChange(nextKey: string) {
+      if (nextKey === this.activeKey) {
+        return;
+      }
+      this.$emit('update:modelValue', nextKey);
+      this.$emit('change', nextKey);
+    }
+  },
+  template: `
+    <section class="iot-access-tab-workspace-stub iot-access-tab-workspace--workbench">
+      <nav class="iot-access-tab-workspace-stub__tabs iot-access-tab-workspace__tabs iot-access-tab-workspace__tabs--segmented">
+        <button
+          v-for="item in items || []"
+          :key="item.key"
+          v-bind="item.key === activeKey ? { ...(item.buttonAttrs || {}), ...(item.activeButtonAttrs || {}) } : (item.buttonAttrs || {})"
+          type="button"
+          @click="handleTabChange(item.key)"
+        >
+          {{ item.label }}
+        </button>
+      </nav>
+      <slot :active-key="activeKey" :active-item="(items || []).find((item) => item.key === activeKey) || null" />
     </section>
   `
 });
@@ -112,7 +233,7 @@ const StandardPageShellStub = defineComponent({
 const StandardListFilterHeaderStub = defineComponent({
   name: 'StandardListFilterHeader',
   template: `
-    <section class="audit-log-filter-stub">
+    <section class="audit-log-filter-stub standard-list-filter-header--workbench-foundation">
       <div><slot name="primary" /></div>
       <div><slot name="advanced" /></div>
       <div><slot name="actions" /></div>
@@ -127,8 +248,10 @@ const StandardAppliedFiltersBarStub = defineComponent({
 
 const StandardTableToolbarStub = defineComponent({
   name: 'StandardTableToolbar',
+  props: ['metaItems'],
   template: `
     <div class="audit-log-toolbar-stub">
+      <div class="audit-log-toolbar-stub__meta">{{ Array.isArray(metaItems) ? metaItems.join(',') : '' }}</div>
       <slot />
       <slot name="right" />
     </div>
@@ -145,6 +268,7 @@ const StandardChoiceGroupStub = defineComponent({
         v-for="option in options"
         :key="option.value"
         type="button"
+        :data-testid="['LAST_24_HOURS', 'LAST_7_DAYS'].includes(option.value) ? \`slow-trend-window-\${option.value}\` : \`hotspot-drilldown-\${option.value}\`"
         @click="$emit('update:modelValue', option.value)"
       >
         {{ option.label }}
@@ -182,12 +306,29 @@ const StandardActionMenuStub = defineComponent({
 
 const StandardWorkbenchRowActionsStub = defineComponent({
   name: 'StandardWorkbenchRowActions',
-  props: ['variant', 'gap', 'directItems', 'menuItems', 'menuLabel'],
+  props: ['variant', 'gap', 'directItems', 'menuItems', 'menuLabel', 'maxDirectItems'],
   emits: ['command'],
+  setup(props) {
+    const resolvedActions = computed(() =>
+      splitWorkbenchRowActions({
+        directItems: props.directItems || [],
+        menuItems: props.menuItems || [],
+        maxDirectItems: Number(props.maxDirectItems || 3)
+      })
+    );
+    const resolvedDirectItems = computed(() => resolvedActions.value.directItems);
+    const resolvedMenuItems = computed(() => resolvedActions.value.menuItems);
+    const resolvedMenuLabel = computed(() => props.menuLabel || '更多');
+    return {
+      resolvedDirectItems,
+      resolvedMenuItems,
+      resolvedMenuLabel
+    };
+  },
   template: `
-    <div class="audit-log-row-actions-stub" :data-variant="variant" :data-menu-label="menuLabel">
+    <div class="audit-log-row-actions-stub standard-workbench-row-actions--quiet" :data-variant="variant" :data-menu-label="resolvedMenuLabel">
       <button
-        v-for="item in directItems || []"
+        v-for="item in resolvedDirectItems"
         :key="item.key || item.command"
         type="button"
         :disabled="Boolean(item.disabled)"
@@ -195,7 +336,17 @@ const StandardWorkbenchRowActionsStub = defineComponent({
       >
         {{ item.label }}
       </button>
-      <span class="audit-log-row-actions-stub__menu-count">{{ (menuItems || []).length }}</span>
+      <button v-if="resolvedMenuItems.length > 0" type="button">{{ resolvedMenuLabel }}</button>
+      <button
+        v-for="item in resolvedMenuItems"
+        :key="item.key || item.command"
+        type="button"
+        :disabled="Boolean(item.disabled)"
+        @click="$emit('command', item.command)"
+      >
+        {{ item.label }}
+      </button>
+      <span class="audit-log-row-actions-stub__menu-count">{{ resolvedMenuItems.length }}</span>
     </div>
   `
 });
@@ -232,6 +383,40 @@ const CsvColumnSettingDialogStub = defineComponent({
   name: 'CsvColumnSettingDialog',
   props: ['title'],
   template: '<section class="audit-log-csv-dialog-stub">{{ title }}</section>'
+});
+
+const StandardDetailDrawerStub = defineComponent({
+  name: 'StandardDetailDrawer',
+  props: ['title', 'modelValue', 'loading', 'errorMessage', 'empty', 'emptyText'],
+  template: `
+    <section v-if="modelValue" class="observability-evidence-drawer-stub">
+      <h2>{{ title }}</h2>
+      <p v-if="loading">loading</p>
+      <p v-else-if="errorMessage">{{ errorMessage }}</p>
+      <p v-else-if="empty">{{ emptyText }}</p>
+      <slot v-else />
+    </section>
+  `
+});
+
+const ElInputStub = defineComponent({
+  name: 'ElInput',
+  props: ['modelValue', 'id', 'placeholder'],
+  emits: ['update:modelValue', 'keyup', 'clear'],
+  methods: {
+    handleInput(event: Event) {
+      this.$emit('update:modelValue', (event.target as HTMLInputElement).value);
+    }
+  },
+  template: `
+    <input
+      :id="id"
+      :value="modelValue || ''"
+      :placeholder="placeholder"
+      @input="handleInput"
+      @keyup="$emit('keyup', $event)"
+    />
+  `
 });
 
 const ElTableStub = defineComponent({
@@ -289,6 +474,42 @@ function createPageResponse() {
   };
 }
 
+function installClipboardMock() {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(globalThis.navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText }
+  });
+  return { writeText };
+}
+
+function createClusterPageResponse() {
+  return {
+    code: 200,
+    msg: 'success',
+    data: {
+      total: 1,
+      pageNum: 1,
+      pageSize: 10,
+      records: [
+        {
+          clusterKey: 'mqtt-consumer|java.lang.IllegalStateException|MQTT_TIMEOUT',
+          operationModule: 'mqtt-consumer',
+          exceptionClass: 'java.lang.IllegalStateException',
+          errorCode: 'MQTT_TIMEOUT',
+          count: 12,
+          distinctTraceCount: 4,
+          distinctDeviceCount: 3,
+          latestOperationTime: '2026-03-28 10:00:00',
+          latestRequestUrl: '$dp',
+          latestRequestMethod: 'MQTT',
+          latestResultMessage: 'timeout'
+        }
+      ]
+    }
+  };
+}
+
 function mountView() {
   return mount(AuditLogView, {
     global: {
@@ -298,6 +519,7 @@ function mountView() {
       stubs: {
         StandardPageShell: StandardPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
+        IotAccessTabWorkspace: IotAccessTabWorkspaceStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardAppliedFiltersBar: StandardAppliedFiltersBarStub,
         StandardTableToolbar: StandardTableToolbarStub,
@@ -310,9 +532,10 @@ function mountView() {
         StandardPagination: StandardPaginationStub,
         AuditLogDetailDrawer: AuditLogDetailDrawerStub,
         CsvColumnSettingDialog: CsvColumnSettingDialogStub,
+        StandardDetailDrawer: StandardDetailDrawerStub,
         ElTable: ElTableStub,
         ElTableColumn: ElTableColumnStub,
-        ElInput: true,
+        ElInput: ElInputStub,
         ElSelect: true,
         ElOption: true,
         ElTag: true,
@@ -330,11 +553,22 @@ describe('AuditLogView', () => {
     mockRouter.push.mockReset();
     mockRouter.replace.mockReset();
     vi.mocked(pageLogs).mockReset();
+    vi.mocked(pageSystemErrorClusters).mockReset();
     vi.mocked(getAuditLogById).mockReset();
     vi.mocked(deleteAuditLog).mockReset();
     vi.mocked(getSystemErrorStats).mockReset();
     vi.mocked(getBusinessAuditStats).mockReset();
+    vi.mocked(getObservabilityMessageArchiveBatchCompare).mockReset();
+    vi.mocked(getObservabilityMessageArchiveBatchOverview).mockReset();
+    vi.mocked(getObservabilityMessageArchiveBatchReportPreview).mockReset();
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockReset();
+    vi.mocked(pageObservabilityScheduledTasks).mockReset();
+    vi.mocked(listObservabilitySlowSpanSummaries).mockReset();
+    vi.mocked(listObservabilitySlowSpanTrends).mockReset();
+    vi.mocked(pageObservabilitySpans).mockReset();
+    vi.mocked(getTraceEvidence).mockReset();
     vi.mocked(pageLogs).mockResolvedValue(createPageResponse());
+    vi.mocked(pageSystemErrorClusters).mockResolvedValue(createClusterPageResponse());
     vi.mocked(getSystemErrorStats).mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -364,6 +598,312 @@ describe('AuditLogView', () => {
         topOperationTypes: []
       }
     });
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 5,
+        records: [
+          {
+            id: 51,
+            batchNo: 'iot_message_log-20260426000119',
+            sourceTable: 'iot_message_log',
+            governanceMode: 'APPLY',
+            status: 'SUCCEEDED',
+            retentionDays: 30,
+            cutoffAt: '2026-03-27 00:00:00',
+            confirmReportPath: 'logs/observability/observability-log-governance-20260425-235900.json',
+            confirmReportGeneratedAt: '2026-04-25 23:59:00',
+            confirmedExpiredRows: 16098,
+            candidateRows: 16098,
+            archivedRows: 16098,
+            deletedRows: 16098,
+            compareStatus: 'MATCHED',
+            compareStatusLabel: '已对齐',
+            deltaConfirmedVsDeleted: 0,
+            deltaDryRunVsDeleted: 0,
+            remainingExpiredRows: 0,
+            previewAvailable: true,
+            artifactsJson: '{"reportJsonPath":"logs/observability/observability-log-governance-20260426-000200.json","reportMarkdownPath":"logs/observability/observability-log-governance-20260426-000200.md"}',
+            createTime: '2026-04-26 00:01:19',
+            updateTime: '2026-04-26 00:02:00'
+          }
+        ]
+      }
+    });
+    vi.mocked(getObservabilityMessageArchiveBatchOverview).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        totalBatches: 4,
+        matchedBatches: 1,
+        driftedBatches: 1,
+        partialBatches: 1,
+        unavailableBatches: 1,
+        abnormalBatches: 3,
+        totalDeltaConfirmedVsDeleted: 18,
+        totalRemainingExpiredRows: 18,
+        latestAbnormalBatch: 'iot_message_log-20260426090100',
+        latestAbnormalOccurredAt: '2026-04-26 09:01:00'
+      }
+    });
+    vi.mocked(getObservabilityMessageArchiveBatchCompare).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        batchNo: 'iot_message_log-20260426000119',
+        sourceTable: 'iot_message_log',
+        status: 'SUCCEEDED',
+        compareStatus: 'MATCHED',
+        compareMessage: '已按确认结果落地',
+        sources: {
+          confirmReportPath: 'logs/observability/observability-log-governance-20260425-235900.json',
+          resolvedDryRunJsonPath: 'logs/observability/observability-log-governance-20260425-235900.json',
+          resolvedApplyJsonPath: 'logs/observability/observability-log-governance-20260426-000200.json',
+          dryRunAvailable: true,
+          applyAvailable: true
+        },
+        summaryCompare: {
+          confirmedExpiredRows: 16098,
+          dryRunExpiredRows: 16098,
+          applyArchivedRows: 16098,
+          applyDeletedRows: 16098,
+          remainingExpiredRows: 0,
+          deltaConfirmedVsDeleted: 0,
+          deltaDryRunVsDeleted: 0,
+          matched: true
+        },
+        tableComparisons: [
+          {
+            tableName: 'iot_message_log',
+            label: '消息热表',
+            dryRunExpiredRows: 16098,
+            applyArchivedRows: 16098,
+            applyDeletedRows: 16098,
+            applyRemainingExpiredRows: 0,
+            deltaDryRunVsDeleted: 0,
+            matched: true
+          }
+        ]
+      }
+    });
+    vi.mocked(getObservabilityMessageArchiveBatchReportPreview).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        batchNo: 'iot_message_log-20260426000119',
+        sourceTable: 'iot_message_log',
+        status: 'SUCCEEDED',
+        confirmReportPath: 'logs/observability/observability-log-governance-20260425-235900.json',
+        confirmReportGeneratedAt: '2026-04-25 23:59:00',
+        available: true,
+        resolvedJsonPath: 'logs/observability/observability-log-governance-20260425-235900.json',
+        resolvedMarkdownPath: 'logs/observability/observability-log-governance-20260425-235900.md',
+        markdownAvailable: true,
+        markdownTruncated: false,
+        markdownPreview: '# 归档报告\n- APPLY succeeded',
+        fileLastModifiedAt: '2026-04-26 00:02:00',
+        summary: {
+          generatedAt: '2026-04-26T00:02:00',
+          mode: 'APPLY',
+          expiredRows: 16098,
+          deletedRows: 16098,
+          tablesWithExpiredRows: 1
+        },
+        tableSummaries: [
+          {
+            tableName: 'iot_message_log',
+            label: '消息热表',
+            retentionDays: 30,
+            cutoffAt: '2026-03-27 00:00:00',
+            expiredRows: 16098,
+            deletedRows: 16098,
+            remainingExpiredRows: 0,
+            earliestRecordAt: '2026-03-01 00:00:00',
+            latestRecordAt: '2026-03-26 23:59:59'
+          }
+        ]
+      }
+    });
+    vi.mocked(pageObservabilityScheduledTasks).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 2,
+        pageNum: 1,
+        pageSize: 5,
+        records: [
+          {
+            id: 41,
+            traceId: 'trace-scheduled-1',
+            domainCode: 'device',
+            taskCode: 'DeviceSessionTimeoutScheduler#closeTimedOutSessions',
+            taskName: 'DeviceSessionTimeoutScheduler#closeTimedOutSessions',
+            triggerType: 'FIXED_DELAY',
+            triggerExpression: '${iot.device.online-timeout-check-delay-millis:30000}',
+            initialDelayExpression: '${iot.device.online-timeout-check-delay-millis:30000}',
+            status: 'SUCCESS',
+            durationMs: 420,
+            startedAt: '2026-04-25 10:10:00'
+          },
+          {
+            id: 42,
+            traceId: 'trace-scheduled-2',
+            domainCode: 'admin',
+            taskCode: 'ObservabilityAlertingScheduler#evaluateAlerts',
+            taskName: 'ObservabilityAlertingScheduler#evaluateAlerts',
+            triggerType: 'FIXED_DELAY',
+            triggerExpression: "#{T(java.lang.Math).max(@iotProperties.observability.alerting.evaluateIntervalSeconds, 60) * 1000L}",
+            status: 'FAILURE',
+            durationMs: 1600,
+            startedAt: '2026-04-25 10:05:00',
+            errorMessage: 'rule snapshot missing'
+          }
+        ]
+      }
+    });
+    vi.mocked(listObservabilitySlowSpanSummaries).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          spanType: 'SLOW_SQL',
+          domainCode: 'system',
+          eventCode: 'system.error.archive',
+          objectType: 'sql',
+          objectId: 'iot_message_log',
+          totalCount: 3,
+          avgDurationMs: 1280,
+          maxDurationMs: 2400,
+          latestTraceId: 'trace-slow-1',
+          latestStartedAt: '2026-04-25 10:08:00'
+        }
+      ]
+    });
+    vi.mocked(pageObservabilitySpans).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 2,
+        pageNum: 1,
+        pageSize: 5,
+        records: [
+          {
+            id: 31,
+            traceId: 'trace-slow-1',
+            spanType: 'SLOW_SQL',
+            spanName: 'Slow SQL iot_message_log',
+            domainCode: 'system',
+            eventCode: 'system.error.archive',
+            objectType: 'sql',
+            objectId: 'iot_message_log',
+            status: 'SUCCESS',
+            durationMs: 2400,
+            startedAt: '2026-04-25 10:08:00'
+          },
+          {
+            id: 32,
+            traceId: 'trace-slow-2',
+            spanType: 'SLOW_SQL',
+            spanName: 'Slow SQL iot_message_log',
+            domainCode: 'system',
+            eventCode: 'system.error.archive',
+            objectType: 'sql',
+            objectId: 'iot_message_log',
+            status: 'ERROR',
+            durationMs: 1800,
+            startedAt: '2026-04-25 10:06:00'
+          }
+        ]
+      }
+    });
+    vi.mocked(listObservabilitySlowSpanTrends).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          bucket: 'HOUR',
+          bucketStart: '2026-04-25 09:00:00',
+          bucketEnd: '2026-04-25 10:00:00',
+          totalCount: 3,
+          successCount: 2,
+          errorCount: 1,
+          errorRate: 33,
+          avgDurationMs: 2667,
+          maxDurationMs: 5000,
+          p95DurationMs: 5000,
+          p99DurationMs: 5000
+        },
+        {
+          bucket: 'HOUR',
+          bucketStart: '2026-04-25 10:00:00',
+          bucketEnd: '2026-04-25 11:00:00',
+          totalCount: 2,
+          successCount: 1,
+          errorCount: 1,
+          errorRate: 50,
+          avgDurationMs: 2250,
+          maxDurationMs: 3000,
+          p95DurationMs: 3000,
+          p99DurationMs: 3000
+        }
+      ]
+    });
+    vi.mocked(getTraceEvidence).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        traceId: 'trace-001',
+        businessEvents: [
+          {
+            id: 10,
+            traceId: 'trace-001',
+            eventCode: 'product.contract.apply',
+            eventName: '合同生效',
+            domainCode: 'product',
+            actionCode: 'apply',
+            objectType: 'product_contract',
+            objectId: '20430001',
+            resultStatus: 'SUCCESS',
+            occurredAt: '2026-04-25 10:05:00'
+          }
+        ],
+        spans: [
+          {
+            id: 20,
+            traceId: 'trace-001',
+            spanType: 'SLOW_SQL',
+            spanName: 'Slow SQL',
+            status: 'SUCCESS',
+            durationMs: 1200,
+            startedAt: '2026-04-25 10:04:00'
+          }
+        ],
+        timeline: [
+          {
+            itemType: 'SPAN',
+            itemId: 20,
+            traceId: 'trace-001',
+            code: 'SLOW_SQL',
+            name: 'Slow SQL',
+            status: 'SUCCESS',
+            durationMs: 1200,
+            occurredAt: '2026-04-25 10:04:00'
+          },
+          {
+            itemType: 'BUSINESS_EVENT',
+            itemId: 10,
+            traceId: 'trace-001',
+            code: 'product.contract.apply',
+            name: '合同生效',
+            status: 'SUCCESS',
+            occurredAt: '2026-04-25 10:05:00'
+          }
+        ]
+      }
+    });
   });
 
   it('renders the anomaly page list-first without toolbar jump shortcuts or legacy eyebrow tiers', async () => {
@@ -371,7 +911,10 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true);
+    expect(wrapper.find('.standard-page-shell--workbench-foundation').exists()).toBe(true);
+    expect(wrapper.find('.standard-workbench-panel--workbench-foundation').exists()).toBe(true);
+    expect(wrapper.find('.standard-list-filter-header--workbench-foundation').exists()).toBe(true);
+    expect(wrapper.find('.iot-access-tab-workspace__tabs--segmented').exists()).toBe(true);
     expect(wrapper.text()).toContain('异常观测台');
     expect(wrapper.text()).toContain('后台异常核对');
     expect(wrapper.text()).toContain('追踪');
@@ -384,12 +927,920 @@ describe('AuditLogView', () => {
 
     expect(rowActions.length).toBeGreaterThan(0);
     rowActions.forEach((item) => {
-      expect(item.text()).toContain('详情');
-      expect(item.text()).toContain('追踪');
-      expect(item.text()).toContain('删除');
-      expect(item.find('.audit-log-row-actions-stub__menu-count').text()).toBe('0');
-      expect(item.attributes('data-menu-label')).toBeUndefined();
+      expect(item.classes()).toContain('standard-workbench-row-actions--quiet');
+      const actionTexts = item.findAll('button').map((button) => button.text().trim());
+      expect(actionTexts.slice(0, 5)).toEqual(['详情', '证据', '追踪', '删除', '更多']);
+      expect(actionTexts).toContain('复制 TraceId');
+      expect(actionTexts).toContain('复制目标');
+      expect(item.find('.audit-log-row-actions-stub__menu-count').text()).toBe('2');
+      expect(item.attributes('data-menu-label')).toBe('更多');
     });
+  });
+
+  it('copies traceId from system-log row actions', async () => {
+    const { writeText } = installClipboardMock();
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const rowActionCopyButton = wrapper
+      .find('.audit-log-row-actions-stub')
+      .findAll('button')
+      .find((button) => button.text().includes('复制 TraceId'));
+    await rowActionCopyButton!.trigger('click');
+    await flushPromises();
+
+    expect(writeText).toHaveBeenCalledWith('trace-001');
+    expect(ElMessage.success).toHaveBeenCalled();
+  });
+
+  it('opens trace evidence drawer from system-log row actions', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const rowActionEvidenceButton = wrapper
+      .find('.audit-log-row-actions-stub')
+      .findAll('button')
+      .find((button) => button.text().includes('证据'));
+    await rowActionEvidenceButton!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(getTraceEvidence).toHaveBeenCalledWith('trace-001');
+    const drawer = wrapper.find('.observability-evidence-drawer-stub');
+    expect(drawer.exists()).toBe(true);
+    expect(drawer.text()).toContain('TraceId 证据包');
+    expect(drawer.text()).toContain('product.contract.apply');
+    expect(drawer.text()).toContain('SLOW_SQL');
+    expect(drawer.text()).toContain('1200 ms');
+  });
+
+  it('defaults system-log to the 异常排查 tab and hides hotspot and archive sections until selected', async () => {
+    const wrapper = mountView();
+
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('异常观测台');
+    expect(wrapper.find('[data-testid="system-log-tab-errors"]').attributes('data-active')).toBe(
+      'true'
+    );
+    expect(wrapper.find('[data-testid="system-log-error-panel"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="system-log-hotspot-panel"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="system-log-archive-panel"]').exists()).toBe(false);
+  });
+
+  it('updates the shared workbench summary strip as the active system tab changes', async () => {
+    const wrapper = mountView();
+
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="system-log-summary-errors"]').text()).toContain('4');
+    expect(wrapper.get('[data-testid="system-log-summary-trace"]').text()).toContain('2');
+
+    await triggerSystemLogTab(wrapper, 'hotspots');
+
+    expect(wrapper.get('[data-testid="system-log-summary-hotspots"]').text()).toContain('1');
+    expect(wrapper.get('[data-testid="system-log-summary-tasks"]').text()).toContain('2');
+
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    expect(wrapper.get('[data-testid="system-log-summary-abnormal"]').text()).toContain('3');
+    expect(wrapper.get('[data-testid="system-log-summary-batches"]').text()).toContain('1');
+  });
+
+  it('keeps the anomaly list surface only inside the 异常排查 panel', async () => {
+    const wrapper = mountView();
+
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="system-log-error-panel"]').exists()).toBe(true);
+    expect(wrapper.find('.audit-log-table-stub').exists()).toBe(true);
+    expect(wrapper.find('#quick-search').exists()).toBe(true);
+
+    await triggerSystemLogTab(wrapper, 'hotspots');
+
+    expect(wrapper.find('[data-testid="system-log-error-panel"]').exists()).toBe(false);
+    expect(wrapper.find('.audit-log-table-stub').exists()).toBe(false);
+    expect(wrapper.find('#quick-search').exists()).toBe(false);
+
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    expect(wrapper.find('[data-testid="system-log-error-panel"]').exists()).toBe(false);
+    expect(wrapper.find('.audit-log-table-stub').exists()).toBe(false);
+    expect(wrapper.find('#quick-search').exists()).toBe(false);
+  });
+
+  it('keeps filter state per tab when switching between errors, hotspots, and archives', async () => {
+    const wrapper = mountView();
+
+    await triggerSystemLogTab(wrapper, 'archives');
+    await wrapper.get('[data-testid="archive-batch-filter-batch-no"]').setValue('batch-001');
+    await triggerSystemLogTab(wrapper, 'errors');
+    await wrapper.get('#quick-search').setValue('trace-001');
+    await triggerSystemLogTab(wrapper, 'hotspots');
+    expect(wrapper.find('[data-testid="system-log-hotspot-panel"]').exists()).toBe(true);
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    expect(
+      (wrapper.get('[data-testid="archive-batch-filter-batch-no"]').element as HTMLInputElement)
+        .value
+    ).toBe('batch-001');
+    await triggerSystemLogTab(wrapper, 'errors');
+    expect((wrapper.get('#quick-search').element as HTMLInputElement).value).toBe('trace-001');
+  });
+
+  it('removes the global refresh shortcut from hotspots and archives', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await triggerSystemLogTab(wrapper, 'hotspots');
+    expect(wrapper.find('.audit-log-system-header__actions').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('刷新列表');
+
+    await triggerSystemLogTab(wrapper, 'archives');
+    expect(wrapper.find('.audit-log-system-header__actions').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('刷新列表');
+  });
+
+  it('clears selected rows when switching away from the errors tab', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const errorPanel = wrapper.findComponent({ name: 'AuditLogErrorTabPanel' });
+    errorPanel.vm.$emit('selection-change', [
+      {
+        id: 1,
+        traceId: 'trace-001',
+        operationModule: 'mqtt-consumer'
+      }
+    ]);
+    await nextTick();
+
+    expect(wrapper.get('[data-testid="system-log-summary-selected"]').text()).toContain('1');
+
+    await triggerSystemLogTab(wrapper, 'hotspots');
+    await triggerSystemLogTab(wrapper, 'errors');
+
+    expect(wrapper.get('[data-testid="system-log-summary-selected"]').text()).toContain('0');
+  });
+
+  it('keeps /audit-log in the existing single-workbench layout without system tabs', async () => {
+    mockRoute.path = '/audit-log';
+    const wrapper = mountView();
+
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="system-log-tab-errors"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('观测热点');
+    expect(wrapper.text()).not.toContain('归档治理');
+  });
+
+  it('renders slow performance hotspots and opens evidence from the latest trace', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'hotspots');
+
+    expect(listObservabilitySlowSpanSummaries).toHaveBeenCalledWith({
+      limit: 5,
+      minDurationMs: 1
+    });
+
+    const panel = wrapper.find('.audit-log-slow-summary');
+    expect(panel.exists()).toBe(true);
+    expect(panel.text()).toContain('性能慢点 Top');
+    const hotspotTable = wrapper.find('[data-testid="hotspot-master-table"]');
+    expect(hotspotTable.text()).toContain('热点对象');
+    expect(hotspotTable.text()).toContain('风险状态');
+    expect(hotspotTable.text()).toContain('性能信号');
+    expect(hotspotTable.text()).toContain('最近情况');
+    expect(hotspotTable.text()).toContain('SLOW_SQL');
+    expect(hotspotTable.text()).toContain('system.error.archive');
+    expect(hotspotTable.text()).toContain('iot_message_log');
+    expect(hotspotTable.text()).toContain('trace-slow-1');
+    expect(hotspotTable.text()).toContain('峰值 2400 ms');
+    expect(hotspotTable.text()).toContain('均值 1280 ms');
+    expect(hotspotTable.text()).toContain('3 次');
+
+    vi.mocked(getTraceEvidence).mockClear();
+    await panel.find('button').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(getTraceEvidence).toHaveBeenCalledWith('trace-slow-1');
+    expect(wrapper.find('.observability-evidence-drawer-stub').exists()).toBe(true);
+  });
+
+  it('reveals the scheduled task ledger from the related-task drilldown and opens evidence from a task run', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'hotspots');
+
+    expect(pageObservabilityScheduledTasks).toHaveBeenCalledWith({
+      pageNum: 1,
+      pageSize: 5
+    });
+
+    await wrapper.get('[data-testid="hotspot-drilldown-tasks"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    const ledger = wrapper.find('.audit-log-scheduled-task-ledger');
+    expect(ledger.exists()).toBe(true);
+    expect(ledger.text()).toContain('相关任务');
+    expect(ledger.text()).toContain('DeviceSessionTimeoutScheduler#closeTimedOutSessions');
+    expect(ledger.text()).toContain('FIXED_DELAY');
+    expect(ledger.text()).toContain('成功');
+    expect(ledger.text()).toContain('420 ms');
+
+    vi.mocked(getTraceEvidence).mockClear();
+    const evidenceButton = ledger.findAll('button').find((button) => button.text().includes('证据'));
+    await evidenceButton!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(getTraceEvidence).toHaveBeenCalledWith('trace-scheduled-1');
+  });
+
+  it('renders archive batch ledger and opens batch detail from the same workbench', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    expect(getObservabilityMessageArchiveBatchOverview).toHaveBeenCalledWith({
+      sourceTable: 'iot_message_log'
+    });
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledWith({
+      sourceTable: 'iot_message_log',
+      pageNum: 1,
+      pageSize: 5
+    });
+
+    const ledger = wrapper.find('.audit-log-archive-batch-ledger');
+    expect(ledger.exists()).toBe(true);
+    expect(ledger.text()).toContain('归档批次台账');
+    expect(ledger.text()).toContain('异常批次');
+    expect(ledger.text()).toContain('3');
+    expect(ledger.text()).toContain('执行偏差总量');
+    expect(ledger.text()).toContain('+18');
+    expect(ledger.text()).toContain('剩余过期总量');
+    expect(ledger.text()).toContain('最近异常批次');
+    expect(ledger.text()).toContain('iot_message_log-20260426090100');
+    const archiveTable = wrapper.find('[data-testid="archive-batch-master-table"]');
+    expect(archiveTable.text()).toContain('归档批次');
+    expect(archiveTable.text()).toContain('执行状态');
+    expect(archiveTable.text()).toContain('对比结论');
+    expect(archiveTable.text()).toContain('风险信号');
+    expect(archiveTable.text()).toContain('最近时间');
+    expect(archiveTable.text()).toContain('iot_message_log-20260426000119');
+    expect(archiveTable.text()).toContain('成功');
+    expect(archiveTable.text()).toContain('已对齐');
+    expect(archiveTable.text()).toContain('偏差 0');
+    expect(archiveTable.text()).toContain('剩余 0');
+    expect(archiveTable.text()).toContain('预览 可预览');
+    expect(archiveTable.text()).toContain('iot_message_log / 30 天');
+    expect(archiveTable.text()).toContain('截止 2026-03-27 00:00:00');
+
+    const detailButton = ledger.findAll('button').find((button) => button.text().includes('详情'));
+    await detailButton!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(getObservabilityMessageArchiveBatchReportPreview).toHaveBeenCalledWith(
+      'iot_message_log-20260426000119'
+    );
+    expect(getObservabilityMessageArchiveBatchCompare).toHaveBeenCalledWith(
+      'iot_message_log-20260426000119'
+    );
+
+    const drawer = wrapper
+      .findAll('.observability-evidence-drawer-stub')
+      .find((item) => item.text().includes('归档批次详情'));
+    expect(drawer?.exists()).toBe(true);
+    expect(drawer?.text()).toContain('iot_message_log-20260426000119');
+    expect(drawer?.text()).toContain('logs/observability/observability-log-governance-20260425-235900.json');
+    expect(drawer?.text()).toContain('logs/observability/observability-log-governance-20260426-000200.json');
+    expect(drawer?.text()).toContain('logs/observability/observability-log-governance-20260426-000200.md');
+    expect(drawer?.text()).toContain('批次对比');
+    expect(drawer?.text()).toContain('已按确认结果落地');
+    expect(drawer?.text()).toContain('确认过期');
+    expect(drawer?.text()).toContain('dry-run 过期');
+    expect(drawer?.text()).toContain('apply 删除');
+    expect(drawer?.text()).toContain('已对齐');
+    expect(drawer?.text()).toContain('确认报告预览');
+    expect(drawer?.text()).toContain('消息热表');
+    expect(drawer?.text()).toContain('过期 16098');
+    expect(drawer?.text()).toContain('# 归档报告');
+  });
+
+  it('keeps the selected archive batch active when switching away and back to archives', async () => {
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 2,
+        pageNum: 1,
+        pageSize: 5,
+        records: [
+          {
+            id: 51,
+            batchNo: 'iot_message_log-20260426000119',
+            sourceTable: 'iot_message_log',
+            governanceMode: 'APPLY',
+            status: 'SUCCEEDED',
+            retentionDays: 30,
+            cutoffAt: '2026-03-27 00:00:00',
+            confirmedExpiredRows: 16098,
+            candidateRows: 16098,
+            archivedRows: 16098,
+            deletedRows: 16098,
+            compareStatus: 'MATCHED',
+            compareStatusLabel: '宸插榻?',
+            deltaConfirmedVsDeleted: 0,
+            deltaDryRunVsDeleted: 0,
+            remainingExpiredRows: 0,
+            createTime: '2026-04-26 00:01:19',
+            updateTime: '2026-04-26 00:02:00'
+          },
+          {
+            id: 99,
+            batchNo: 'iot_message_log-20260426090100',
+            sourceTable: 'iot_message_log',
+            governanceMode: 'APPLY',
+            status: 'FAILED',
+            retentionDays: 30,
+            cutoffAt: '2026-03-27 09:00:00',
+            confirmedExpiredRows: 320,
+            candidateRows: 320,
+            archivedRows: 0,
+            deletedRows: 12,
+            compareStatus: 'DRIFTED',
+            compareStatusLabel: '鏈夊亸宸?',
+            deltaConfirmedVsDeleted: 308,
+            deltaDryRunVsDeleted: 308,
+            remainingExpiredRows: 308,
+            createTime: '2026-04-26 09:01:00',
+            updateTime: '2026-04-26 09:03:00'
+          }
+        ]
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    const rows = wrapper.findAll('[data-testid="archive-batch-master-row"]');
+    await rows[1]!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    await triggerSystemLogTab(wrapper, 'errors');
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    const selectedRow = wrapper.findAll('[data-testid="archive-batch-master-row"]').find((row) =>
+      row.classes().includes('is-selected')
+    );
+    expect(selectedRow?.text()).toContain('iot_message_log-20260426090100');
+  });
+
+  it('filters archive batch ledger by batch number and compare status on archive refresh', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchOverview).mockClear();
+
+    await wrapper.get('[data-testid="archive-batch-filter-batch-no"]').setValue(
+      'iot_message_log-20260426000119'
+    );
+    await wrapper.get('[data-testid="archive-batch-filter-status"]').setValue('SUCCEEDED');
+    await wrapper.get('[data-testid="archive-batch-filter-compare-status"]').setValue('DRIFTED');
+    await clickButtonByText(wrapper, '查询');
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledWith({
+      batchNo: 'iot_message_log-20260426000119',
+      sourceTable: 'iot_message_log',
+      status: 'SUCCEEDED',
+      compareStatus: 'DRIFTED',
+      pageNum: 1,
+      pageSize: 5
+    });
+    expect(getObservabilityMessageArchiveBatchOverview).toHaveBeenCalledWith({
+      sourceTable: 'iot_message_log'
+    });
+  });
+
+  it('replaces archive batch filters from summary cards', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    const abnormalCard = wrapper.get('[data-testid="archive-batch-overview-abnormal"]');
+    const driftedCard = wrapper.get('[data-testid="archive-batch-overview-drifted"]');
+    const remainingCard = wrapper.get('[data-testid="archive-batch-overview-remaining"]');
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+
+    await abnormalCard.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledTimes(1);
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenLastCalledWith({
+      sourceTable: 'iot_message_log',
+      onlyAbnormal: true,
+      pageNum: 1,
+      pageSize: 5
+    });
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+
+    await driftedCard.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledTimes(1);
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenLastCalledWith({
+      sourceTable: 'iot_message_log',
+      compareStatus: 'DRIFTED',
+      pageNum: 1,
+      pageSize: 5
+    });
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+
+    await remainingCard.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledTimes(1);
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenLastCalledWith({
+      sourceTable: 'iot_message_log',
+      onlyAbnormal: true,
+      pageNum: 1,
+      pageSize: 5
+    });
+  });
+
+  it('opens latest abnormal archive batch from summary card', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchCompare).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchReportPreview).mockClear();
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 5,
+        records: [
+          {
+            id: 99,
+            batchNo: 'iot_message_log-20260426090100',
+            sourceTable: 'iot_message_log',
+            status: 'FAILED',
+            compareStatus: 'DRIFTED',
+            compareStatusLabel: '有偏差'
+          }
+        ]
+      }
+    });
+
+    await wrapper.get('[data-testid="archive-batch-latest-focus"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledTimes(1);
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenLastCalledWith({
+      sourceTable: 'iot_message_log',
+      onlyAbnormal: true,
+      pageNum: 1,
+      pageSize: 5
+    });
+    expect(getObservabilityMessageArchiveBatchCompare).toHaveBeenCalledTimes(1);
+    expect(getObservabilityMessageArchiveBatchCompare).toHaveBeenLastCalledWith(
+      'iot_message_log-20260426090100'
+    );
+    expect(getObservabilityMessageArchiveBatchReportPreview).toHaveBeenCalledTimes(1);
+    expect(getObservabilityMessageArchiveBatchReportPreview).toHaveBeenLastCalledWith(
+      'iot_message_log-20260426090100'
+    );
+
+    const drawer = wrapper
+      .findAll('.observability-evidence-drawer-stub')
+      .find((item) => item.text().includes('归档批次详情'));
+    expect(drawer?.exists()).toBe(true);
+    expect(drawer?.text()).toContain('iot_message_log-20260426090100');
+    expect(wrapper.find('[data-testid="archive-batch-latest-focus"]').text()).toContain(
+      'iot_message_log-20260426090100'
+    );
+    const selectedRow = wrapper.findAll('[data-testid="archive-batch-master-row"]').find((row) =>
+      row.classes().includes('is-selected')
+    );
+    expect(selectedRow?.text()).toContain('iot_message_log-20260426090100');
+  });
+
+  it('shows a focus hint when latest abnormal batch is not in current page', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchCompare).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchReportPreview).mockClear();
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 5,
+        records: []
+      }
+    });
+
+    await wrapper.get('[data-testid="archive-batch-latest-focus"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledTimes(1);
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenLastCalledWith({
+      sourceTable: 'iot_message_log',
+      onlyAbnormal: true,
+      pageNum: 1,
+      pageSize: 5
+    });
+    expect(getObservabilityMessageArchiveBatchCompare).not.toHaveBeenCalled();
+    expect(getObservabilityMessageArchiveBatchReportPreview).not.toHaveBeenCalled();
+  });
+
+  it('clears latest focus selection after manual archive filter edits', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 5,
+        records: []
+      }
+    });
+
+    await wrapper.get('[data-testid="archive-batch-latest-focus"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="archive-batch-latest-focus"]').classes()).toContain('is-active');
+
+    await wrapper.get('[data-testid="archive-batch-filter-batch-no"]').setValue('manual-batch');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="archive-batch-latest-focus"]').classes()).not.toContain('is-active');
+  });
+
+  it('clears latest summary selection after manual archive batch filter edits', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    await wrapper.get('[data-testid="archive-batch-latest-focus"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="archive-batch-latest-focus"]').classes()).toContain('is-active');
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchCompare).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchReportPreview).mockClear();
+
+    await wrapper.get('[data-testid="archive-batch-filter-batch-no"]').setValue('manual-batch');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="archive-batch-latest-focus"]').classes()).not.toContain('is-active');
+
+    await clickButtonByText(wrapper, '查询');
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledTimes(1);
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenLastCalledWith({
+      sourceTable: 'iot_message_log',
+      batchNo: 'manual-batch',
+      onlyAbnormal: true,
+      pageNum: 1,
+      pageSize: 5
+    });
+    expect(getObservabilityMessageArchiveBatchCompare).not.toHaveBeenCalled();
+    expect(getObservabilityMessageArchiveBatchReportPreview).not.toHaveBeenCalled();
+  });
+
+  it('keeps the latest archive batch refresh result when summary refreshes resolve out of order', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchOverview).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchCompare).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchReportPreview).mockClear();
+
+    const stalePage = createDeferred<any>();
+    const currentPage = createDeferred<any>();
+    const staleOverview = createDeferred<any>();
+    const currentOverview = createDeferred<any>();
+
+    vi.mocked(pageObservabilityMessageArchiveBatches)
+      .mockImplementationOnce(() => stalePage.promise)
+      .mockImplementationOnce(() => currentPage.promise);
+    vi.mocked(getObservabilityMessageArchiveBatchOverview)
+      .mockImplementationOnce(() => staleOverview.promise)
+      .mockImplementationOnce(() => currentOverview.promise);
+
+    await wrapper.get('[data-testid="archive-batch-latest-focus"]').trigger('click');
+    await wrapper.get('[data-testid="archive-batch-overview-drifted"]').trigger('click');
+
+    currentPage.resolve({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 5,
+        records: [
+          {
+            id: 88,
+            batchNo: 'current-drifted-batch',
+            sourceTable: 'iot_message_log',
+            status: 'FAILED',
+            compareStatus: 'DRIFTED',
+            compareStatusLabel: '有偏差'
+          }
+        ]
+      }
+    });
+    currentOverview.resolve({
+      code: 200,
+      msg: 'success',
+      data: {
+        totalBatches: 2,
+        matchedBatches: 0,
+        driftedBatches: 1,
+        partialBatches: 0,
+        unavailableBatches: 0,
+        abnormalBatches: 1,
+        totalDeltaConfirmedVsDeleted: 12,
+        totalRemainingExpiredRows: 0,
+        latestAbnormalBatch: 'current-latest-batch',
+        latestAbnormalOccurredAt: '2026-04-26 10:00:00'
+      }
+    });
+    await flushPromises();
+    await nextTick();
+
+    stalePage.resolve({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 5,
+        records: [
+          {
+            id: 89,
+            batchNo: 'stale-old-batch',
+            sourceTable: 'iot_message_log',
+            status: 'FAILED',
+            compareStatus: 'DRIFTED',
+            compareStatusLabel: '有偏差'
+          }
+        ]
+      }
+    });
+    staleOverview.resolve({
+      code: 200,
+      msg: 'success',
+      data: {
+        totalBatches: 1,
+        matchedBatches: 0,
+        driftedBatches: 1,
+        partialBatches: 0,
+        unavailableBatches: 0,
+        abnormalBatches: 1,
+        totalDeltaConfirmedVsDeleted: 3,
+        totalRemainingExpiredRows: 0,
+        latestAbnormalBatch: 'stale-old-latest',
+        latestAbnormalOccurredAt: '2026-04-26 09:00:00'
+      }
+    });
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledTimes(2);
+    expect(getObservabilityMessageArchiveBatchOverview).toHaveBeenCalledTimes(2);
+    expect(getObservabilityMessageArchiveBatchCompare).not.toHaveBeenCalled();
+    expect(getObservabilityMessageArchiveBatchReportPreview).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain('current-drifted-batch');
+    expect(wrapper.text()).toContain('current-latest-batch');
+    expect(wrapper.text()).not.toContain('stale-old-batch');
+    expect(wrapper.text()).not.toContain('stale-old-latest');
+  });
+
+  it('keeps the selected hotspot active when switching away and back to the hotspots tab', async () => {
+    vi.mocked(listObservabilitySlowSpanSummaries).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          spanType: 'SLOW_SQL',
+          domainCode: 'system',
+          eventCode: 'system.error.archive',
+          objectType: 'sql',
+          objectId: 'iot_message_log',
+          totalCount: 3,
+          avgDurationMs: 1280,
+          maxDurationMs: 2400,
+          latestTraceId: 'trace-slow-1',
+          latestStartedAt: '2026-04-25 10:08:00'
+        },
+        {
+          spanType: 'HTTP',
+          domainCode: 'device',
+          eventCode: 'device.contract.publish',
+          objectType: 'api',
+          objectId: '/api/device/product/release',
+          totalCount: 2,
+          avgDurationMs: 620,
+          maxDurationMs: 900,
+          latestTraceId: 'trace-slow-2',
+          latestStartedAt: '2026-04-25 10:06:00'
+        }
+      ]
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'hotspots');
+
+    const rows = wrapper.findAll('[data-testid="hotspot-master-row"]');
+    await rows[1]!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="hotspot-focus-strip"]').text()).toContain('trace-slow-2');
+
+    await triggerSystemLogTab(wrapper, 'errors');
+    await triggerSystemLogTab(wrapper, 'hotspots');
+
+    const selectedRow = wrapper
+      .findAll('[data-testid="hotspot-master-row"]')
+      .find((row) => row.classes().includes('is-selected'));
+    expect(selectedRow?.text()).toContain('/api/device/product/release');
+  });
+
+  it('keeps hotspot detail visible when scheduled task loading fails', async () => {
+    vi.mocked(pageObservabilityScheduledTasks).mockRejectedValueOnce(new Error('task failed'));
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'hotspots');
+
+    expect(wrapper.find('[data-testid="hotspot-master-table"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="hotspot-detail-section"]').exists()).toBe(true);
+
+    await wrapper.get('[data-testid="hotspot-drilldown-tasks"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('task failed');
+  });
+
+  it('uses one hotspot drilldown surface and reveals scheduled tasks only in the related-task view', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'hotspots');
+
+    expect(wrapper.find('[data-testid="hotspot-detail-section"]').text()).toContain('最近样本');
+    expect(wrapper.text()).not.toContain('DeviceSessionTimeoutScheduler#closeTimedOutSessions');
+
+    await wrapper.get('[data-testid="hotspot-drilldown-tasks"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('相关任务');
+    expect(wrapper.text()).toContain('DeviceSessionTimeoutScheduler#closeTimedOutSessions');
+    expect(wrapper.find('[data-testid="hotspot-master-table"]').exists()).toBe(true);
+  });
+
+  it('drills slow hotspot into recent span records', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'hotspots');
+
+    const panel = wrapper.find('.audit-log-slow-summary');
+    const detailButton = panel.findAll('button').find((button) => button.text().includes('明细'));
+    await detailButton!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilitySpans).toHaveBeenCalledWith({
+      spanType: 'SLOW_SQL',
+      domainCode: 'system',
+      eventCode: 'system.error.archive',
+      objectType: 'sql',
+      objectId: 'iot_message_log',
+      minDurationMs: 1,
+      pageNum: 1,
+      pageSize: 5
+    });
+
+    const drilldown = wrapper.find('.audit-log-slow-span-drilldown');
+    expect(drilldown.exists()).toBe(true);
+    expect(drilldown.text()).toContain('最近样本');
+    expect(drilldown.text()).toContain('Slow SQL iot_message_log');
+    expect(drilldown.text()).toContain('trace-slow-1');
+    expect(drilldown.text()).toContain('2400 ms');
+    expect(drilldown.text()).toContain('成功');
+  });
+
+  it('drills slow hotspot into trend buckets and allows switching trend windows', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'hotspots');
+
+    const panel = wrapper.find('.audit-log-slow-summary');
+    const trendButton = panel.findAll('button').find((button) => button.text().includes('趋势'));
+    await trendButton!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(listObservabilitySlowSpanTrends).toHaveBeenCalledWith(expect.objectContaining({
+      spanType: 'SLOW_SQL',
+      domainCode: 'system',
+      eventCode: 'system.error.archive',
+      objectType: 'sql',
+      objectId: 'iot_message_log',
+      minDurationMs: 1,
+      bucket: 'HOUR'
+    }));
+
+    const drilldown = wrapper.find('.audit-log-slow-trend-drilldown');
+    expect(drilldown.exists()).toBe(true);
+    expect(drilldown.text()).toContain('趋势');
+    expect(drilldown.text()).toContain('P95');
+    expect(drilldown.text()).toContain('P99');
+    expect(drilldown.text()).toContain('错误率');
+    expect(drilldown.text()).toContain('2026-04-25 10:00:00');
+    expect(drilldown.text()).toContain('5000 ms');
+    expect(drilldown.text()).toContain('33%');
+
+    vi.mocked(listObservabilitySlowSpanTrends).mockClear();
+    const dayButton = drilldown.findAll('button').find((button) => button.text().includes('7天'));
+    await dayButton!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(listObservabilitySlowSpanTrends).toHaveBeenCalledWith(expect.objectContaining({
+      spanType: 'SLOW_SQL',
+      domainCode: 'system',
+      eventCode: 'system.error.archive',
+      objectType: 'sql',
+      objectId: 'iot_message_log',
+      minDurationMs: 1,
+      bucket: 'DAY'
+    }));
   });
 
   it('uses anomaly-oriented detail and export titles in system mode', async () => {
@@ -401,29 +1852,44 @@ describe('AuditLogView', () => {
     expect(wrapper.findComponent(CsvColumnSettingDialogStub).props('title')).toBe('异常观测台导出列设置');
   });
 
-  it('keeps refresh as the only direct toolbar action and moves export utilities into more actions', async () => {
+  it('moves refresh and more actions into the error filter toolbar after reset', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
-    const toolbarText = wrapper.find('.audit-log-toolbar-stub').text();
+    expect(wrapper.find('.audit-log-system-header__actions').exists()).toBe(false);
 
-    expect(toolbarText).toContain('刷新列表');
-    expect(toolbarText).toContain('更多操作');
-    expect(toolbarText).not.toContain('导出列设置');
-    expect(toolbarText).not.toContain('导出选中');
-    expect(toolbarText).not.toContain('导出当前结果');
-    expect(toolbarText).not.toContain('清空选中');
+    const errorPanelText = wrapper.get('[data-testid="system-log-error-panel"]').text();
+    expect(errorPanelText).toContain('\u5237\u65b0\u5217\u8868');
+    expect(errorPanelText).toContain('\u66f4\u591a\u64cd\u4f5c');
+    expect(errorPanelText.indexOf('\u91cd\u7f6e')).toBeLessThan(
+      errorPanelText.indexOf('\u5237\u65b0\u5217\u8868')
+    );
+    expect(errorPanelText.indexOf('\u5237\u65b0\u5217\u8868')).toBeLessThan(
+      errorPanelText.indexOf('\u66f4\u591a\u64cd\u4f5c')
+    );
 
     const actionMenu = wrapper.findComponent(StandardActionMenuStub);
     expect(actionMenu.exists()).toBe(true);
-    expect(actionMenu.props('label')).toBe('更多操作');
+    expect(actionMenu.props('label')).toBe('\u66f4\u591a\u64cd\u4f5c');
     expect(actionMenu.props('items')).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ command: 'export-config', label: '导出列设置' }),
-        expect.objectContaining({ command: 'export-selected', label: '导出选中' }),
-        expect.objectContaining({ command: 'export-current', label: '导出当前结果' }),
-        expect.objectContaining({ command: 'clear-selection', label: '清空选中' })
+        expect.objectContaining({
+          command: 'export-config',
+          label: '\u5bfc\u51fa\u5217\u8bbe\u7f6e'
+        }),
+        expect.objectContaining({
+          command: 'export-selected',
+          label: '\u5bfc\u51fa\u9009\u4e2d'
+        }),
+        expect.objectContaining({
+          command: 'export-current',
+          label: '\u5bfc\u51fa\u5f53\u524d\u7ed3\u679c'
+        }),
+        expect.objectContaining({
+          command: 'clear-selection',
+          label: '\u6e05\u7a7a\u9009\u4e2d'
+        })
       ])
     );
   });
@@ -438,7 +1904,7 @@ describe('AuditLogView', () => {
       .find((column) => column.attributes('data-label') === '操作');
 
     expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
-    expect(actionColumn?.attributes('data-width')).toBe('160');
+    expect(actionColumn?.attributes('data-width')).toBe('240');
   });
 
   it('keeps business mode list-first without the anomaly strip', async () => {
@@ -581,6 +2047,101 @@ describe('AuditLogView', () => {
     expect(persisted.context.sourcePage).toBe('system-log');
     expect(persisted.context.topic).toBe('$dp');
     expect(persisted.context.reportStatus).toBe('failed');
+  });
+
+  it('does not load system error clusters on the default error view', async () => {
+    mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(pageSystemErrorClusters).not.toHaveBeenCalled();
+    expect(pageLogs).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        operationType: 'system_error',
+        operationModule: '',
+        exceptionClass: '',
+        errorCode: ''
+      })
+    );
+  });
+
+  it('opens the cluster stage with the current form values instead of only applied filters', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    getErrorPanel(wrapper).vm.$emit('update-search-field', {
+      field: 'operationModule',
+      value: 'message.mqtt'
+    });
+    await openClusterStage(wrapper);
+
+    expect(pageSystemErrorClusters).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        operationType: 'system_error',
+        operationModule: 'message.mqtt'
+      })
+    );
+    expect(wrapper.text()).not.toContain('异常概览加载失败');
+    expect(wrapper.text()).not.toContain('全部异常明细');
+  });
+
+  it('returns to detail with cluster refiner fields after a cluster is selected', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await openClusterStage(wrapper);
+    await applyCluster(wrapper, 'mqtt-consumer|java.lang.IllegalStateException|MQTT_TIMEOUT');
+
+    expect(pageLogs).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        operationType: 'system_error',
+        operationModule: 'mqtt-consumer',
+        exceptionClass: 'java.lang.IllegalStateException',
+        errorCode: 'MQTT_TIMEOUT'
+      })
+    );
+    expect(wrapper.text()).toContain('当前按分组定位');
+  });
+
+  it('clears the cluster return context after the user searches with changed filters', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await openClusterStage(wrapper);
+    await applyCluster(wrapper, 'mqtt-consumer|java.lang.IllegalStateException|MQTT_TIMEOUT');
+
+    getErrorPanel(wrapper).vm.$emit('update-search-field', {
+      field: 'deviceCode',
+      value: 'demo-device-02'
+    });
+    getErrorPanel(wrapper).vm.$emit('search');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).not.toContain('返回异常分组结果');
+    expect(wrapper.text()).not.toContain('当前按分组定位');
+    expect(pageLogs).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        deviceCode: 'demo-device-02'
+      })
+    );
+  });
+
+  it('stays in the cluster stage and offers retry when the cluster request fails', async () => {
+    vi.mocked(pageSystemErrorClusters).mockRejectedValueOnce(new Error('cluster failed'));
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await openClusterStage(wrapper);
+
+    expect(wrapper.text()).toContain('返回异常明细');
+    expect(wrapper.text()).toContain('重试');
+    expect(wrapper.text()).not.toContain('已回退为全部异常明细');
   });
 
   it('uses shared workbench row actions and mobile list grammar in system mode', () => {

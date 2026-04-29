@@ -2,7 +2,9 @@ import { defineComponent, h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { createRequestError } from '@/api/request'
 import RiskPointBindingMaintenanceDrawer from '@/components/riskPoint/RiskPointBindingMaintenanceDrawer.vue'
+import { ElMessage } from '@/utils/message'
 
 const {
   mockBindDevice,
@@ -11,6 +13,7 @@ const {
   mockListBindingGroups,
   mockListFormalBindingMetricOptions,
   mockRemoveBinding,
+  mockRenameBinding,
   mockReplaceBinding,
   mockUnbindDevice,
   mockConfirmAction,
@@ -22,6 +25,7 @@ const {
   mockListBindingGroups: vi.fn(),
   mockListFormalBindingMetricOptions: vi.fn(),
   mockRemoveBinding: vi.fn(),
+  mockRenameBinding: vi.fn(),
   mockReplaceBinding: vi.fn(),
   mockUnbindDevice: vi.fn(),
   mockConfirmAction: vi.fn(),
@@ -35,6 +39,7 @@ vi.mock('@/api/riskPoint', () => ({
   listBindingGroups: mockListBindingGroups,
   listFormalBindingMetricOptions: mockListFormalBindingMetricOptions,
   removeBinding: mockRemoveBinding,
+  renameBinding: mockRenameBinding,
   replaceBinding: mockReplaceBinding,
   unbindDevice: mockUnbindDevice
 }))
@@ -127,7 +132,7 @@ const ElFormItemStub = defineComponent({
 
 const ElSelectStub = defineComponent({
   name: 'ElSelect',
-  props: ['modelValue', 'placeholder', 'disabled', 'filterable'],
+  props: ['modelValue', 'placeholder', 'disabled', 'filterable', 'multiple', 'loading'],
   emits: ['update:modelValue', 'change'],
   methods: {
     normalizeValue(value: string) {
@@ -138,17 +143,24 @@ const ElSelectStub = defineComponent({
         return Number(value)
       }
       return value
+    },
+    collectMultipleValues(event: Event) {
+      const target = event.target as HTMLSelectElement
+      return Array.from(target.selectedOptions).map((option) => this.normalizeValue(option.value))
     }
   },
   template: `
     <select
       class="el-select-stub"
+      :multiple="Boolean(multiple)"
       :value="modelValue ?? ''"
       :disabled="Boolean(disabled)"
       :data-filterable="String(filterable === '' || Boolean(filterable))"
+      :data-multiple="String(Boolean(multiple))"
+      :data-loading="String(Boolean(loading))"
       @change="
-        $emit('update:modelValue', normalizeValue($event.target.value));
-        $emit('change', normalizeValue($event.target.value));
+        $emit('update:modelValue', multiple ? collectMultipleValues($event) : normalizeValue($event.target.value));
+        $emit('change', multiple ? collectMultipleValues($event) : normalizeValue($event.target.value));
       "
     >
       <option value="">{{ placeholder || '请选择' }}</option>
@@ -329,6 +341,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     mockListBindingGroups.mockReset()
     mockListFormalBindingMetricOptions.mockReset()
     mockRemoveBinding.mockReset()
+    mockRenameBinding.mockReset()
     mockReplaceBinding.mockReset()
     mockUnbindDevice.mockReset()
     mockConfirmAction.mockReset()
@@ -353,6 +366,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     mockBindDevice.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockBindDeviceCapability.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockRemoveBinding.mockResolvedValue({ code: 200, msg: 'success', data: null })
+    mockRenameBinding.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockReplaceBinding.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockUnbindDevice.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockConfirmAction.mockResolvedValue('confirm')
@@ -385,7 +399,9 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     await nextTick()
 
     expect(wrapper.find('.standard-form-drawer-stub').exists()).toBe(false)
-    expect(wrapper.text()).toContain('北坡风险点')
+    expect(wrapper.text()).not.toContain('北坡风险点')
+    expect(wrapper.text()).not.toContain('RP-NORTH-001')
+    expect(wrapper.text()).not.toContain('所属组织 北坡管理站')
     expect(wrapper.text()).toContain('当前正式绑定')
   })
 
@@ -395,7 +411,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
 
     await wrapper.get('[data-testid="binding-add-device"]').setValue('2002')
     await flushPromises()
-    await wrapper.get('[data-testid="binding-add-metric"]').setValue('tiltY')
+    ;(wrapper.vm as any).addForm.metricIdentifiers = ['tiltY', 'tiltZ']
     await wrapper.get('[data-testid="binding-add-submit"]').trigger('click')
     await flushPromises()
 
@@ -403,11 +419,37 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     expect(mockBindDevice).toHaveBeenCalledWith({
       riskPointId: 1,
       deviceId: 2002,
-      riskMetricId: 6103,
-      metricIdentifier: 'tiltY',
-      metricName: 'Y轴倾角'
+      deviceCode: 'DEV-2002',
+      deviceName: '南坡一体机',
+      metrics: [
+        {
+          riskMetricId: 6103,
+          metricIdentifier: 'tiltY',
+          metricName: 'Y轴倾角'
+        },
+        {
+          riskMetricId: 6104,
+          metricIdentifier: 'tiltZ',
+          metricName: 'Z轴倾角'
+        }
+      ]
     })
     expect(wrapper.emitted('updated')).toHaveLength(1)
+  })
+
+  it('does not show a second error toast when add binding failure was already handled globally', async () => {
+    mockBindDevice.mockRejectedValueOnce(createRequestError('系统繁忙，请稍后重试！', true, 500))
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="binding-add-device"]').setValue('2002')
+    await flushPromises()
+    ;(wrapper.vm as any).addForm.metricIdentifiers = ['tiltY']
+    await wrapper.get('[data-testid="binding-add-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(mockBindDevice).toHaveBeenCalled()
+    expect(vi.mocked(ElMessage.error)).not.toHaveBeenCalled()
   })
 
   it('switches warning devices to device-only binding and skips the metric picker', async () => {
@@ -498,6 +540,39 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     expect(wrapper.text()).toContain('当前设备所属产品暂无可用于风险绑定的正式目录字段')
   })
 
+  it('shows a loading hint instead of the empty-state hint while formal metrics are still loading', async () => {
+    const metricRequest = createDeferred<{ code: number; msg: string; data: ReturnType<typeof createMetricOptions> }>()
+
+    mockListFormalBindingMetricOptions.mockReset()
+    mockListFormalBindingMetricOptions.mockReturnValueOnce(metricRequest.promise)
+
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="binding-add-device"]').setValue('2002')
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="binding-add-metric"]').attributes('data-loading')).toBe('true')
+    expect(wrapper.text()).toContain('正在加载当前设备可绑定的正式目录测点')
+    expect(wrapper.text()).not.toContain('当前设备所属产品暂无可用于风险绑定的正式目录字段')
+
+    metricRequest.resolve({
+      code: 200,
+      msg: 'success',
+      data: createMetricOptions()
+    })
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="binding-add-metric"]').attributes('data-loading')).toBe('false')
+    expect(wrapper.text()).not.toContain('正在加载当前设备可绑定的正式目录测点')
+    const optionTexts = wrapper
+      .get('[data-testid="binding-add-metric"]')
+      .findAll('option')
+      .map((node) => node.text())
+
+    expect(optionTexts).toContain('Y轴倾角')
+  })
+
   it('keeps unsafe long ids as strings when loading metrics and submitting bindings', async () => {
     mockListBindingGroups.mockResolvedValueOnce({
       code: 200,
@@ -538,7 +613,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
 
     await wrapper.get('[data-testid="binding-add-device"]').setValue('2041364367361843202')
     await flushPromises()
-    await wrapper.get('[data-testid="binding-add-metric"]').setValue('tiltY')
+    ;(wrapper.vm as any).addForm.metricIdentifiers = ['tiltY']
     await wrapper.get('[data-testid="binding-add-submit"]').trigger('click')
     await flushPromises()
 
@@ -546,9 +621,15 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     expect(mockBindDevice).toHaveBeenCalledWith({
       riskPointId: '2041364367361843201',
       deviceId: '2041364367361843202',
-      riskMetricId: '2041364367361843204',
-      metricIdentifier: 'tiltY',
-      metricName: 'Y轴倾角'
+      deviceCode: 'DEV-LONG-01',
+      deviceName: '长整型设备',
+      metrics: [
+        {
+          riskMetricId: '2041364367361843204',
+          metricIdentifier: 'tiltY',
+          metricName: 'Y轴倾角'
+        }
+      ]
     })
   })
 
@@ -600,6 +681,22 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
 
     expect(mockRemoveBinding).toHaveBeenCalledWith(9001)
     expect(mockUnbindDevice).not.toHaveBeenCalled()
+    expect(wrapper.emitted('updated')).toHaveLength(1)
+  })
+
+  it('renames a metric binding without replacing the metric', async () => {
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="binding-rename-open-9001"]').trigger('click')
+    await wrapper.get('[data-testid="binding-rename-name-9001"]').setValue('北坡 X 轴加速度')
+    await wrapper.get('[data-testid="binding-rename-submit-9001"]').trigger('click')
+    await flushPromises()
+
+    expect(mockRenameBinding).toHaveBeenCalledWith(9001, {
+      metricName: '北坡 X 轴加速度'
+    })
+    expect(mockReplaceBinding).not.toHaveBeenCalled()
     expect(wrapper.emitted('updated')).toHaveLength(1)
   })
 

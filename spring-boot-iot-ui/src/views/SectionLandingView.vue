@@ -6,7 +6,7 @@
     :show-title="false"
   >
     <template v-if="accessibleCards.length">
-      <IotAccessTabWorkspace :items="landingTabs" default-key="asset" :sync-query="false">
+      <IotAccessTabWorkspace v-if="usesSegmentedLanding" :items="landingTabs" default-key="asset" :sync-query="false">
         <template #default="{ activeKey }">
           <StandardWorkbenchPanel
             :title="config?.title || '接入智维'"
@@ -63,6 +63,61 @@
           </StandardWorkbenchPanel>
         </template>
       </IotAccessTabWorkspace>
+
+      <StandardWorkbenchPanel
+        v-else
+        :title="config?.title || '接入智维'"
+        :description="config?.description || '接入智维总览负责回答先去哪、再去哪、最后去哪修。'"
+        show-filters
+      >
+        <template #filters>
+          <StandardListFilterHeader :model="{ keyword: landingKeyword }">
+            <template #primary>
+              <el-form-item>
+                <el-input
+                  v-model="landingKeyword"
+                  placeholder="搜索页面名称或职责关键词"
+                  clearable
+                  prefix-icon="Search"
+                />
+              </el-form-item>
+            </template>
+          </StandardListFilterHeader>
+        </template>
+
+        <section v-if="config?.hubJudgement" class="section-landing__decision-tree">
+          <span v-if="config?.hubLeadTitle" class="section-landing__decision-eyebrow">
+            {{ config.hubLeadTitle }}
+          </span>
+          <strong class="section-landing__decision-title">{{ config.hubJudgement }}</strong>
+          <p v-if="config?.hubLeadDescription" class="section-landing__decision-description">
+            {{ config.hubLeadDescription }}
+          </p>
+          <ol v-if="config?.steps?.length" class="section-landing__decision-steps">
+            <li v-for="step in config.steps" :key="step">
+              {{ step }}
+            </li>
+          </ol>
+        </section>
+
+        <div v-if="filteredCards.length" class="section-landing__entry-list">
+          <RouterLink
+            v-for="card in filteredCards"
+            :key="card.path"
+            :to="card.path"
+            class="section-landing__entry-item"
+          >
+            <strong>{{ card.label }}</strong>
+            <span>{{ card.description }}</span>
+          </RouterLink>
+        </div>
+
+        <EmptyState
+          v-else
+          title="当前分组暂无可进入页面"
+          description="可以调整关键词或联系管理员确认菜单授权。"
+        />
+      </StandardWorkbenchPanel>
     </template>
 
     <PanelCard
@@ -104,6 +159,7 @@ const landingTabs = [
   { key: 'diagnostics', label: '诊断排障' }
 ] as const
 const assetPaths = new Set(['/device-onboarding', '/products', '/devices'])
+const usesSegmentedLanding = computed(() => config.value?.key === 'iot-access')
 
 const accessibleCards = computed(() => {
   const cards = config.value?.cards || []

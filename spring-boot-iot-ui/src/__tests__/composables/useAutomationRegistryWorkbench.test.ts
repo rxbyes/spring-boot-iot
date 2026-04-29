@@ -2,9 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   mockRoute,
+  replaceMock,
   successMessageMock,
   errorMessageMock,
   pageAutomationResultsMock,
+  listAutomationResultFacetsMock,
+  refreshAutomationResultIndexMock,
   listRecentAutomationResultsMock,
   getAutomationResultDetailMock,
   listAutomationResultEvidenceMock,
@@ -13,9 +16,12 @@ const {
   mockRoute: {
     query: {}
   },
+  replaceMock: vi.fn(),
   successMessageMock: vi.fn(),
   errorMessageMock: vi.fn(),
   pageAutomationResultsMock: vi.fn(),
+  listAutomationResultFacetsMock: vi.fn(),
+  refreshAutomationResultIndexMock: vi.fn(),
   listRecentAutomationResultsMock: vi.fn(),
   getAutomationResultDetailMock: vi.fn(),
   listAutomationResultEvidenceMock: vi.fn(),
@@ -24,6 +30,8 @@ const {
 
 vi.mock('@/api/automationResults', () => ({
   pageAutomationResults: pageAutomationResultsMock,
+  listAutomationResultFacets: listAutomationResultFacetsMock,
+  refreshAutomationResultIndex: refreshAutomationResultIndexMock,
   listRecentAutomationResults: listRecentAutomationResultsMock,
   getAutomationResultDetail: getAutomationResultDetailMock,
   listAutomationResultEvidence: listAutomationResultEvidenceMock,
@@ -38,7 +46,10 @@ vi.mock('@/utils/message', () => ({
 }));
 
 vi.mock('vue-router', () => ({
-  useRoute: () => mockRoute
+  useRoute: () => mockRoute,
+  useRouter: () => ({
+    replace: replaceMock
+  })
 }));
 
 import { useAutomationRegistryWorkbench } from '@/composables/useAutomationRegistryWorkbench';
@@ -120,13 +131,36 @@ function createPageResult(records: unknown[], pageNum = 1, pageSize = 10, total 
 describe('useAutomationRegistryWorkbench', () => {
   beforeEach(() => {
     mockRoute.query = {};
+    replaceMock.mockReset();
     successMessageMock.mockReset();
     errorMessageMock.mockReset();
     pageAutomationResultsMock.mockReset();
+    listAutomationResultFacetsMock.mockReset();
+    refreshAutomationResultIndexMock.mockReset();
     listRecentAutomationResultsMock.mockReset();
     getAutomationResultDetailMock.mockReset();
     listAutomationResultEvidenceMock.mockReset();
     getAutomationResultEvidenceContentMock.mockReset();
+    listAutomationResultFacetsMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        statuses: ['failed', 'passed'],
+        runnerTypes: ['browserPlan', 'riskDrill'],
+        packageCodes: ['product-governance-p1', 'quality-factory-p0'],
+        environmentCodes: ['dev', 'sit']
+      }
+    });
+    refreshAutomationResultIndexMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        generatedAt: '2026-04-25T23:30:00Z',
+        latestIndexPath: 'logs/acceptance/automation-result-index.latest.json',
+        indexedRuns: 2,
+        skippedFiles: 0
+      }
+    });
   });
 
   it('preselects a run in automation results when runId query exists', async () => {
@@ -183,6 +217,24 @@ describe('useAutomationRegistryWorkbench', () => {
       msg: 'success',
       data: createRunDetail('20260403093000', {
         summary: { total: 2, passed: 1, failed: 1 },
+        failureSummary: {
+          primaryCategory: '接口',
+          countsByCategory: {
+            接口: 1
+          }
+        },
+        failedScenarios: [
+          {
+            scenarioId: 'scenario.20260403093000',
+            scenarioTitle: '消息链路演练',
+            runnerType: 'messageFlow',
+            diagnosis: {
+              category: '接口',
+              reason: '命中 5xx、响应异常或契约缺口信号',
+              evidenceSummary: 'message flow failed 500'
+            }
+          }
+        ],
         results: [
           {
             scenarioId: 'scenario.20260403093000',
@@ -190,6 +242,11 @@ describe('useAutomationRegistryWorkbench', () => {
             status: 'failed',
             blocking: 'blocker',
             summary: 'message flow failed',
+            diagnosis: {
+              category: '接口',
+              reason: '命中 5xx、响应异常或契约缺口信号',
+              evidenceSummary: 'message flow failed 500'
+            },
             evidenceFiles: ['logs/acceptance/message-flow-20260403093000.json']
           }
         ],
@@ -233,6 +290,8 @@ describe('useAutomationRegistryWorkbench', () => {
     );
     expect(workbench.currentRun.value?.runId).toBe('20260403093000');
     expect(workbench.currentRun.value?.failedScenarioIds).toEqual(['scenario.20260403093000']);
+    expect(workbench.currentRun.value?.failureSummary?.primaryCategory).toBe('接口');
+    expect(workbench.currentRun.value?.failedScenarios?.[0]?.diagnosis?.category).toBe('接口');
     expect(workbench.activeEvidenceRunId.value).toBe('20260403093000');
     expect(workbench.visibleEvidenceItems.value).toHaveLength(2);
     expect(workbench.selectedEvidencePath.value).toBe('logs/acceptance/registry-run-20260403093000.json');
@@ -250,6 +309,8 @@ describe('useAutomationRegistryWorkbench', () => {
     workbench.ledgerFilters.keyword = 'message-flow';
     workbench.ledgerFilters.status = 'failed';
     workbench.ledgerFilters.runnerType = 'messageFlow';
+    workbench.ledgerFilters.packageCode = 'quality-factory-p0';
+    workbench.ledgerFilters.environmentCode = 'dev';
     workbench.ledgerFilters.dateRange = ['2026-04-01', '2026-04-03'];
 
     await workbench.applyLedgerFilters();
@@ -260,6 +321,8 @@ describe('useAutomationRegistryWorkbench', () => {
       keyword: 'message-flow',
       status: 'failed',
       runnerType: 'messageFlow',
+      packageCode: 'quality-factory-p0',
+      environmentCode: 'dev',
       dateFrom: '2026-04-01',
       dateTo: '2026-04-03'
     });
@@ -272,6 +335,8 @@ describe('useAutomationRegistryWorkbench', () => {
       keyword: 'message-flow',
       status: 'failed',
       runnerType: 'messageFlow',
+      packageCode: 'quality-factory-p0',
+      environmentCode: 'dev',
       dateFrom: '2026-04-01',
       dateTo: '2026-04-03'
     });
@@ -283,9 +348,69 @@ describe('useAutomationRegistryWorkbench', () => {
       keyword: 'message-flow',
       status: 'failed',
       runnerType: 'messageFlow',
+      packageCode: 'quality-factory-p0',
+      environmentCode: 'dev',
       dateFrom: '2026-04-01',
       dateTo: '2026-04-03'
     });
+  });
+
+  it('loads archive facets and exposes package and environment filter options', async () => {
+    pageAutomationResultsMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: createPageResult([])
+    });
+
+    const workbench = useAutomationRegistryWorkbench();
+
+    await workbench.fetchRunLedger();
+
+    expect(listAutomationResultFacetsMock).toHaveBeenCalledTimes(1);
+    expect(workbench.ledgerFacetOptions.value.packageCodes).toEqual([
+      'product-governance-p1',
+      'quality-factory-p0'
+    ]);
+    expect(workbench.ledgerFacetOptions.value.environmentCodes).toEqual(['dev', 'sit']);
+  });
+
+  it('refreshes the archive index and reloads the ledger', async () => {
+    pageAutomationResultsMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: createPageResult([createRunSummary('20260403093000')])
+    });
+    getAutomationResultDetailMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: createRunDetail('20260403093000')
+    });
+    listAutomationResultEvidenceMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: createEvidenceList('20260403093000')
+    });
+    getAutomationResultEvidenceContentMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        path: 'logs/acceptance/registry-run-20260403093000.json',
+        fileName: 'registry-run-20260403093000.json',
+        category: 'run-summary',
+        content: '{"runId":"20260403093000"}',
+        truncated: false
+      }
+    });
+
+    const workbench = useAutomationRegistryWorkbench();
+    await workbench.fetchRunLedger();
+    pageAutomationResultsMock.mockClear();
+
+    await workbench.refreshResultArchiveIndex();
+
+    expect(refreshAutomationResultIndexMock).toHaveBeenCalledTimes(1);
+    expect(pageAutomationResultsMock).toHaveBeenCalledTimes(1);
+    expect(successMessageMock).toHaveBeenCalledWith('结果归档索引已刷新');
   });
 
   it('switches to the new first row when the current selection disappears, then clears when empty', async () => {
@@ -334,6 +459,11 @@ describe('useAutomationRegistryWorkbench', () => {
 
     expect(workbench.selectedLedgerRunId.value).toBe('run-b');
     expect(workbench.currentRun.value?.runId).toBe('run-b');
+    expect(replaceMock).toHaveBeenCalledWith({
+      query: {
+        runId: 'run-b'
+      }
+    });
 
     await workbench.fetchRunLedger();
 

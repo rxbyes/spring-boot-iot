@@ -81,7 +81,7 @@ describe('permission store route guard', () => {
     expect(permissionStore.hasRoutePermission('/not-exists')).toBe(false);
   });
 
-  it('expands the legacy automation-test menu into the split quality workbench routes', () => {
+  it('grants consolidated automation-governance route to RD roles', () => {
     const permissionStore = usePermissionStore();
     permissionStore.setAccessToken('token');
     permissionStore.setAuthContext(
@@ -97,11 +97,11 @@ describe('permission store route guard', () => {
             type: 0,
             children: [
               {
-                id: 93003009,
+                id: 93003015,
                 parentId: 93000005,
-                menuName: '自动化工场（兼容入口）',
-                menuCode: 'system:automation-test',
-                path: '/automation-test',
+                menuName: '自动化治理台',
+                menuCode: 'system:automation-governance',
+                path: '/automation-governance',
                 type: 1,
                 children: []
               }
@@ -111,24 +111,21 @@ describe('permission store route guard', () => {
       })
     );
 
-    expect(permissionStore.allowedPaths).toContain('/automation-test');
-    expect(permissionStore.allowedPaths).toContain('/rd-workbench');
-    expect(permissionStore.allowedPaths).toContain('/rd-automation-plans');
-    expect(permissionStore.allowedPaths).toContain('/automation-results');
+    expect(permissionStore.allowedPaths).toContain('/automation-governance');
     expect(permissionStore.hasRoutePermission('/quality-workbench')).toBe(true);
-    expect(permissionStore.hasRoutePermission('/rd-workbench')).toBe(true);
-    expect(permissionStore.hasRoutePermission('/rd-automation-handoff')).toBe(true);
-    expect(permissionStore.hasRoutePermission('/automation-execution')).toBe(true);
-    expect(permissionStore.hasRoutePermission('/automation-results')).toBe(true);
+    expect(permissionStore.hasRoutePermission('/automation-governance')).toBe(true);
+    expect(permissionStore.hasRoutePermission('/rd-workbench')).toBe(false);
+    expect(permissionStore.hasRoutePermission('/automation-execution')).toBe(false);
+    expect(permissionStore.hasRoutePermission('/automation-results')).toBe(false);
   });
 
-  it('expands the legacy automation-assets menu into the rd authoring routes only', () => {
+  it('keeps business roles blocked from automation-governance when only business acceptance is granted', () => {
     const permissionStore = usePermissionStore();
     permissionStore.setAccessToken('token');
     permissionStore.setAuthContext(
       createAuthContext({
-        roleCodes: ['DEVELOPER_STAFF'],
-        roles: [{ id: 32, roleCode: 'DEVELOPER_STAFF', roleName: '开发人员' }],
+        roleCodes: ['BUSINESS_STAFF'],
+        roles: [{ id: 21, roleCode: 'BUSINESS_STAFF', roleName: '业务人员' }],
         menus: [
           {
             id: 93000005,
@@ -138,11 +135,11 @@ describe('permission store route guard', () => {
             type: 0,
             children: [
               {
-                id: 93003012,
+                id: 93003020,
                 parentId: 93000005,
-                menuName: '自动化资产中心（兼容入口）',
-                menuCode: 'system:automation-assets',
-                path: '/automation-assets',
+                menuName: '业务验收台',
+                menuCode: 'system:business-acceptance',
+                path: '/business-acceptance',
                 type: 1,
                 children: []
               }
@@ -152,10 +149,9 @@ describe('permission store route guard', () => {
       })
     );
 
-    expect(permissionStore.allowedPaths).toContain('/automation-assets');
-    expect(permissionStore.allowedPaths).toContain('/rd-workbench');
-    expect(permissionStore.allowedPaths).toContain('/rd-automation-inventory');
-    expect(permissionStore.hasRoutePermission('/rd-automation-templates')).toBe(true);
+    expect(permissionStore.allowedPaths).toContain('/business-acceptance');
+    expect(permissionStore.hasRoutePermission('/business-acceptance')).toBe(true);
+    expect(permissionStore.hasRoutePermission('/automation-governance')).toBe(false);
     expect(permissionStore.hasRoutePermission('/automation-results')).toBe(false);
   });
 

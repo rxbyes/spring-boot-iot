@@ -139,6 +139,58 @@ it.each([
   expect(wrapper.find('.shell-breadcrumbs').exists()).toBe(false)
 })
 
+it('shows guided copy when the product detail route is missing product context', async () => {
+  mockRouteState.path = '/products/overview'
+  mockRouteState.params = {}
+
+  const wrapper = shallowMount(ProductDetailWorkbenchView, {
+    global: {
+      stubs: {
+        RouterLink: RouterLinkStub,
+        StandardButton: true,
+        ProductDetailWorkbench: true,
+        ProductDeviceListWorkspace: ProductDeviceListWorkspaceStub,
+        ProductModelDesignerWorkspace: true,
+        StandardPageShell: StandardPageShellStub
+      }
+    }
+  })
+
+  await flushPromises()
+  await nextTick()
+
+  expect(wrapper.text()).toContain('当前链接缺少有效产品上下文，请返回产品定义中心重新选择产品。')
+  expect(mockGetProductById).not.toHaveBeenCalled()
+  expect(mockGetProductOverviewSummary).not.toHaveBeenCalled()
+})
+
+it('shows guided copy when the product detail context cannot be loaded', async () => {
+  mockGetProductById.mockResolvedValue({
+    code: 404,
+    msg: 'not found',
+    data: null
+  })
+
+  const wrapper = shallowMount(ProductDetailWorkbenchView, {
+    global: {
+      stubs: {
+        RouterLink: RouterLinkStub,
+        StandardButton: true,
+        ProductDetailWorkbench: true,
+        ProductDeviceListWorkspace: ProductDeviceListWorkspaceStub,
+        ProductModelDesignerWorkspace: true,
+        StandardPageShell: StandardPageShellStub
+      }
+    }
+  })
+
+  await flushPromises()
+  await nextTick()
+
+  expect(wrapper.text()).toContain('未找到可用的产品上下文，请返回产品定义中心重新选择产品。')
+  expect(wrapper.text()).not.toContain('产品详情加载失败')
+})
+
 it('renders single-line workbench tabs and keeps only device and field hero metrics', async () => {
   const wrapper = shallowMount(ProductDetailWorkbenchView, {
     global: {

@@ -1,0 +1,38 @@
+{
+  "domain": "device",
+  "objects": [
+    {
+      "objectName": "iot_message_log",
+      "storageType": "mysql_table",
+      "governanceStage": "freeze_candidate",
+      "ownerModule": "spring-boot-iot-device",
+      "businessDomain": "device",
+      "seedPackages": [],
+      "realEnvAuditProfile": "mysql_hot_table_with_cold_archive",
+      "backupRequirements": {
+        "exportFormats": [
+          "json",
+          "csv",
+          "sql"
+        ],
+        "mustCaptureRowCount": true
+      },
+      "deletionPrerequisites": [
+        "archive_table_ready",
+        "archive_batch_recorded",
+        "confirmed_report_matches_apply",
+        "docs_and_registry_updated"
+      ],
+      "manualChecklist": [
+        "确认冷归档批次与热表删除统计一致"
+      ],
+      "evidenceRefs": [
+        "docs/04-数据库设计与初始化数据.md",
+        "docs/08-变更记录与技术债清单.md",
+        "docs/11-可观测性、日志追踪与消息通知治理.md"
+      ],
+      "notes": "设备消息日志热表进入冷归档治理阶段，保留 active 热表定位，不直接退场。"
+    }
+  ],
+  "seedPackages": []
+}

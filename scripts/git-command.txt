@@ -1,0 +1,9 @@
+
+同步本地代码到 gitee 和 github 平台
+git push gitee codex/dev
+git push origin codex/dev
+
+
+检查推送是否成功
+git log origin/codex/dev --oneline
+git log gitee/codex/dev --oneline

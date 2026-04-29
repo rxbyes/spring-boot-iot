@@ -20,6 +20,9 @@ import com.ghlzm.iot.framework.observability.messageflow.MessageFlowStep;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowTimeline;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowTimelineStore;
 import com.ghlzm.iot.message.mqtt.MqttTopicRouter;
+import com.ghlzm.iot.message.service.capability.CapabilityFeedback;
+import com.ghlzm.iot.message.service.capability.CapabilityFeedbackHandler;
+import com.ghlzm.iot.message.service.capability.CapabilityFeedbackTopicMatcher;
 import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
 import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
@@ -50,11 +53,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -83,6 +88,10 @@ class UpMessageProcessingPipelineTest {
     @Mock
     private DeviceRiskDispatchStageHandler deviceRiskDispatchStageHandler;
     @Mock
+    private CapabilityFeedbackTopicMatcher capabilityFeedbackTopicMatcher;
+    @Mock
+    private CapabilityFeedbackHandler capabilityFeedbackHandler;
+    @Mock
     private ProtocolAdapter protocolAdapter;
 
     private UpMessageProcessingPipeline pipeline;
@@ -107,7 +116,9 @@ class UpMessageProcessingPipelineTest {
                 devicePayloadApplyStageHandler,
                 telemetryPersistStageHandler,
                 deviceStateStageHandler,
-                deviceRiskDispatchStageHandler
+                deviceRiskDispatchStageHandler,
+                capabilityFeedbackTopicMatcher,
+                capabilityFeedbackHandler
         );
         lenient().doAnswer(invocation -> {
             Runnable action = invocation.getArgument(0);
@@ -216,6 +227,30 @@ class UpMessageProcessingPipelineTest {
         assertEquals("demo-device-01", lastSavedSession.getDeviceCode());
         assertEquals(topic, lastSavedSession.getTopic());
         assertFalse(Boolean.TRUE.equals(lastSavedSession.getCorrelationPending()));
+    }
+
+    @Test
+    void processShouldShortCircuitOnCapabilityFeedbackTopics() {
+        String topic = "/broadcast/demo-device-01/feedback";
+        UpMessageProcessingRequest request = buildMqttRequest(topic, "$cmd=stop&result=sucd&message=ok&msgid=1776999000000");
+
+        when(capabilityFeedbackTopicMatcher.matches(topic)).thenReturn(true);
+        when(capabilityFeedbackHandler.handle(eq(topic), anyString()))
+                .thenReturn(CapabilityFeedback.valid("stop", "sucd", "1776999000000", "ok", "$cmd=stop&result=sucd&message=ok&msgid=1776999000000"));
+
+        MessageFlowExecutionResult result = pipeline.process(request);
+
+        assertEquals(
+                List.of(
+                        MessageFlowStages.INGRESS,
+                        "CAPABILITY_FEEDBACK",
+                        MessageFlowStages.COMPLETE
+                ),
+                result.getTimeline().getSteps().stream().map(MessageFlowStep::getStage).toList()
+        );
+        verify(capabilityFeedbackHandler).handle(eq(topic), anyString());
+        verifyNoInteractions(mqttTopicRouter, protocolAdapterRegistry, deviceContractStageHandler, deviceMessageLogStageHandler,
+                devicePayloadApplyStageHandler, telemetryPersistStageHandler, deviceStateStageHandler, deviceRiskDispatchStageHandler);
     }
 
     @Test

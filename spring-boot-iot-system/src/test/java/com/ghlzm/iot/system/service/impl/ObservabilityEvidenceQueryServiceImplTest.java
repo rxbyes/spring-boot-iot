@@ -1,0 +1,985 @@
+package com.ghlzm.iot.system.service.impl;
+
+import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.system.service.PermissionService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
+import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
+import com.ghlzm.iot.system.service.model.ObservabilityMessageArchiveBatchPageQuery;
+import com.ghlzm.iot.system.service.model.ObservabilityMessageArchiveBatchOverviewQuery;
+import com.ghlzm.iot.system.service.model.ObservabilityScheduledTaskPageQuery;
+import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
+import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
+import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
+import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
+import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareVO;
+import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchOverviewVO;
+import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchReportPreviewVO;
+import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchVO;
+import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
+import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
+import com.ghlzm.iot.system.vo.ObservabilitySlowSpanTrendVO;
+import com.ghlzm.iot.system.vo.ObservabilitySpanVO;
+import com.ghlzm.iot.system.vo.ObservabilityTraceEvidenceVO;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class ObservabilityEvidenceQueryServiceImplTest {
+
+    @Mock
+    private JdbcTemplate jdbcTemplate;
+    @Mock
+    private PermissionService permissionService;
+
+    @TempDir
+    Path tempDir;
+
+    private ObservabilityEvidenceQueryServiceImpl service;
+
+    @BeforeEach
+    void setUp() {
+        service = new ObservabilityEvidenceQueryServiceImpl(jdbcTemplate, permissionService, tempDir);
+        lenient().when(permissionService.getDataPermissionContext(10001L))
+                .thenReturn(new DataPermissionContext(10001L, 1L, 10L, null, false));
+    }
+
+    @Test
+    void pageBusinessEventsShouldApplyFiltersAndNormalizePageSize() {
+        ObservabilityBusinessEventPageQuery query = new ObservabilityBusinessEventPageQuery();
+        query.setTraceId(" trace-1 ");
+        query.setEventCode("product.contract.apply");
+        query.setDomainCode("product");
+        query.setResultStatus("SUCCESS");
+        query.setDateFrom("2026-04-25");
+        query.setDateTo("2026-04-25");
+        query.setPageNum(0L);
+        query.setPageSize(500L);
+
+        ObservabilityBusinessEventVO event = new ObservabilityBusinessEventVO();
+        event.setTraceId("trace-1");
+        event.setEventCode("product.contract.apply");
+        when(jdbcTemplate.queryForObject(contains("FROM sys_business_event_log"), eq(Long.class), any(Object[].class)))
+                .thenReturn(1L);
+        doReturn(List.of(event)).when(jdbcTemplate).query(
+                contains("ORDER BY occurred_at DESC"),
+                any(RowMapper.class),
+                any(Object[].class)
+        );
+
+        PageResult<ObservabilityBusinessEventVO> result = service.pageBusinessEvents(query, 10001L);
+
+        assertEquals(1L, result.getPageNum());
+        assertEquals(100L, result.getPageSize());
+        assertEquals("product.contract.apply", result.getRecords().get(0).getEventCode());
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).queryForObject(sqlCaptor.capture(), eq(Long.class), any(Object[].class));
+        String sql = sqlCaptor.getValue();
+        assertTrue(sql.contains("trace_id = ?"));
+        assertTrue(sql.contains("tenant_id = ?"));
+        assertTrue(sql.contains("event_code = ?"));
+        assertTrue(sql.contains("domain_code = ?"));
+        assertTrue(sql.contains("result_status = ?"));
+        assertTrue(sql.contains("occurred_at >= ?"));
+        assertTrue(sql.contains("occurred_at <= ?"));
+    }
+
+    @Test
+    void pageSpansShouldApplySlowThresholdFilter() {
+        ObservabilitySpanPageQuery query = new ObservabilitySpanPageQuery();
+        query.setTraceId("trace-2");
+        query.setSpanType("SLOW_SQL");
+        query.setStatus("SUCCESS");
+        query.setMinDurationMs(1000L);
+        query.setPageNum(2L);
+        query.setPageSize(50L);
+
+        ObservabilitySpanVO span = new ObservabilitySpanVO();
+        span.setTraceId("trace-2");
+        span.setSpanType("SLOW_SQL");
+        span.setDurationMs(1200L);
+        when(jdbcTemplate.queryForObject(contains("FROM sys_observability_span_log"), eq(Long.class), any(Object[].class)))
+                .thenReturn(1L);
+        doReturn(List.of(span)).when(jdbcTemplate).query(
+                contains("ORDER BY started_at DESC"),
+                any(RowMapper.class),
+                any(Object[].class)
+        );
+
+        PageResult<ObservabilitySpanVO> result = service.pageSpans(query, 10001L);
+
+        assertEquals(2L, result.getPageNum());
+        assertEquals(50L, result.getPageSize());
+        assertEquals(1200L, result.getRecords().get(0).getDurationMs());
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).queryForObject(sqlCaptor.capture(), eq(Long.class), any(Object[].class));
+        String sql = sqlCaptor.getValue();
+        assertTrue(sql.contains("tenant_id = ?"));
+        assertTrue(sql.contains("span_type = ?"));
+        assertTrue(sql.contains("duration_ms >= ?"));
+        assertTrue(sql.contains("status = ?"));
+    }
+
+    @Test
+    void pageScheduledTasksShouldApplyTaskFiltersAndKeepScheduledScope() {
+        ObservabilityScheduledTaskPageQuery query = new ObservabilityScheduledTaskPageQuery();
+        query.setTraceId("trace-scheduled-1");
+        query.setTaskCode("DeviceSessionTimeoutScheduler#closeTimedOutSessions");
+        query.setTriggerType("FIXED_DELAY");
+        query.setStatus("FAILURE");
+        query.setMinDurationMs(200L);
+        query.setDateFrom("2026-04-25 08:00:00");
+        query.setDateTo("2026-04-25 18:00:00");
+        query.setPageNum(1L);
+        query.setPageSize(10L);
+
+        ObservabilityScheduledTaskVO row = new ObservabilityScheduledTaskVO();
+        row.setTraceId("trace-scheduled-1");
+        row.setTaskCode("DeviceSessionTimeoutScheduler#closeTimedOutSessions");
+        row.setTaskName("DeviceSessionTimeoutScheduler#closeTimedOutSessions");
+        row.setTriggerType("FIXED_DELAY");
+        row.setStatus("FAILURE");
+        row.setDurationMs(550L);
+        when(jdbcTemplate.queryForObject(contains("FROM sys_observability_span_log"), eq(Long.class), any(Object[].class)))
+                .thenReturn(1L);
+        doReturn(List.of(row)).when(jdbcTemplate).query(
+                contains("span_type = 'SCHEDULED_TASK'"),
+                any(RowMapper.class),
+                any(Object[].class)
+        );
+
+        PageResult<ObservabilityScheduledTaskVO> result = service.pageScheduledTasks(query, 10001L);
+
+        assertEquals(1L, result.getPageNum());
+        assertEquals(10L, result.getPageSize());
+        assertEquals("FIXED_DELAY", result.getRecords().get(0).getTriggerType());
+        assertEquals("DeviceSessionTimeoutScheduler#closeTimedOutSessions", result.getRecords().get(0).getTaskCode());
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).queryForObject(sqlCaptor.capture(), eq(Long.class), any(Object[].class));
+        String sql = sqlCaptor.getValue();
+        assertTrue(sql.contains("tenant_id = ?"));
+        assertTrue(sql.contains("span_type = 'SCHEDULED_TASK'"));
+        assertTrue(sql.contains("trace_id = ?"));
+        assertTrue(sql.contains("status = ?"));
+        assertTrue(sql.contains("duration_ms >= ?"));
+        assertTrue(sql.contains("JSON_UNQUOTE(JSON_EXTRACT(tags_json, '$.taskCode')) = ?"));
+        assertTrue(sql.contains("JSON_UNQUOTE(JSON_EXTRACT(tags_json, '$.triggerType')) = ?"));
+        assertTrue(sql.contains("started_at >= ?"));
+        assertTrue(sql.contains("started_at <= ?"));
+    }
+
+    @Test
+    void pageMessageArchiveBatchesShouldApplyBatchFiltersWithoutTenantScope() {
+        ObservabilityMessageArchiveBatchPageQuery query = new ObservabilityMessageArchiveBatchPageQuery();
+        query.setBatchNo(" iot_message_log-20260426000119 ");
+        query.setSourceTable("iot_message_log");
+        query.setStatus("SUCCEEDED");
+        query.setDateFrom("2026-04-26");
+        query.setDateTo("2026-04-26");
+        query.setPageNum(1L);
+        query.setPageSize(20L);
+
+        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
+        row.setBatchNo("iot_message_log-20260426000119");
+        row.setSourceTable("iot_message_log");
+        row.setStatus("SUCCEEDED");
+        row.setArchivedRows(16098);
+        row.setDeletedRows(16098);
+        when(jdbcTemplate.queryForObject(contains("FROM iot_message_log_archive_batch"), eq(Long.class), any(Object[].class)))
+                .thenReturn(1L);
+        doReturn(List.of(row)).when(jdbcTemplate).query(
+                contains("ORDER BY create_time DESC"),
+                any(RowMapper.class),
+                any(Object[].class)
+        );
+
+        PageResult<ObservabilityMessageArchiveBatchVO> result = service.pageMessageArchiveBatches(query, 10001L);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals("SUCCEEDED", result.getRecords().get(0).getStatus());
+        assertEquals(16098, result.getRecords().get(0).getArchivedRows());
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).queryForObject(sqlCaptor.capture(), eq(Long.class), any(Object[].class));
+        String sql = sqlCaptor.getValue();
+        assertTrue(sql.contains("batch_no = ?"));
+        assertTrue(sql.contains("source_table = ?"));
+        assertTrue(sql.contains("status = ?"));
+        assertTrue(sql.contains("create_time >= ?"));
+        assertTrue(sql.contains("create_time <= ?"));
+        assertFalse(sql.contains("tenant_id = ?"));
+    }
+
+    @Test
+    void pageMessageArchiveBatchesShouldFilterOnlyAbnormalProjectionRows() throws IOException {
+        Path dryRunJsonPath = writeObservabilityReportFile(
+                "observability-log-governance-g4-dry-run.json",
+                """
+                {
+                  "summary": {
+                    "expiredRows": 16098
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "expiredRows": 16098
+                    }
+                  }
+                }
+                """
+        );
+        Path applyJsonPath = writeObservabilityReportFile(
+                "observability-log-governance-g4-apply-drifted.json",
+                """
+                {
+                  "summary": {
+                    "archivedRows": 16098,
+                    "deletedRows": 16098
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "archivedRows": 16098,
+                      "deletedRows": 16098,
+                      "remainingExpiredRows": 12
+                    }
+                  }
+                }
+                """
+        );
+        ObservabilityMessageArchiveBatchPageQuery query = new ObservabilityMessageArchiveBatchPageQuery();
+        query.setSourceTable("iot_message_log");
+        query.setCompareStatus("MATCHED");
+        query.setOnlyAbnormal(true);
+        query.setPageNum(1L);
+        query.setPageSize(20L);
+
+        ObservabilityMessageArchiveBatchVO matchedRow = new ObservabilityMessageArchiveBatchVO();
+        matchedRow.setBatchNo("iot_message_log-20260426000119");
+        matchedRow.setSourceTable("iot_message_log");
+        matchedRow.setStatus("SUCCEEDED");
+        matchedRow.setConfirmReportPath(toRepoRelativePath(dryRunJsonPath));
+        matchedRow.setConfirmedExpiredRows(16098);
+        matchedRow.setArchivedRows(16098);
+        matchedRow.setDeletedRows(16098);
+        matchedRow.setArtifactsJson("{\"reportJsonPath\":\"" + toRepoRelativePath(writeObservabilityReportFile(
+                "observability-log-governance-g4-apply-matched.json",
+                """
+                {
+                  "summary": {
+                    "archivedRows": 16098,
+                    "deletedRows": 16098
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "archivedRows": 16098,
+                      "deletedRows": 16098,
+                      "remainingExpiredRows": 0
+                    }
+                  }
+                }
+                """
+        )) + "\"}");
+        matchedRow.setCreateTime(LocalDateTime.of(2026, 4, 26, 0, 1, 19));
+
+        ObservabilityMessageArchiveBatchVO driftedRow = new ObservabilityMessageArchiveBatchVO();
+        driftedRow.setBatchNo("iot_message_log-20260426000120");
+        driftedRow.setSourceTable("iot_message_log");
+        driftedRow.setStatus("SUCCEEDED");
+        driftedRow.setConfirmReportPath(toRepoRelativePath(dryRunJsonPath));
+        driftedRow.setConfirmedExpiredRows(16098);
+        driftedRow.setArchivedRows(16098);
+        driftedRow.setDeletedRows(16098);
+        driftedRow.setArtifactsJson("{\"reportJsonPath\":\"" + toRepoRelativePath(applyJsonPath) + "\"}");
+        driftedRow.setCreateTime(LocalDateTime.of(2026, 4, 26, 0, 2, 0));
+
+        doReturn(List.of(matchedRow, driftedRow)).when(jdbcTemplate).query(
+                contains("ORDER BY create_time DESC, id DESC"),
+                any(RowMapper.class),
+                any(Object[].class)
+        );
+
+        PageResult<ObservabilityMessageArchiveBatchVO> result = service.pageMessageArchiveBatches(query, 10001L);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals("iot_message_log-20260426000120", result.getRecords().get(0).getBatchNo());
+        assertEquals("DRIFTED", result.getRecords().get(0).getCompareStatus());
+        assertEquals(12L, result.getRecords().get(0).getRemainingExpiredRows());
+        assertEquals("有偏差", result.getRecords().get(0).getCompareStatusLabel());
+    }
+
+    @Test
+    void getMessageArchiveBatchOverviewShouldAggregateAbnormalBuckets() throws IOException {
+        ObservabilityMessageArchiveBatchOverviewQuery query = new ObservabilityMessageArchiveBatchOverviewQuery();
+        query.setSourceTable("iot_message_log");
+
+        Path dryRunJsonPath = writeObservabilityReportFile(
+                "overview-dry-run.json",
+                """
+                {
+                  "summary": {
+                    "expiredRows": 16098
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "expiredRows": 16098
+                    }
+                  }
+                }
+                """
+        );
+        Path matchedApplyJsonPath = writeObservabilityReportFile(
+                "overview-apply-matched.json",
+                """
+                {
+                  "summary": {
+                    "archivedRows": 16098,
+                    "deletedRows": 16098
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "archivedRows": 16098,
+                      "deletedRows": 16098,
+                      "remainingExpiredRows": 0
+                    }
+                  }
+                }
+                """
+        );
+        Path driftedApplyJsonPath = writeObservabilityReportFile(
+                "overview-apply-drifted.json",
+                """
+                {
+                  "summary": {
+                    "archivedRows": 16080,
+                    "deletedRows": 16080
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "archivedRows": 16080,
+                      "deletedRows": 16080,
+                      "remainingExpiredRows": 18
+                    }
+                  }
+                }
+                """
+        );
+
+        ObservabilityMessageArchiveBatchVO matchedRow = overviewRow("iot_message_log-1", LocalDateTime.of(2026, 4, 26, 0, 10));
+        matchedRow.setConfirmReportPath(toRepoRelativePath(dryRunJsonPath));
+        matchedRow.setConfirmedExpiredRows(16098);
+        matchedRow.setArchivedRows(16098);
+        matchedRow.setDeletedRows(16098);
+        matchedRow.setArtifactsJson("{\"reportJsonPath\":\"" + toRepoRelativePath(matchedApplyJsonPath) + "\"}");
+
+        ObservabilityMessageArchiveBatchVO driftedRow = overviewRow("iot_message_log-2", LocalDateTime.of(2026, 4, 26, 0, 20));
+        driftedRow.setConfirmReportPath(toRepoRelativePath(dryRunJsonPath));
+        driftedRow.setConfirmedExpiredRows(16098);
+        driftedRow.setArchivedRows(16080);
+        driftedRow.setDeletedRows(16080);
+        driftedRow.setArtifactsJson("{\"reportJsonPath\":\"" + toRepoRelativePath(driftedApplyJsonPath) + "\"}");
+
+        ObservabilityMessageArchiveBatchVO partialRow = overviewRow("iot_message_log-3", LocalDateTime.of(2026, 4, 26, 0, 30));
+        partialRow.setConfirmReportPath(toRepoRelativePath(dryRunJsonPath));
+        partialRow.setConfirmedExpiredRows(16098);
+        partialRow.setArchivedRows(16098);
+        partialRow.setDeletedRows(16098);
+
+        ObservabilityMessageArchiveBatchVO unavailableRow = overviewRow("iot_message_log-4", LocalDateTime.of(2026, 4, 26, 0, 40));
+        unavailableRow.setConfirmReportPath("../outside/overview.json");
+
+        mockOverviewRows(matchedRow, driftedRow, partialRow, unavailableRow);
+
+        ObservabilityMessageArchiveBatchOverviewVO overview =
+                service.getMessageArchiveBatchOverview(query, 10001L);
+
+        assertEquals(4L, overview.getTotalBatches());
+        assertEquals(1L, overview.getMatchedBatches());
+        assertEquals(1L, overview.getDriftedBatches());
+        assertEquals(1L, overview.getPartialBatches());
+        assertEquals(1L, overview.getUnavailableBatches());
+        assertEquals(3L, overview.getAbnormalBatches());
+        assertEquals(18L, overview.getTotalDeltaConfirmedVsDeleted());
+        assertEquals(18L, overview.getTotalRemainingExpiredRows());
+        assertEquals("iot_message_log-4", overview.getLatestAbnormalBatch());
+    }
+
+    @Test
+    void getMessageArchiveBatchReportPreviewShouldRejectPathOutsideObservabilityLogs() {
+        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
+        row.setBatchNo("iot_message_log-20260426000119");
+        row.setConfirmReportPath("../secrets/report.json");
+        mockArchiveBatchLookup(row);
+
+        ObservabilityMessageArchiveBatchReportPreviewVO result =
+                service.getMessageArchiveBatchReportPreview("iot_message_log-20260426000119", 10001L);
+
+        assertFalse(Boolean.TRUE.equals(result.getAvailable()));
+        assertEquals("REPORT_PATH_REJECTED", result.getReasonCode());
+    }
+
+    @Test
+    void getMessageArchiveBatchReportPreviewShouldKeepJsonSummaryWhenMarkdownMissing() throws IOException {
+        Path jsonPath = writeObservabilityReportFile(
+                "observability-log-governance-preview.json",
+                """
+                {
+                  "generatedAt": "2026-04-25T23:59:00",
+                  "mode": "APPLY",
+                  "summary": {
+                    "expiredRows": 16098,
+                    "deletedRows": 16098,
+                    "tablesWithExpiredRows": 1
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "retentionDays": 30,
+                      "timeField": "report_time",
+                      "cutoffAt": "2026-03-27T00:01:19",
+                      "totalRows": 584835,
+                      "expiredRows": 16098,
+                      "deletedRows": 16098,
+                      "remainingExpiredRows": 0
+                    }
+                  }
+                }
+                """
+        );
+        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
+        row.setBatchNo("iot_message_log-20260426000119");
+        row.setSourceTable("iot_message_log");
+        row.setStatus("SUCCEEDED");
+        row.setConfirmReportPath(toRepoRelativePath(jsonPath));
+        mockArchiveBatchLookup(row);
+
+        ObservabilityMessageArchiveBatchReportPreviewVO result =
+                service.getMessageArchiveBatchReportPreview("iot_message_log-20260426000119", 10001L);
+
+        assertTrue(Boolean.TRUE.equals(result.getAvailable()));
+        assertFalse(Boolean.TRUE.equals(result.getMarkdownAvailable()));
+        assertEquals(16098, ((Number) result.getSummary().get("expiredRows")).intValue());
+        assertEquals("APPLY", result.getSummary().get("mode"));
+        assertEquals(1, result.getTableSummaries().size());
+        assertEquals("iot_message_log", result.getTableSummaries().get(0).getTableName());
+    }
+
+    @Test
+    void getMessageArchiveBatchReportPreviewShouldTruncateMarkdownPreview() throws IOException {
+        Path jsonPath = writeObservabilityReportFile(
+                "observability-log-governance-truncated.json",
+                """
+                {
+                  "generatedAt": "2026-04-25T23:59:00",
+                  "mode": "DRY_RUN",
+                  "summary": {
+                    "expiredRows": 5,
+                    "deletedRows": 0,
+                    "tablesWithExpiredRows": 1
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "retentionDays": 30,
+                      "expiredRows": 5,
+                      "deletedRows": 0,
+                      "remainingExpiredRows": 5
+                    }
+                  }
+                }
+                """
+        );
+        writeObservabilityReportFile("observability-log-governance-truncated.md", buildLongMarkdown());
+        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
+        row.setBatchNo("iot_message_log-20260426000120");
+        row.setConfirmReportPath(toRepoRelativePath(jsonPath));
+        mockArchiveBatchLookup(row);
+
+        ObservabilityMessageArchiveBatchReportPreviewVO result =
+                service.getMessageArchiveBatchReportPreview("iot_message_log-20260426000120", 10001L);
+
+        assertTrue(Boolean.TRUE.equals(result.getAvailable()));
+        assertTrue(Boolean.TRUE.equals(result.getMarkdownAvailable()));
+        assertTrue(Boolean.TRUE.equals(result.getMarkdownTruncated()));
+        assertNotNull(result.getMarkdownPreview());
+        assertTrue(result.getMarkdownPreview().length() <= 6000);
+    }
+
+    @Test
+    void getMessageArchiveBatchCompareShouldRejectDryRunPathOutsideObservabilityLogs() {
+        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
+        row.setBatchNo("iot_message_log-20260426000119");
+        row.setConfirmReportPath("../secrets/report.json");
+        mockArchiveBatchLookup(row);
+
+        ObservabilityMessageArchiveBatchCompareVO result =
+                service.getMessageArchiveBatchCompare("iot_message_log-20260426000119", 10001L);
+
+        assertEquals("UNAVAILABLE", result.getCompareStatus());
+        assertEquals("确认报告路径超出允许目录", result.getCompareMessage());
+        assertFalse(Boolean.TRUE.equals(result.getSources().getDryRunAvailable()));
+        assertFalse(Boolean.TRUE.equals(result.getSources().getApplyAvailable()));
+    }
+
+    @Test
+    void getMessageArchiveBatchCompareShouldReturnPartialWhenApplyReportMissing() throws IOException {
+        Path dryRunJsonPath = writeObservabilityReportFile(
+                "observability-log-governance-dry-run.json",
+                """
+                {
+                  "generatedAt": "2026-04-25T23:59:00",
+                  "mode": "DRY_RUN",
+                  "summary": {
+                    "expiredRows": 16098,
+                    "tablesWithExpiredRows": 1
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "retentionDays": 30,
+                      "expiredRows": 16098
+                    }
+                  }
+                }
+                """
+        );
+        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
+        row.setBatchNo("iot_message_log-20260426000119");
+        row.setSourceTable("iot_message_log");
+        row.setStatus("SUCCEEDED");
+        row.setConfirmReportPath(toRepoRelativePath(dryRunJsonPath));
+        row.setConfirmedExpiredRows(16098);
+        row.setArchivedRows(16098);
+        row.setDeletedRows(16098);
+        mockArchiveBatchLookup(row);
+
+        ObservabilityMessageArchiveBatchCompareVO result =
+                service.getMessageArchiveBatchCompare("iot_message_log-20260426000119", 10001L);
+
+        assertEquals("PARTIAL", result.getCompareStatus());
+        assertEquals("缺少 apply 报告，仅完成部分比对", result.getCompareMessage());
+        assertTrue(Boolean.TRUE.equals(result.getSources().getDryRunAvailable()));
+        assertFalse(Boolean.TRUE.equals(result.getSources().getApplyAvailable()));
+        assertEquals(16098L, result.getSummaryCompare().getDryRunExpiredRows());
+        assertEquals(1, result.getTableComparisons().size());
+        assertNull(result.getTableComparisons().get(0).getMatched());
+        assertEquals("缺少 apply 分表证据", result.getTableComparisons().get(0).getReason());
+    }
+
+    @Test
+    void getMessageArchiveBatchCompareShouldReturnMatchedWhenDryRunAndApplyAlign() throws IOException {
+        Path dryRunJsonPath = writeObservabilityReportFile(
+                "observability-log-governance-dry-run-matched.json",
+                """
+                {
+                  "generatedAt": "2026-04-25T23:59:00",
+                  "mode": "DRY_RUN",
+                  "summary": {
+                    "expiredRows": 16098,
+                    "tablesWithExpiredRows": 1
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "retentionDays": 30,
+                      "expiredRows": 16098
+                    }
+                  }
+                }
+                """
+        );
+        Path applyJsonPath = writeObservabilityReportFile(
+                "observability-log-governance-apply-matched.json",
+                """
+                {
+                  "generatedAt": "2026-04-26T00:02:00",
+                  "mode": "APPLY",
+                  "summary": {
+                    "archivedRows": 16098,
+                    "deletedRows": 16098
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "archivedRows": 16098,
+                      "deletedRows": 16098,
+                      "remainingExpiredRows": 0
+                    }
+                  }
+                }
+                """
+        );
+        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
+        row.setBatchNo("iot_message_log-20260426000119");
+        row.setSourceTable("iot_message_log");
+        row.setStatus("SUCCEEDED");
+        row.setConfirmReportPath(toRepoRelativePath(dryRunJsonPath));
+        row.setConfirmedExpiredRows(16098);
+        row.setArchivedRows(16098);
+        row.setDeletedRows(16098);
+        row.setArtifactsJson("{\"reportJsonPath\":\"" + toRepoRelativePath(applyJsonPath) + "\"}");
+        mockArchiveBatchLookup(row);
+
+        ObservabilityMessageArchiveBatchCompareVO result =
+                service.getMessageArchiveBatchCompare("iot_message_log-20260426000119", 10001L);
+
+        assertEquals("MATCHED", result.getCompareStatus());
+        assertEquals("已按确认结果落地", result.getCompareMessage());
+        assertTrue(Boolean.TRUE.equals(result.getSources().getDryRunAvailable()));
+        assertTrue(Boolean.TRUE.equals(result.getSources().getApplyAvailable()));
+        assertTrue(Boolean.TRUE.equals(result.getSummaryCompare().getMatched()));
+        assertEquals(0L, result.getSummaryCompare().getRemainingExpiredRows());
+        assertEquals(1, result.getTableComparisons().size());
+        assertTrue(Boolean.TRUE.equals(result.getTableComparisons().get(0).getMatched()));
+        assertNull(result.getTableComparisons().get(0).getReason());
+    }
+
+    @Test
+    void getMessageArchiveBatchCompareShouldReturnDriftedWhenApplyLeavesRemainingRows() throws IOException {
+        Path dryRunJsonPath = writeObservabilityReportFile(
+                "observability-log-governance-dry-run-drifted.json",
+                """
+                {
+                  "generatedAt": "2026-04-25T23:59:00",
+                  "mode": "DRY_RUN",
+                  "summary": {
+                    "expiredRows": 16098,
+                    "tablesWithExpiredRows": 1
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "retentionDays": 30,
+                      "expiredRows": 16098
+                    }
+                  }
+                }
+                """
+        );
+        Path applyJsonPath = writeObservabilityReportFile(
+                "observability-log-governance-apply-drifted.json",
+                """
+                {
+                  "generatedAt": "2026-04-26T00:02:00",
+                  "mode": "APPLY",
+                  "summary": {
+                    "archivedRows": 16098,
+                    "deletedRows": 16098
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "archivedRows": 16098,
+                      "deletedRows": 16098,
+                      "remainingExpiredRows": 118
+                    }
+                  }
+                }
+                """
+        );
+        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
+        row.setBatchNo("iot_message_log-20260426000120");
+        row.setSourceTable("iot_message_log");
+        row.setStatus("SUCCEEDED");
+        row.setConfirmReportPath(toRepoRelativePath(dryRunJsonPath));
+        row.setConfirmedExpiredRows(16098);
+        row.setArchivedRows(16098);
+        row.setDeletedRows(16098);
+        row.setArtifactsJson("{\"reportJsonPath\":\"" + toRepoRelativePath(applyJsonPath) + "\"}");
+        mockArchiveBatchLookup(row);
+
+        ObservabilityMessageArchiveBatchCompareVO result =
+                service.getMessageArchiveBatchCompare("iot_message_log-20260426000120", 10001L);
+
+        assertEquals("DRIFTED", result.getCompareStatus());
+        assertEquals("执行结果与确认结果存在偏差", result.getCompareMessage());
+        assertFalse(Boolean.TRUE.equals(result.getSummaryCompare().getMatched()));
+        assertEquals(118L, result.getSummaryCompare().getRemainingExpiredRows());
+        assertEquals(1, result.getTableComparisons().size());
+        assertFalse(Boolean.TRUE.equals(result.getTableComparisons().get(0).getMatched()));
+        assertEquals("apply 后仍存在剩余过期量", result.getTableComparisons().get(0).getReason());
+    }
+
+    @Test
+    void listSlowSpanSummariesShouldGroupHotspotsAndKeepTenantScope() {
+        ObservabilitySlowSpanSummaryQuery query = new ObservabilitySlowSpanSummaryQuery();
+        query.setSpanType("SLOW_SQL");
+        query.setDomainCode("system");
+        query.setMinDurationMs(1000L);
+        query.setDateFrom("2026-04-25");
+        query.setDateTo("2026-04-25");
+        query.setLimit(200);
+
+        ObservabilitySlowSpanSummaryVO summary = new ObservabilitySlowSpanSummaryVO();
+        summary.setSpanType("SLOW_SQL");
+        summary.setDomainCode("system");
+        summary.setTotalCount(3L);
+        summary.setAvgDurationMs(1280L);
+        summary.setMaxDurationMs(2400L);
+        summary.setLatestTraceId("trace-slow-1");
+        doReturn(List.of(summary)).when(jdbcTemplate).query(
+                contains("GROUP BY span_type, domain_code, event_code, object_type, object_id"),
+                any(RowMapper.class),
+                any(Object[].class)
+        );
+
+        List<ObservabilitySlowSpanSummaryVO> result = service.listSlowSpanSummaries(query, 10001L);
+
+        assertEquals(1, result.size());
+        assertEquals("SLOW_SQL", result.get(0).getSpanType());
+        assertEquals(3L, result.get(0).getTotalCount());
+        assertEquals(1280L, result.get(0).getAvgDurationMs());
+        assertEquals(2400L, result.get(0).getMaxDurationMs());
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).query(sqlCaptor.capture(), any(RowMapper.class), any(Object[].class));
+        String sql = sqlCaptor.getValue();
+        assertTrue(sql.contains("tenant_id = ?"));
+        assertTrue(sql.contains("span_type = ?"));
+        assertTrue(sql.contains("domain_code = ?"));
+        assertTrue(sql.contains("duration_ms >= ?"));
+        assertTrue(sql.contains("started_at >= ?"));
+        assertTrue(sql.contains("started_at <= ?"));
+        assertTrue(sql.contains("ORDER BY max_duration_ms DESC, total_count DESC"));
+    }
+
+    @Test
+    void listSlowSpanTrendsShouldAggregateBucketsAndFillRangeGaps() {
+        ObservabilitySlowSpanTrendQuery query = new ObservabilitySlowSpanTrendQuery();
+        query.setSpanType("SLOW_SQL");
+        query.setDomainCode("system");
+        query.setEventCode("system.error.archive");
+        query.setObjectType("sql");
+        query.setObjectId("iot_message_log");
+        query.setMinDurationMs(1000L);
+        query.setBucket("HOUR");
+        query.setDateFrom("2026-04-25 09:00:00");
+        query.setDateTo("2026-04-25 11:59:59");
+
+        ObservabilitySpanVO first = new ObservabilitySpanVO();
+        first.setTraceId("trace-slow-1");
+        first.setSpanType("SLOW_SQL");
+        first.setDomainCode("system");
+        first.setEventCode("system.error.archive");
+        first.setObjectType("sql");
+        first.setObjectId("iot_message_log");
+        first.setStatus("SUCCESS");
+        first.setDurationMs(1000L);
+        first.setStartedAt(LocalDateTime.of(2026, 4, 25, 9, 10));
+
+        ObservabilitySpanVO second = new ObservabilitySpanVO();
+        second.setTraceId("trace-slow-2");
+        second.setSpanType("SLOW_SQL");
+        second.setDomainCode("system");
+        second.setEventCode("system.error.archive");
+        second.setObjectType("sql");
+        second.setObjectId("iot_message_log");
+        second.setStatus("SUCCESS");
+        second.setDurationMs(2000L);
+        second.setStartedAt(LocalDateTime.of(2026, 4, 25, 9, 20));
+
+        ObservabilitySpanVO third = new ObservabilitySpanVO();
+        third.setTraceId("trace-slow-3");
+        third.setSpanType("SLOW_SQL");
+        third.setDomainCode("system");
+        third.setEventCode("system.error.archive");
+        third.setObjectType("sql");
+        third.setObjectId("iot_message_log");
+        third.setStatus("ERROR");
+        third.setDurationMs(5000L);
+        third.setStartedAt(LocalDateTime.of(2026, 4, 25, 9, 50));
+
+        ObservabilitySpanVO fourth = new ObservabilitySpanVO();
+        fourth.setTraceId("trace-slow-4");
+        fourth.setSpanType("SLOW_SQL");
+        fourth.setDomainCode("system");
+        fourth.setEventCode("system.error.archive");
+        fourth.setObjectType("sql");
+        fourth.setObjectId("iot_message_log");
+        fourth.setStatus("SUCCESS");
+        fourth.setDurationMs(1500L);
+        fourth.setStartedAt(LocalDateTime.of(2026, 4, 25, 10, 5));
+
+        ObservabilitySpanVO fifth = new ObservabilitySpanVO();
+        fifth.setTraceId("trace-slow-5");
+        fifth.setSpanType("SLOW_SQL");
+        fifth.setDomainCode("system");
+        fifth.setEventCode("system.error.archive");
+        fifth.setObjectType("sql");
+        fifth.setObjectId("iot_message_log");
+        fifth.setStatus("ERROR");
+        fifth.setDurationMs(3000L);
+        fifth.setStartedAt(LocalDateTime.of(2026, 4, 25, 10, 40));
+
+        doReturn(List.of(first, second, third, fourth, fifth)).when(jdbcTemplate).query(
+                contains("ORDER BY started_at ASC, id ASC"),
+                any(RowMapper.class),
+                any(Object[].class)
+        );
+
+        List<ObservabilitySlowSpanTrendVO> result = service.listSlowSpanTrends(query, 10001L);
+
+        assertEquals(3, result.size());
+
+        ObservabilitySlowSpanTrendVO firstBucket = result.get(0);
+        assertEquals("HOUR", firstBucket.getBucket());
+        assertEquals(LocalDateTime.of(2026, 4, 25, 9, 0), firstBucket.getBucketStart());
+        assertEquals(3L, firstBucket.getTotalCount());
+        assertEquals(2L, firstBucket.getSuccessCount());
+        assertEquals(1L, firstBucket.getErrorCount());
+        assertEquals(33, firstBucket.getErrorRate());
+        assertEquals(2667L, firstBucket.getAvgDurationMs());
+        assertEquals(5000L, firstBucket.getMaxDurationMs());
+        assertEquals(5000L, firstBucket.getP95DurationMs());
+        assertEquals(5000L, firstBucket.getP99DurationMs());
+
+        ObservabilitySlowSpanTrendVO secondBucket = result.get(1);
+        assertEquals(LocalDateTime.of(2026, 4, 25, 10, 0), secondBucket.getBucketStart());
+        assertEquals(2L, secondBucket.getTotalCount());
+        assertEquals(1L, secondBucket.getSuccessCount());
+        assertEquals(1L, secondBucket.getErrorCount());
+        assertEquals(50, secondBucket.getErrorRate());
+        assertEquals(2250L, secondBucket.getAvgDurationMs());
+        assertEquals(3000L, secondBucket.getMaxDurationMs());
+        assertEquals(3000L, secondBucket.getP95DurationMs());
+        assertEquals(3000L, secondBucket.getP99DurationMs());
+
+        ObservabilitySlowSpanTrendVO thirdBucket = result.get(2);
+        assertEquals(LocalDateTime.of(2026, 4, 25, 11, 0), thirdBucket.getBucketStart());
+        assertEquals(0L, thirdBucket.getTotalCount());
+        assertEquals(0L, thirdBucket.getSuccessCount());
+        assertEquals(0L, thirdBucket.getErrorCount());
+        assertEquals(0, thirdBucket.getErrorRate());
+        assertNull(thirdBucket.getAvgDurationMs());
+        assertNull(thirdBucket.getMaxDurationMs());
+        assertNull(thirdBucket.getP95DurationMs());
+        assertNull(thirdBucket.getP99DurationMs());
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).query(sqlCaptor.capture(), any(RowMapper.class), any(Object[].class));
+        String sql = sqlCaptor.getValue();
+        assertTrue(sql.contains("tenant_id = ?"));
+        assertTrue(sql.contains("span_type = ?"));
+        assertTrue(sql.contains("domain_code = ?"));
+        assertTrue(sql.contains("event_code = ?"));
+        assertTrue(sql.contains("object_type = ?"));
+        assertTrue(sql.contains("object_id = ?"));
+        assertTrue(sql.contains("duration_ms >= ?"));
+        assertTrue(sql.contains("started_at >= ?"));
+        assertTrue(sql.contains("started_at <= ?"));
+        assertTrue(sql.contains("ORDER BY started_at ASC, id ASC"));
+    }
+
+    @Test
+    void getTraceEvidenceShouldMergeTimelineByOccurredTime() {
+        ObservabilityBusinessEventVO event = new ObservabilityBusinessEventVO();
+        event.setId(20L);
+        event.setTraceId("trace-3");
+        event.setEventCode("product.contract.apply");
+        event.setEventName("合同生效");
+        event.setOccurredAt(LocalDateTime.of(2026, 4, 25, 10, 5));
+        event.setResultStatus("SUCCESS");
+
+        ObservabilitySpanVO span = new ObservabilitySpanVO();
+        span.setId(10L);
+        span.setTraceId("trace-3");
+        span.setSpanType("HTTP_REQUEST");
+        span.setSpanName("POST /api/device/product/1/model/apply");
+        span.setStartedAt(LocalDateTime.of(2026, 4, 25, 10, 0));
+        span.setStatus("SUCCESS");
+
+        doReturn(List.of(event)).when(jdbcTemplate).query(
+                contains("FROM sys_business_event_log"),
+                any(RowMapper.class),
+                eq(1L),
+                eq("trace-3"),
+                eq(500)
+        );
+        doReturn(List.of(span)).when(jdbcTemplate).query(
+                contains("FROM sys_observability_span_log"),
+                any(RowMapper.class),
+                eq(1L),
+                eq("trace-3"),
+                eq(500)
+        );
+
+        ObservabilityTraceEvidenceVO result = service.getTraceEvidence(" trace-3 ", 10001L);
+
+        assertEquals("trace-3", result.getTraceId());
+        assertEquals(2, result.getTimeline().size());
+        assertEquals("SPAN", result.getTimeline().get(0).getItemType());
+        assertEquals("BUSINESS_EVENT", result.getTimeline().get(1).getItemType());
+    }
+
+    private void mockArchiveBatchLookup(ObservabilityMessageArchiveBatchVO row) {
+        doReturn(List.of(row)).when(jdbcTemplate).query(
+                contains("FROM iot_message_log_archive_batch"),
+                any(RowMapper.class),
+                any(Object[].class)
+        );
+    }
+
+    private void mockOverviewRows(ObservabilityMessageArchiveBatchVO... rows) {
+        doReturn(List.of(rows)).when(jdbcTemplate).query(
+                contains("FROM iot_message_log_archive_batch"),
+                any(RowMapper.class),
+                any(Object[].class)
+        );
+    }
+
+    private ObservabilityMessageArchiveBatchVO overviewRow(String batchNo,
+                                                           LocalDateTime createTime) {
+        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
+        row.setBatchNo(batchNo);
+        row.setSourceTable("iot_message_log");
+        row.setStatus("SUCCEEDED");
+        row.setCreateTime(createTime);
+        return row;
+    }
+
+    private Path writeObservabilityReportFile(String fileName, String content) throws IOException {
+        Path directory = tempDir.resolve("logs").resolve("observability");
+        Files.createDirectories(directory);
+        Path file = directory.resolve(fileName);
+        Files.writeString(file, content);
+        return file;
+    }
+
+    private String toRepoRelativePath(Path file) {
+        return tempDir.relativize(file).toString().replace('\\', '/');
+    }
+
+    private String buildLongMarkdown() {
+        StringBuilder builder = new StringBuilder();
+        for (int index = 0; index < 120; index++) {
+            builder.append("line ").append(index).append(" preview payload ").append("x".repeat(80)).append('\n');
+        }
+        return builder.toString();
+    }
+}

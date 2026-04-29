@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <StandardPageShell class="device-asset-view">
     <StandardWorkbenchPanel
       title="设备资产中心"
@@ -12,7 +12,7 @@
       <template #filters>
         <StandardListFilterHeader :model="searchForm">
           <template #primary>
-            <!-- 快速搜索：支持设备编码、设备名称、产品 Key、产品名称关键词搜索 -->
+            <!-- 快速搜索：支持设备编码、设备名称、产品 Key、产品名称关键字搜索 -->
             <el-form-item>
               <el-input
                 id="quick-search"
@@ -226,16 +226,12 @@
                     <strong class="standard-mobile-record-card__field-value">{{ formatTextValue(row.orgName) }}</strong>
                   </div>
                   <div class="device-mobile-card__field">
-                    <span class="standard-mobile-record-card__field-label">父设备</span>
+                    <span class="standard-mobile-record-card__field-label">上级设备</span>
                     <strong class="standard-mobile-record-card__field-value">{{ formatDeviceRelationValue(row.parentDeviceName, row.parentDeviceCode) }}</strong>
                   </div>
                   <div class="device-mobile-card__field">
                     <span class="standard-mobile-record-card__field-label">网关设备</span>
                     <strong class="standard-mobile-record-card__field-value">{{ formatDeviceRelationValue(row.gatewayDeviceName, row.gatewayDeviceCode) }}</strong>
-                  </div>
-                  <div class="device-mobile-card__field">
-                    <span class="standard-mobile-record-card__field-label">接入协议</span>
-                    <strong class="standard-mobile-record-card__field-value">{{ formatTextValue(row.protocolCode) }}</strong>
                   </div>
                   <div class="device-mobile-card__field">
                     <span class="standard-mobile-record-card__field-label">固件版本</span>
@@ -266,8 +262,8 @@
 
           <el-table ref="tableRef" class="device-desktop-table" :data="tableData" border stripe @selection-change="handleSelectionChange">
             <el-table-column type="selection" width="48" :selectable="isSelectableDeviceRow" />
-            <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="170" />
-            <StandardTableTextColumn prop="deviceName" label="设备名称" :min-width="160" />
+            <StandardTableTextColumn prop="deviceName" label="设备名称" :min-width="180" />
+            <StandardTableTextColumn prop="deviceCode" label="设备编号" :min-width="180" />
             <StandardTableTextColumn prop="registrationStatus" label="登记状态" :width="110">
               <template #default="{ row }">
                 <el-tag :type="row.registrationStatus === 1 ? 'success' : 'warning'" round>{{ getRegistrationStatusText(row.registrationStatus) }}</el-tag>
@@ -276,7 +272,6 @@
             <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="160" />
             <StandardTableTextColumn prop="productName" label="产品名称" :min-width="160" />
             <StandardTableTextColumn prop="orgName" label="所属机构" :min-width="160" />
-            <StandardTableTextColumn prop="protocolCode" label="协议" :width="120" />
             <el-table-column prop="onlineStatus" label="在线状态" width="100">
               <template #default="{ row }">
                 <el-tag :type="getOnlineStatusTagType(row.onlineStatus)" round>{{ getOnlineStatusText(row.onlineStatus) }}</el-tag>
@@ -354,7 +349,9 @@
       :empty="!detailData"
     >
       <div v-if="detailData" class="device-detail-stack">
-        <DeviceDetailWorkbench :device="detailData" />
+        <DeviceDetailWorkbench
+          :device="detailData"
+        />
       </div>
 
       <template #footer>
@@ -373,6 +370,32 @@
         </StandardDrawerFooter>
       </template>
     </StandardDetailDrawer>
+
+    <DeviceThresholdDrawer
+      v-model="thresholdVisible"
+      :overview="thresholdOverview"
+      :loading="thresholdLoading"
+      :error-message="thresholdErrorMessage"
+    />
+
+    <DeviceCapabilityWorkbenchDrawer
+      v-model="capabilityVisible"
+      :device="capabilityDevice"
+      :overview="capabilityOverview"
+      :commands="commandRecords"
+      :capability-loading="capabilityLoading"
+      :command-loading="commandLoading"
+      @execute-capability="handleExecuteCapability"
+      @refresh-commands="handleRefreshCommands"
+    />
+
+    <DeviceCapabilityExecuteDrawer
+      v-model="capabilityExecuteVisible"
+      :device-code="capabilityDevice?.deviceCode || detailData?.deviceCode || ''"
+      :capability="executingCapability"
+      :submitting="capabilityExecuteSubmitting"
+      @submit="handleExecuteCapabilitySubmit"
+    />
 
     <DeviceOnboardingSuggestionDrawer
       v-model="suggestionVisible"
@@ -406,7 +429,7 @@
             <div class="ops-drawer-section__header">
               <div>
                 <h3>基础档案</h3>
-                <p>维护产品归属、设备编码与命名，确保库存、风险绑定与链路追踪都能找到同一台设备。</p>
+                <p>统一维护设备名称、设备编码、所属产品与建档主字段。</p>
               </div>
             </div>
             <div class="ops-drawer-grid">
@@ -432,17 +455,17 @@
           <section class="ops-drawer-section">
             <div class="ops-drawer-section__header">
               <div>
-                <h3>父子拓扑</h3>
+                <h3>设备关系</h3>
                 <p>{{ formRelationHint }}</p>
               </div>
             </div>
             <div class="ops-drawer-grid">
-              <el-form-item label="父设备" prop="parentDeviceId" class="ops-drawer-grid__full">
+              <el-form-item label="上级设备" prop="parentDeviceId" class="ops-drawer-grid__full">
                 <el-select
                   v-model="formData.parentDeviceId"
                   filterable
                   clearable
-                  placeholder="请选择父设备（选填）"
+                  placeholder="请选择上级设备"
                   :loading="deviceOptionsLoading"
                 >
                   <el-option
@@ -456,7 +479,7 @@
             </div>
             <div class="device-form-relation-summary">
               <div class="device-form-relation-card">
-                <span>当前父设备</span>
+                <span>当前上级设备</span>
                 <strong>{{ formatDeviceRelationValue(selectedFormParentOption?.deviceName, selectedFormParentOption?.deviceCode) }}</strong>
               </div>
               <div class="device-form-relation-card">
@@ -469,8 +492,8 @@
           <section class="ops-drawer-section">
             <div class="ops-drawer-section__header">
               <div>
-                <h3>状态与维护属性</h3>
-                <p>统一维护激活状态、设备状态、固件版本和部署信息，为日常维护和资产核对提供基线。</p>
+                <h3>运行与部署</h3>
+                <p>补齐激活状态、设备状态、固件版本、IP 和部署位置。</p>
               </div>
             </div>
             <div class="ops-drawer-grid">
@@ -502,7 +525,7 @@
             <div class="ops-drawer-section__header">
               <div>
                 <h3>认证字段</h3>
-                <p>当前先维护最常用的 MQTT 认证字段，后续远程控制、升级与网关拓扑也可复用这些主数据。</p>
+                <p>按接入协议维护设备密钥、Client ID、用户名和密码。</p>
               </div>
             </div>
             <div class="ops-drawer-grid">
@@ -516,7 +539,7 @@
                 <el-input id="username" v-model="formData.username" placeholder="请输入设备用户名" />
               </el-form-item>
               <el-form-item label="密码" prop="password">
-                <el-input id="password" v-model="formData.password" type="password" show-password placeholder="请输入设备密码" />
+                <el-input id="password" v-model="formData.password" type="password" show-password placeholder="请输入密码" />
               </el-form-item>
             </div>
           </section>
@@ -525,7 +548,7 @@
             <div class="ops-drawer-section__header">
               <div>
                 <h3>扩展信息</h3>
-                <p>建议使用 JSON 保存设备批次、站点、责任人、资产标签等额外字段，便于后续批量维护。</p>
+                <p>支持补充 metadata JSON，供后续运行态和排障使用。</p>
               </div>
             </div>
             <div class="ops-drawer-grid">
@@ -551,7 +574,7 @@
           @confirm="handleSubmit"
         >
           <StandardButton action="cancel" class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="formVisible = false">
-            取消
+            鍙栨秷
           </StandardButton>
           <StandardButton
             v-permission="submitPermission"
@@ -590,7 +613,7 @@
 
     <CsvColumnSettingDialog
       v-model="exportColumnDialogVisible"
-      title="设备资产中心导出列设置"
+      title="导出列设置"
       :options="exportColumnOptions"
       :selected-keys="selectedExportColumnKeys"
       :preset-storage-key="exportColumnStorageKey"
@@ -606,6 +629,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import DeviceDetailWorkbench from '@/components/device/DeviceDetailWorkbench.vue'
+import DeviceThresholdDrawer from '@/components/device/DeviceThresholdDrawer.vue'
+import DeviceCapabilityWorkbenchDrawer from '@/components/device/DeviceCapabilityWorkbenchDrawer.vue'
+import DeviceCapabilityExecuteDrawer from '@/components/device/DeviceCapabilityExecuteDrawer.vue'
 import DeviceOnboardingSuggestionDrawer from '@/components/device/DeviceOnboardingSuggestionDrawer.vue'
 import DeviceBatchImportDrawer from '@/components/DeviceBatchImportDrawer.vue'
 import DeviceReplaceDrawer from '@/components/DeviceReplaceDrawer.vue'
@@ -624,21 +650,26 @@ import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowAction
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import { accessErrorApi } from '@/api/accessError'
 import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
-import { deviceApi } from '@/api/device'
+import { deviceApi, type DevicePageQueryParams } from '@/api/device'
 import { productApi } from '@/api/product'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { usePermissionStore } from '@/stores/permission'
 import type {
+  CommandRecordPageItem,
   Device,
   DeviceAddPayload,
   DeviceAccessErrorLog,
   DeviceBatchAddPayload,
   DeviceBatchAddResult,
+  DeviceCapability,
+  DeviceCapabilityExecutePayload,
+  DeviceCapabilityOverview,
   DeviceOnboardingBatchResult,
   DeviceOnboardingSuggestion,
   DeviceOption,
   DeviceReplacePayload,
   DeviceReplaceResult,
+  DeviceThresholdOverview,
   Product
 } from '@/types/api'
 import {
@@ -706,7 +737,7 @@ interface DevicePageLoadOptions {
 
 interface DeviceRowAction {
   key?: string
-  command: 'replace' | 'insight' | 'delete' | 'suggestion'
+  command: 'threshold' | 'replace' | 'insight' | 'delete' | 'suggestion' | 'capability'
   label: string
 }
 
@@ -718,7 +749,7 @@ interface DeviceDirectAction {
 
 interface DeviceToolbarAction {
   key?: string
-  command: 'batch-activate' | 'batch-delete' | 'export-config' | 'export-selected' | 'export-current' | 'clear-selection'
+  command: 'batch-activate' | 'batch-delete' | 'export-config' | 'export-selected' | 'export-search' | 'clear-selection'
   label: string
   disabled?: boolean
   divided?: boolean
@@ -737,6 +768,8 @@ const deviceOptionsLoading = ref(false)
 const formVisible = ref(false)
 const formRefreshing = ref(false)
 const detailVisible = ref(false)
+const thresholdVisible = ref(false)
+const capabilityVisible = ref(false)
 const batchImportVisible = ref(false)
 const batchImportSubmitting = ref(false)
 const replaceVisible = ref(false)
@@ -745,7 +778,9 @@ const replaceSubmitting = ref(false)
 const replaceRefreshing = ref(false)
 const detailLoading = ref(false)
 const detailRefreshing = ref(false)
+const thresholdLoading = ref(false)
 const detailErrorMessage = ref('')
+const thresholdErrorMessage = ref('')
 const detailRefreshErrorMessage = ref('')
 const listRefreshMessage = ref('')
 const listRefreshState = ref<'info' | 'error' | ''>('')
@@ -765,11 +800,20 @@ const selectedRows = ref<Device[]>([])
 const productOptions = ref<Product[]>([])
 const deviceOptions = ref<DeviceOption[]>([])
 const detailData = ref<Device | null>(null)
+const thresholdOverview = ref<DeviceThresholdOverview | null>(null)
+const capabilityDevice = ref<Device | null>(null)
+const capabilityOverview = ref<DeviceCapabilityOverview | null>(null)
+const commandRecords = ref<CommandRecordPageItem[]>([])
 const registerSourceRow = ref<Device | null>(null)
 const batchImportResult = ref<DeviceBatchAddResult | null>(null)
 const replacingDevice = ref<Device | null>(null)
 const onboardingSuggestion = ref<DeviceOnboardingSuggestion | null>(null)
 const onboardingSuggestionSource = ref<Device | null>(null)
+const capabilityExecuteVisible = ref(false)
+const capabilityExecuteSubmitting = ref(false)
+const executingCapability = ref<DeviceCapability | null>(null)
+const capabilityLoading = ref(false)
+const commandLoading = ref(false)
 
 const exportColumnDialogVisible = ref(false)
 const exportColumnStorageKey = 'device-asset-view'
@@ -777,6 +821,9 @@ const defaultPageSize = 10
 const advancedFilterKeys: readonly DeviceFilterKey[] = ['deviceId', 'onlineStatus', 'activateStatus', 'deviceStatus']
 let latestListRequestId = 0
 let latestDetailRequestId = 0
+let latestCapabilityRequestSeed = 0
+let latestCapabilityOverviewRequestId = 0
+let latestCapabilityCommandRequestId = 0
 let latestEditRequestId = 0
 let latestReplaceRequestId = 0
 let listAbortController: AbortController | null = null
@@ -918,9 +965,9 @@ const diagnosticEntryMessage = computed(() => {
   const sourceLabel = describeDiagnosticSource(diagnosticContext.value.sourcePage)
   const traceLabel = diagnosticContext.value.traceId ? `Trace ${diagnosticContext.value.traceId}` : ''
   const deviceLabel = diagnosticContext.value.deviceCode ? `设备 ${diagnosticContext.value.deviceCode}` : ''
-  return [sourceLabel ? `来自${sourceLabel}` : '', traceLabel, deviceLabel, '优先核对登记状态、在线态与失败来源。']
+  return [sourceLabel ? `来自${sourceLabel}` : '', traceLabel, deviceLabel, '可继续核对线索并补齐建档信息']
     .filter(Boolean)
-    .join(' · ')
+    .join(' 路 ')
 })
 const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagnosticEntryMessage.value)
 const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
@@ -962,10 +1009,10 @@ const deviceToolbarActions = computed<DeviceToolbarAction[]>(() => {
       disabled: selectedRows.value.length === 0
     })
     actions.push({
-      key: 'export-current',
-      command: 'export-current',
-      label: '导出当前结果',
-      disabled: tableData.value.length === 0
+      key: 'export-search',
+      command: 'export-search',
+      label: '导出搜索结果',
+      disabled: pagination.total === 0
     })
   }
 
@@ -984,7 +1031,7 @@ const advancedFilterHint = computed(() => {
   if (showAdvancedFilters.value || advancedAppliedFilterCount.value === 0) {
     return ''
   }
-  return `更多条件已生效 ${advancedAppliedFilterCount.value} 项`
+  return `已启用高级筛选 ${advancedAppliedFilterCount.value} 项`
 })
 const activeFilterTags = computed(() => {
   const tags: Array<{ key: DeviceFilterKey; label: string }> = []
@@ -1069,8 +1116,8 @@ const exportColumns: CsvColumn<Device>[] = [
   { key: 'registrationStatus', label: '登记状态', formatter: (value) => getRegistrationStatusText(value as number | null | undefined) },
   { key: 'deviceCode', label: '设备编码' },
   { key: 'deviceName', label: '设备名称' },
-  { key: 'parentDeviceCode', label: '父设备编码' },
-  { key: 'parentDeviceName', label: '父设备名称' },
+  { key: 'parentDeviceCode', label: '上级设备编码' },
+  { key: 'parentDeviceName', label: '上级设备名称' },
   { key: 'gatewayDeviceCode', label: '网关设备编码' },
   { key: 'gatewayDeviceName', label: '网关设备名称' },
   { key: 'productKey', label: '产品 Key' },
@@ -1135,9 +1182,9 @@ function getSourceTypeText(value?: string | null) {
     return '失败归档'
   }
   if (value === 'dispatch_failed') {
-    return '失败轨迹'
+    return '派发失败'
   }
-  return '设备主档'
+  return '设备台账'
 }
 
 function getOnlineStatusTagType(value?: number | null) {
@@ -1299,6 +1346,12 @@ function getDeviceRowActions(row: Device): DeviceRowAction[] {
   const actions: DeviceRowAction[] = []
   if (canSuggestOnboarding(row)) {
     actions.push({ key: 'suggestion', command: 'suggestion', label: '接入建议' })
+  }
+  if (isRegisteredDeviceRow(row)) {
+    actions.push({ key: 'threshold', command: 'threshold', label: '查看设备阈值' })
+  }
+  if (isRegisteredDeviceRow(row) && permissionStore.hasPermission('iot:device-capability:view')) {
+    actions.push({ key: 'capability', command: 'capability', label: '设备操作' })
   }
   if (canReplaceDeviceRow(row)) {
     if (permissionStore.hasPermission('iot:devices:replace')) {
@@ -1540,12 +1593,50 @@ function getResolvedExportColumns() {
   return resolveCsvColumns(exportColumns, selectedExportColumnKeys.value)
 }
 
+function buildAppliedExportFilters(): DevicePageQueryParams {
+  const deviceId = appliedFilters.deviceId.trim()
+  const keyword = appliedFilters.keyword.trim()
+  const productKey = appliedFilters.productKey.trim()
+  const productName = appliedFilters.productName.trim()
+  const deviceCode = appliedFilters.deviceCode.trim()
+  const deviceName = appliedFilters.deviceName.trim()
+  return {
+    deviceId: deviceId || undefined,
+    keyword: keyword || undefined,
+    productKey: productKey || undefined,
+    productName: productName || undefined,
+    deviceCode: deviceCode || undefined,
+    deviceName: deviceName || undefined,
+    onlineStatus: appliedFilters.onlineStatus,
+    activateStatus: appliedFilters.activateStatus,
+    deviceStatus: appliedFilters.deviceStatus,
+    registrationStatus: appliedFilters.registrationStatus
+  }
+}
+
 function handleExportSelected() {
   downloadRowsAsCsv('设备资产中心-选中项.csv', selectedRows.value, getResolvedExportColumns())
 }
 
-function handleExportCurrent() {
-  downloadRowsAsCsv('设备资产中心-当前结果.csv', tableData.value, getResolvedExportColumns())
+async function handleExportSearch() {
+  try {
+    const res = await deviceApi.exportDevices(buildAppliedExportFilters())
+    const rows = res.data || []
+    if (res.code !== 200) {
+      ElMessage.error(res.msg || '导出搜索结果失败')
+      return
+    }
+    if (rows.length === 0) {
+      ElMessage.warning('当前筛选没有可导出的设备')
+      return
+    }
+    downloadRowsAsCsv('设备资产中心-搜索结果.csv', rows, getResolvedExportColumns())
+    ElMessage.success(`已导出 ${rows.length} 台设备`)
+  } catch (error) {
+    if (!isHandledRequestError(error)) {
+      ElMessage.error(resolveRequestErrorMessage(error, '导出搜索结果失败'))
+    }
+  }
 }
 
 function handleToolbarAction(command: string | number | object) {
@@ -1562,8 +1653,8 @@ function handleToolbarAction(command: string | number | object) {
     case 'export-selected':
       handleExportSelected()
       break
-    case 'export-current':
-      handleExportCurrent()
+    case 'export-search':
+      void handleExportSearch()
       break
     case 'clear-selection':
       clearSelection()
@@ -1770,11 +1861,11 @@ async function loadProducts() {
         productOptions.value = res.data || []
         return
       }
-      ElMessage.error(res.msg || '加载产品列表失败')
+    ElMessage.error(res.msg || '加载产品列表失败')
     } catch (error) {
       console.error('加载产品列表失败', error)
       if (!isHandledRequestError(error)) {
-        ElMessage.error(resolveRequestErrorMessage(error, '加载产品列表失败'))
+    ElMessage.error(resolveRequestErrorMessage(error, '加载产品列表失败'))
       }
     } finally {
       productLoading.value = false
@@ -1801,11 +1892,11 @@ async function loadDeviceOptions() {
         deviceOptions.value = res.data || []
         return
       }
-      ElMessage.error(res.msg || '加载父设备选项失败')
+    ElMessage.error(res.msg || '加载上级设备选项失败')
     } catch (error) {
-      console.error('加载父设备选项失败', error)
+      console.error('加载上级设备选项失败', error)
       if (!isHandledRequestError(error)) {
-        ElMessage.error(resolveRequestErrorMessage(error, '加载父设备选项失败'))
+    ElMessage.error(resolveRequestErrorMessage(error, '加载上级设备选项失败'))
       }
     } finally {
       deviceOptionsLoading.value = false
@@ -2228,7 +2319,7 @@ async function loadDevicePage(options: DevicePageLoadOptions = {}) {
     } else {
       clearListRefreshState()
       if (!isHandledRequestError(error)) {
-        ElMessage.error(resolveRequestErrorMessage(error, '获取设备分页失败'))
+      ElMessage.error(resolveRequestErrorMessage(error, '获取设备列表失败'))
       }
     }
   } finally {
@@ -2249,6 +2340,7 @@ async function openDetail(target: Device | string | number) {
   const detailSnapshot = row ? resolveDetailSnapshot(row, cachedDetail) : null
 
   abortDetailRequest()
+  capabilityVisible.value = false
   detailVisible.value = true
   detailErrorMessage.value = ''
   detailRefreshErrorMessage.value = ''
@@ -2337,6 +2429,111 @@ async function openDetail(target: Device | string | number) {
     }
     if (detailAbortController === controller) {
       detailAbortController = null
+    }
+  }
+}
+
+function resetCapabilityState() {
+  capabilityOverview.value = null
+  commandRecords.value = []
+  capabilityLoading.value = false
+  commandLoading.value = false
+  capabilityExecuteVisible.value = false
+  capabilityExecuteSubmitting.value = false
+  executingCapability.value = null
+  capabilityDevice.value = null
+}
+
+function openCapability(row: Device) {
+  if (!isRegisteredDeviceRow(row) || !row.deviceCode) {
+    return
+  }
+  const cachedDetail = getCachedDeviceDetail(row)
+  detailVisible.value = false
+  resetCapabilityState()
+  capabilityDevice.value = resolveDetailSnapshot(row, cachedDetail)
+  capabilityVisible.value = true
+  const requestId = ++latestCapabilityRequestSeed
+  latestCapabilityOverviewRequestId = requestId
+  latestCapabilityCommandRequestId = requestId
+  void refreshDeviceCapabilityContext(row.deviceCode, requestId)
+}
+
+async function refreshDeviceCapabilityContext(deviceCode: string, requestId: number) {
+  if (!deviceCode || requestId !== latestCapabilityOverviewRequestId || requestId !== latestCapabilityCommandRequestId) {
+    return
+  }
+  await Promise.all([
+    loadDeviceCapabilityOverview(deviceCode, requestId),
+    loadDeviceCapabilityRecords(deviceCode, requestId)
+  ])
+}
+
+async function loadDeviceCapabilityOverview(deviceCode: string, requestId: number) {
+  if (requestId !== latestCapabilityOverviewRequestId) {
+    return
+  }
+  capabilityLoading.value = true
+  try {
+    const res = await deviceApi.getDeviceCapabilities(deviceCode)
+    if (requestId !== latestCapabilityOverviewRequestId) {
+      return
+    }
+    if (res.code === 200 && res.data) {
+      capabilityOverview.value = res.data
+      return
+    }
+    capabilityOverview.value = null
+    if (res.msg) {
+      ElMessage.error(res.msg)
+    }
+  } catch (error) {
+    if (requestId !== latestCapabilityOverviewRequestId) {
+      return
+    }
+    capabilityOverview.value = null
+    if (!isHandledRequestError(error)) {
+      ElMessage.error(resolveRequestErrorMessage(error, '加载设备能力失败'))
+    }
+  } finally {
+    if (requestId === latestCapabilityOverviewRequestId) {
+      capabilityLoading.value = false
+    }
+  }
+}
+
+async function loadDeviceCapabilityRecords(deviceCode: string, requestId: number) {
+  if (requestId !== latestCapabilityCommandRequestId) {
+    return
+  }
+  commandLoading.value = true
+  try {
+    const res = await deviceApi.pageDeviceCommands(deviceCode, {
+      pageNum: 1,
+      pageSize: 10
+    })
+    if (requestId !== latestCapabilityCommandRequestId) {
+      return
+    }
+    if (res.code === 200 && res.data) {
+      commandRecords.value = res.data.records || []
+      return
+    }
+    commandRecords.value = []
+    if (res.msg) {
+      ElMessage.error(res.msg)
+    }
+  } catch (error) {
+    if (requestId !== latestCapabilityCommandRequestId) {
+      return
+    }
+    commandRecords.value = []
+    if (!isHandledRequestError(error)) {
+      ElMessage.error(resolveRequestErrorMessage(error, '加载命令记录失败'))
+    }
+  } finally {
+    if (requestId === latestCapabilityCommandRequestId) {
+      commandLoading.value = false
     }
   }
 }
@@ -2759,6 +2956,30 @@ async function handleOpenOnboardingSuggestion(row: Device) {
   }
 }
 
+async function handleOpenThreshold(row: Device) {
+  if (row.id === undefined || row.id === null || row.id === '') {
+    ElMessage.warning('当前设备缺少设备 ID，暂时无法查看阈值。')
+    return
+  }
+  thresholdVisible.value = true
+  thresholdLoading.value = true
+  thresholdErrorMessage.value = ''
+  thresholdOverview.value = null
+  try {
+    const res = await deviceApi.getDeviceThresholds(row.id)
+    if (res.code === 200 && res.data) {
+      thresholdOverview.value = res.data
+      return
+    }
+    thresholdErrorMessage.value = res.msg || '加载设备阈值失败'
+  } catch (error) {
+    console.error('加载设备阈值失败', error)
+    thresholdErrorMessage.value = resolveRequestErrorMessage(error, '加载设备阈值失败')
+  } finally {
+    thresholdLoading.value = false
+  }
+}
+
 function handleRowAction(command: string | number | object, row: Device) {
   if (command === 'detail') {
     handleOpenDetail(row)
@@ -2780,8 +3001,60 @@ function handleRowAction(command: string | number | object, row: Device) {
     void handleOpenOnboardingSuggestion(row)
     return
   }
+  if (command === 'threshold') {
+    void handleOpenThreshold(row)
+    return
+  }
+  if (command === 'capability') {
+    openCapability(row)
+    return
+  }
   if (command === 'delete') {
     void handleDelete(row)
+  }
+}
+
+function handleExecuteCapability(capability: DeviceCapability) {
+  if (!capabilityDevice.value || !capability) {
+    return
+  }
+  executingCapability.value = capability
+  capabilityExecuteVisible.value = true
+}
+
+function handleRefreshCommands() {
+  if (!capabilityDevice.value?.deviceCode) {
+    return
+  }
+  const requestId = ++latestCapabilityCommandRequestId
+  void loadDeviceCapabilityRecords(capabilityDevice.value.deviceCode, requestId)
+}
+
+async function handleExecuteCapabilitySubmit(payload: DeviceCapabilityExecutePayload) {
+  if (!capabilityDevice.value?.deviceCode || !executingCapability.value) {
+    return
+  }
+
+  const deviceCode = capabilityDevice.value.deviceCode
+  const capability = executingCapability.value
+  capabilityExecuteSubmitting.value = true
+  try {
+    const res = await deviceApi.executeDeviceCapability(deviceCode, capability.code, payload)
+    if (res.code !== 200 || !res.data) {
+      ElMessage.error(res.msg || '设备能力下发失败')
+      return
+    }
+    ElMessage.success(`指令已下发，等待设备反馈：${res.data.commandId}`)
+    capabilityExecuteVisible.value = false
+    executingCapability.value = null
+    const requestId = ++latestCapabilityCommandRequestId
+    await loadDeviceCapabilityRecords(deviceCode, requestId)
+  } catch (error) {
+    if (!isHandledRequestError(error)) {
+      ElMessage.error(resolveRequestErrorMessage(error, '设备能力下发失败'))
+    }
+  } finally {
+    capabilityExecuteSubmitting.value = false
   }
 }
 
@@ -2834,7 +3107,7 @@ async function handleBatchDelete() {
   try {
     await confirmAction({
       title: '批量删除设备',
-      message: `确认删除选中的 ${deletingCount} 台设备吗？删除后不可恢复。`,
+      message: `确认删除已选 ${deletingCount} 台设备吗？删除后将同步刷新当前结果。`,
       type: 'warning',
       confirmButtonText: '确认删除'
     })
@@ -2879,7 +3152,7 @@ async function handleBatchActivate() {
     return
   }
   if (selectedBatchActivatableRows.value.length !== selectedRows.value.length) {
-    ElMessage.warning('批量转正只支持已选未登记且带 Trace 的线索，请调整后重试。')
+    ElMessage.warning('批量转正式只支持已选未登记且带 Trace 的线索，请调整后重试。')
     return
   }
 
@@ -2894,7 +3167,7 @@ async function handleBatchActivate() {
   try {
     await confirmAction({
       title: '批量转正式设备',
-      message: `确认按当前接入建议将选中的 ${traceIds.length} 条线索转为正式设备吗？系统会拦截仍有规则缺口的记录。`,
+      message: `确认将已选 ${traceIds.length} 条线索转成正式设备吗？系统会按接入建议补齐设备档案。`,
       type: 'warning',
       confirmButtonText: '确认转正'
     })
@@ -2912,7 +3185,7 @@ async function handleBatchActivate() {
     if (isConfirmCancelled(error)) {
       return
     }
-    ElMessage.error(resolveRequestErrorMessage(error, '批量转正式设备失败'))
+      ElMessage.error(resolveRequestErrorMessage(error, '批量转正式设备失败'))
   }
 }
 
@@ -2937,14 +3210,14 @@ async function handleBatchImportSubmit(payload: DeviceBatchAddPayload) {
       })
     }
     if (res.data.failureCount === 0) {
-      ElMessage.success(`批量导入完成，共新增 ${res.data.successCount} 台设备`)
+      ElMessage.success(`批量导入成功，共 ${res.data.successCount} 台。`)
       return
     }
     if (res.data.successCount === 0) {
-      ElMessage.warning(`本次导入未成功写入设备，共 ${res.data.failureCount} 条失败`)
+      ElMessage.warning(`批量导入失败，共 ${res.data.failureCount} 台。`)
       return
     }
-    ElMessage.warning(`批量导入完成，成功 ${res.data.successCount} 条，失败 ${res.data.failureCount} 条`)
+    ElMessage.warning(`批量导入完成：成功 ${res.data.successCount} 台，失败 ${res.data.failureCount} 台。`)
   } catch (error) {
     console.error('批量导入设备失败', error)
     if (!isHandledRequestError(error)) {
@@ -2967,10 +3240,10 @@ async function finishBatchActivation(result: DeviceOnboardingBatchResult) {
     })
   }
   if (result.rejectedCount === 0) {
-    ElMessage.success(`批量转正完成，共转正 ${result.activatedCount} 台设备`)
+    ElMessage.success(`批量转正成功，共 ${result.activatedCount} 台。`)
     return
   }
-  ElMessage.warning(`批量转正完成，成功 ${result.activatedCount} 条，拦截 ${result.rejectedCount} 条`)
+  ElMessage.warning(`批量转正完成：成功 ${result.activatedCount} 台，驳回 ${result.rejectedCount} 台。`)
 }
 
 async function handleReplaceSubmit(payload: DeviceReplacePayload) {
@@ -2980,7 +3253,7 @@ async function handleReplaceSubmit(payload: DeviceReplacePayload) {
   try {
     await confirmAction({
       title: '确认更换设备',
-      message: `确认将设备“${replacingDevice.value.deviceCode}”更换为新设备“${payload.deviceCode}”吗？提交后旧设备会自动停用并记录替换关系。`,
+      message: `确认将设备 ${replacingDevice.value.deviceCode} 更换为 ${payload.deviceCode} 吗？系统会保留原设备履历并刷新当前列表。`,
       type: 'warning',
       confirmButtonText: '确认更换'
     })
@@ -3163,6 +3436,16 @@ watch(detailVisible, (visible) => {
   detailErrorMessage.value = ''
   detailRefreshErrorMessage.value = ''
   detailData.value = null
+})
+
+watch(capabilityVisible, (visible) => {
+  if (visible) {
+    return
+  }
+  const requestId = ++latestCapabilityRequestSeed
+  latestCapabilityOverviewRequestId = requestId
+  latestCapabilityCommandRequestId = requestId
+  resetCapabilityState()
 })
 
 watch(

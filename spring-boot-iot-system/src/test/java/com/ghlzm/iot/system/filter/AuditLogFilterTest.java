@@ -6,6 +6,9 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.ghlzm.iot.framework.config.DiagnosticLoggingConstants;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.observability.evidence.BusinessEventLogRecord;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceRecorder;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilitySpanLogRecord;
 import com.ghlzm.iot.system.entity.AuditLog;
 import com.ghlzm.iot.system.service.AuditLogService;
 import jakarta.servlet.FilterChain;
@@ -34,6 +37,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AuditLogFilterTest {
 
     private record AuditLogRecorder(AuditLogService service, AtomicReference<AuditLog> lastLog, AtomicInteger count) {
+    }
+
+    private static final class EvidenceRecorder implements ObservabilityEvidenceRecorder {
+        private final AtomicReference<ObservabilitySpanLogRecord> lastSpan = new AtomicReference<>();
+        private final AtomicReference<BusinessEventLogRecord> lastEvent = new AtomicReference<>();
+        private final AtomicInteger spanCount = new AtomicInteger();
+        private final AtomicInteger eventCount = new AtomicInteger();
+
+        @Override
+        public void recordSpan(ObservabilitySpanLogRecord span) {
+            lastSpan.set(span);
+            spanCount.incrementAndGet();
+        }
+
+        @Override
+        public void recordBusinessEvent(BusinessEventLogRecord event) {
+            lastEvent.set(event);
+            eventCount.incrementAndGet();
+        }
     }
 
     @AfterEach
@@ -226,7 +248,9 @@ class AuditLogFilterTest {
     @Test
     void shouldSkipAuditApiItself() throws ServletException, IOException {
         AuditLogRecorder recorder = newRecorder();
+        EvidenceRecorder evidenceRecorder = new EvidenceRecorder();
         AuditLogFilter filter = new AuditLogFilter(recorder.service());
+        filter.setObservabilityEvidenceRecorder(evidenceRecorder);
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/system/audit-log/page");
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -235,6 +259,137 @@ class AuditLogFilterTest {
         filter.doFilter(request, response, chain);
 
         assertEquals(0, recorder.count().get());
+        assertEquals(1, evidenceRecorder.spanCount.get());
+        assertEquals("HTTP_REQUEST", evidenceRecorder.lastSpan.get().getSpanType());
+    }
+
+    @Test
+    void shouldRecordLoginAuditAndBusinessEvent() throws ServletException, IOException {
+        AuditLogRecorder recorder = newRecorder();
+        EvidenceRecorder evidenceRecorder = new EvidenceRecorder();
+        AuditLogFilter filter = new AuditLogFilter(recorder.service());
+        filter.setObservabilityEvidenceRecorder(evidenceRecorder);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/login");
+        request.setContentType("application/json");
+        request.setContent("{\"username\":\"admin\",\"password\":\"123456\"}".getBytes(StandardCharsets.UTF_8));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = (req, res) -> {
+            req.getInputStream().transferTo(OutputStream.nullOutputStream());
+            res.setContentType("application/json");
+            res.getWriter().write("{\"code\":200,\"msg\":\"ok\"}");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertEquals(1, recorder.count().get());
+        assertEquals("auth", recorder.lastLog().get().getOperationModule());
+        assertTrue(recorder.lastLog().get().getRequestParams().contains("\"password\":\"***\""));
+        assertEquals(1, evidenceRecorder.spanCount.get());
+        assertEquals(1, evidenceRecorder.eventCount.get());
+        assertEquals("auth.login", evidenceRecorder.lastEvent.get().getEventCode());
+    }
+
+    @Test
+    void shouldResolveProductContractApplyBusinessEvent() throws ServletException, IOException {
+        AuditLogRecorder recorder = newRecorder();
+        EvidenceRecorder evidenceRecorder = new EvidenceRecorder();
+        AuditLogFilter filter = new AuditLogFilter(recorder.service());
+        filter.setObservabilityEvidenceRecorder(evidenceRecorder);
+
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "POST",
+                "/api/device/product/1001/model-governance/apply"
+        );
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = (req, res) -> res.getWriter().write("{\"code\":200}");
+
+        filter.doFilter(request, response, chain);
+
+        BusinessEventLogRecord event = evidenceRecorder.lastEvent.get();
+        assertEquals("product.contract.apply", event.getEventCode());
+        assertEquals("契约字段提交发布", event.getEventName());
+        assertEquals("product_contract", event.getDomainCode());
+        assertEquals("apply", event.getActionCode());
+        assertEquals("product", event.getObjectType());
+        assertEquals("1001", event.getObjectId());
+        assertEquals("product.contract.apply", evidenceRecorder.lastSpan.get().getEventCode());
+        assertEquals(true, event.getMetadata().get("dictionaryMatched"));
+    }
+
+    @Test
+    void shouldResolveVendorMappingPublishBusinessEvent() throws ServletException, IOException {
+        AuditLogRecorder recorder = newRecorder();
+        EvidenceRecorder evidenceRecorder = new EvidenceRecorder();
+        AuditLogFilter filter = new AuditLogFilter(recorder.service());
+        filter.setObservabilityEvidenceRecorder(evidenceRecorder);
+
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "POST",
+                "/api/device/product/1001/vendor-mapping-rules/2002/submit-publish"
+        );
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = (req, res) -> res.getWriter().write("{\"code\":200}");
+
+        filter.doFilter(request, response, chain);
+
+        BusinessEventLogRecord event = evidenceRecorder.lastEvent.get();
+        assertEquals("product.mapping_rule.publish_submit", event.getEventCode());
+        assertEquals("product_mapping_rule", event.getDomainCode());
+        assertEquals("publish_submit", event.getActionCode());
+        assertEquals("vendor_mapping_rule", event.getObjectType());
+        assertEquals("2002", event.getObjectId());
+        assertEquals("1001", event.getMetadata().get("pathGroup1"));
+    }
+
+    @Test
+    void shouldResolveProtocolTemplatePublishBusinessEvent() throws ServletException, IOException {
+        AuditLogRecorder recorder = newRecorder();
+        EvidenceRecorder evidenceRecorder = new EvidenceRecorder();
+        AuditLogFilter filter = new AuditLogFilter(recorder.service());
+        filter.setObservabilityEvidenceRecorder(evidenceRecorder);
+
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "POST",
+                "/api/governance/protocol/templates/3003/publish"
+        );
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = (req, res) -> res.getWriter().write("{\"code\":200}");
+
+        filter.doFilter(request, response, chain);
+
+        BusinessEventLogRecord event = evidenceRecorder.lastEvent.get();
+        assertEquals("protocol.template.publish", event.getEventCode());
+        assertEquals("protocol_governance", event.getDomainCode());
+        assertEquals("publish_template", event.getActionCode());
+        assertEquals("protocol_template", event.getObjectType());
+        assertEquals("3003", event.getObjectId());
+    }
+
+    @Test
+    void shouldRecordAcceptanceResultViewBusinessEventForDictionaryGet() throws ServletException, IOException {
+        AuditLogRecorder recorder = newRecorder();
+        EvidenceRecorder evidenceRecorder = new EvidenceRecorder();
+        AuditLogFilter filter = new AuditLogFilter(recorder.service());
+        filter.setObservabilityEvidenceRecorder(evidenceRecorder);
+
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "GET",
+                "/api/report/business-acceptance/results/run-001"
+        );
+        request.setQueryString("packageCode=core");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = (req, res) -> res.getWriter().write("{\"code\":200}");
+
+        filter.doFilter(request, response, chain);
+
+        BusinessEventLogRecord event = evidenceRecorder.lastEvent.get();
+        assertEquals(1, evidenceRecorder.eventCount.get());
+        assertEquals("acceptance.business_result.view", event.getEventCode());
+        assertEquals("acceptance", event.getDomainCode());
+        assertEquals("view_business_result", event.getActionCode());
+        assertEquals("business_acceptance_run", event.getObjectType());
+        assertEquals("run-001", event.getObjectId());
     }
 
     private AuditLogRecorder newRecorder() {

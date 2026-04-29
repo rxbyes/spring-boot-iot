@@ -4,6 +4,7 @@ import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingPromotion;
 import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogRebuildService;
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.alarm.service.RiskPointPendingBindingService;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingCandidateBundleVO;
@@ -12,9 +13,11 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceMessageLog;
 import com.ghlzm.iot.device.entity.DeviceProperty;
+import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.DeviceMessageLogMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
+import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.DeviceService;
 import org.junit.jupiter.api.Test;
@@ -30,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -245,12 +249,7 @@ class RiskPointPendingRecommendationServiceImplTest {
 
         assertEquals(1, result.getCandidates().size());
         assertEquals(7001L, result.getCandidates().get(0).getRiskMetricId());
-        verify(fixture.riskMetricCatalogService).publishFromReleasedContracts(
-                org.mockito.ArgumentMatchers.eq(2001L),
-                org.mockito.ArgumentMatchers.isNull(),
-                any(),
-                org.mockito.ArgumentMatchers.eq(java.util.Set.of("value"))
-        );
+        verify(fixture.rebuildService).rebuildLatestRelease(2001L);
     }
 
     @Test
@@ -273,12 +272,20 @@ class RiskPointPendingRecommendationServiceImplTest {
 
         fixture.service.getCandidates(9001L, 1001L);
 
-        verify(fixture.riskMetricCatalogService).publishFromReleasedContracts(
-                org.mockito.ArgumentMatchers.eq(2001L),
-                org.mockito.ArgumentMatchers.isNull(),
-                any(),
-                org.mockito.ArgumentMatchers.eq(Set.of("gpsTotalX", "gpsTotalY", "gpsTotalZ"))
-        );
+        verify(fixture.rebuildService).rebuildLatestRelease(2001L);
+    }
+
+    @Test
+    void getCandidatesShouldSkipCatalogRebuildWhenProductHasNoReleasedContracts() {
+        Fixture fixture = new Fixture();
+        when(fixture.productModelMapper.selectList(any())).thenReturn(List.of());
+        when(fixture.devicePropertyMapper.selectList(any())).thenReturn(List.of());
+        when(fixture.deviceMessageLogMapper.selectList(any())).thenReturn(List.of());
+        when(fixture.promotionMapper.selectList(any())).thenReturn(List.of());
+
+        fixture.service.getCandidates(9001L, 1001L);
+
+        verify(fixture.rebuildService, never()).rebuildLatestRelease(any());
     }
 
     @Test
@@ -326,7 +333,9 @@ class RiskPointPendingRecommendationServiceImplTest {
         private final DevicePropertyMapper devicePropertyMapper = mock(DevicePropertyMapper.class);
         private final DeviceMessageLogMapper deviceMessageLogMapper = mock(DeviceMessageLogMapper.class);
         private final RiskPointDevicePendingPromotionMapper promotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        private final ProductMapper productMapper = mock(ProductMapper.class);
         private final RiskMetricCatalogService riskMetricCatalogService = mock(RiskMetricCatalogService.class);
+        private final RiskMetricCatalogRebuildService rebuildService = mock(RiskMetricCatalogRebuildService.class);
         private final RiskPointPendingRecommendationServiceImpl service = new RiskPointPendingRecommendationServiceImpl(
                 bindingService,
                 deviceService,
@@ -340,6 +349,8 @@ class RiskPointPendingRecommendationServiceImplTest {
         private final Device device = device();
 
         private Fixture() {
+            service.setProductMapper(productMapper);
+            service.setRiskMetricCatalogRebuildService(rebuildService);
             when(bindingService.getRequiredPending(9001L, 1001L)).thenReturn(pending);
             when(deviceService.getRequiredById(3002L)).thenReturn(device);
         }
@@ -376,6 +387,14 @@ class RiskPointPendingRecommendationServiceImplTest {
             value.setDataType(dataType);
             value.setSortNo(sortNo);
             value.setDeleted(0);
+            return value;
+        }
+
+        private Product product(String productKey, String productName) {
+            Product value = new Product();
+            value.setId(2001L);
+            value.setProductKey(productKey);
+            value.setProductName(productName);
             return value;
         }
 

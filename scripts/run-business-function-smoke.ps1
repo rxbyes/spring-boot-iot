@@ -17,10 +17,14 @@ $script:governanceApproverId = $null
 $script:selectedPoints = @($PointFilter | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim() })
 $script:selectedModules = @($ModuleFilter | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim().ToLowerInvariant() })
 $script:modulePointMap = @{
-    'env'    = @('ENV')
-    'device' = @('IOT-PRODUCT', 'IOT-DEVICE', 'INGEST-HTTP', 'MQTT-DOWN')
-    'alarm'  = @('ALARM', 'EVENT', 'RISK-POINT', 'RULE-DEFINITION', 'LINKAGE-RULE', 'EMERGENCY-PLAN', 'REPORT')
-    'system' = @('SYS-ORG', 'SYS-USER', 'SYS-ROLE', 'SYS-REGION', 'SYS-DICT', 'SYS-CHANNEL', 'SYS-AUDIT')
+    'env'       = @('ENV')
+    'device'    = @('IOT-PRODUCT', 'IOT-DEVICE', 'INGEST-HTTP', 'TELEMETRY', 'MQTT-DOWN')
+    'telemetry' = @('TELEMETRY')
+    'alarm'     = @('ALARM', 'EVENT', 'RISK-POINT', 'RULE-DEFINITION', 'LINKAGE-RULE', 'EMERGENCY-PLAN', 'REPORT')
+    'system'    = @('SYS-ORG', 'SYS-USER', 'SYS-ROLE', 'SYS-REGION', 'SYS-DICT', 'SYS-CHANNEL', 'SYS-AUDIT')
+}
+$script:pointDependencyMap = @{
+    'TELEMETRY' = @('IOT-PRODUCT', 'IOT-DEVICE', 'INGEST-HTTP')
 }
 
 $results = New-Object System.Collections.Generic.List[object]
@@ -63,6 +67,12 @@ function Should-RunPoint {
     }
 
     if ($script:selectedPoints.Count -gt 0 -and ($script:selectedPoints -notcontains $Point)) {
+        foreach ($selectedPoint in $script:selectedPoints) {
+            $dependencies = @($script:pointDependencyMap[$selectedPoint])
+            if ($dependencies -contains $Point) {
+                return $true
+            }
+        }
         return $false
     }
 
@@ -381,6 +391,19 @@ Invoke-Step -Point 'INGEST-HTTP' -Case 'http-report' -Method 'POST' -Path '/api/
 } | Out-Null
 Invoke-Step -Point 'INGEST-HTTP' -Case 'get-properties' -Method 'GET' -Path "/api/device/$deviceCode/properties" | Out-Null
 Invoke-Step -Point 'INGEST-HTTP' -Case 'get-message-logs' -Method 'GET' -Path "/api/device/$deviceCode/message-logs" | Out-Null
+
+if ($deviceId) {
+    Invoke-Step -Point 'TELEMETRY' -Case 'latest' -Method 'GET' -Path "/api/telemetry/latest?deviceId=$deviceId" | Out-Null
+    Invoke-Step -Point 'TELEMETRY' -Case 'history-batch' -Method 'POST' -Path '/api/telemetry/history/batch' -Body @{
+        deviceId    = $deviceId
+        rangeCode   = '1h'
+        identifiers = @('temperature')
+        fillPolicy  = 'zero'
+    } | Out-Null
+} else {
+    Skip-Step -Point 'TELEMETRY' -Case 'latest' -Method 'GET' -Path '/api/telemetry/latest?deviceId={id}' -Reason 'deviceId missing'
+    Skip-Step -Point 'TELEMETRY' -Case 'history-batch' -Method 'POST' -Path '/api/telemetry/history/batch' -Reason 'deviceId missing'
+}
 
 Invoke-Step -Point 'MQTT-DOWN' -Case 'publish-down' -Method 'POST' -Path '/api/message/mqtt/down/publish' -Body @{
     productKey  = $productKey
@@ -971,3 +994,6 @@ Write-Output "REPORT_SUMMARY=$summaryPath"
 Write-Output "REPORT_MD=$mdPath"
 Write-Output "TOTAL_CASES=$($results.Count)"
 Write-Output "TOTAL_FAILED=$($failed.Count)"
+if ($failed.Count -gt 0) {
+    exit 1
+}

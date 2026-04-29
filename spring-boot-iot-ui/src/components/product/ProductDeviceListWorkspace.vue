@@ -17,8 +17,12 @@
             stripe
             empty-text="当前产品还没有关联设备"
           >
-            <el-table-column prop="deviceName" label="设备名称" min-width="140" show-overflow-tooltip />
-            <el-table-column prop="deviceCode" label="设备编码" min-width="160" show-overflow-tooltip />
+            <StandardTableTextColumn
+              prop="deviceName"
+              label="设备"
+              :min-width="220"
+              secondary-prop="deviceCode"
+            />
             <el-table-column prop="onlineStatus" label="在线状态" width="110">
               <template #default="{ row }">
                 <el-tag :type="row.onlineStatus === 1 ? 'success' : 'danger'" round>
@@ -77,6 +81,7 @@
 import { toRefs } from 'vue'
 
 import StandardPagination from '@/components/StandardPagination.vue'
+import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import type { Device } from '@/types/api'
 import type { ServerPaginationState } from '@/composables/useServerPagination'

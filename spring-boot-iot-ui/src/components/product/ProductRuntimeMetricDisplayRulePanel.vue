@@ -15,6 +15,30 @@
       </article>
     </div>
 
+    <section
+      v-if="routeCandidate.rawIdentifier"
+      class="product-runtime-display-rule__candidate"
+      data-testid="runtime-display-rule-candidate"
+    >
+      <div>
+        <strong>待治理候选</strong>
+        <p>
+          {{ routeCandidate.deviceCode ? `来源设备 ${routeCandidate.deviceCode}` : '来自运行态治理入口' }}
+        </p>
+      </div>
+      <div class="product-runtime-display-rule__candidate-meta">
+        <span>{{ routeCandidate.rawIdentifier }}</span>
+        <span v-if="routeCandidate.displayName">{{ routeCandidate.displayName }}</span>
+        <span v-if="routeCandidate.unit">{{ `单位 ${routeCandidate.unit}` }}</span>
+      </div>
+      <StandardButton
+        data-testid="runtime-display-rule-candidate-adopt"
+        @click="adoptRouteCandidate"
+      >
+        带入表单
+      </StandardButton>
+    </section>
+
     <section class="product-runtime-display-rule__editor">
       <div class="product-runtime-display-rule__editor-head">
         <div>
@@ -133,6 +157,7 @@
 
       <div class="product-runtime-display-rule__form-actions">
         <StandardButton
+          v-permission="'iot:product-contract:govern'"
           data-testid="runtime-display-rule-submit"
           :disabled="!hasProductId(props.productId) || submitting"
           @click="handleSubmit"
@@ -141,6 +166,14 @@
         </StandardButton>
       </div>
     </section>
+
+    <div
+      v-if="previewMessages.length"
+      class="product-runtime-display-rule__preview"
+      data-testid="runtime-display-rule-preview"
+    >
+      <span v-for="message in previewMessages" :key="message">{{ message }}</span>
+    </div>
 
     <p v-if="loading" class="product-runtime-display-rule__hint">正在加载运行态名称/单位治理规则...</p>
     <p v-else-if="errorMessage" class="product-runtime-display-rule__hint">{{ errorMessage }}</p>
@@ -164,9 +197,19 @@
           <span>{{ unitLabel(row.unit) }}</span>
           <span>{{ `版本 v${row.versionNo ?? '--'}` }}</span>
           <span v-if="scopeSignatureValue(row)">{{ `范围 ${scopeSignatureValue(row)}` }}</span>
+          <span v-if="isFormalCovered(row)">已被正式字段覆盖</span>
         </div>
 
         <div class="product-runtime-display-rule__item-actions">
+          <StandardButton
+            v-if="isFormalCovered(row) && row.status !== 'DISABLED'"
+            v-permission="'iot:product-contract:govern'"
+            :data-testid="`runtime-display-rule-disable-${String(row.id ?? row.rawIdentifier ?? 'unknown')}`"
+            :disabled="submitting"
+            @click="quickDisableRow(row)"
+          >
+            停用
+          </StandardButton>
           <StandardButton
             :data-testid="`runtime-display-rule-edit-${String(row.id ?? row.rawIdentifier ?? 'unknown')}`"
             @click="startEdit(row)"
@@ -186,6 +229,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import {
@@ -205,7 +249,12 @@ import type {
 
 const props = defineProps<{
   productId?: IdType | null
+  formalPropertyIdentifiers?: string[]
+  focusRawIdentifier?: string | null
+  focusToken?: string | number | null
 }>()
+
+const route = useRoute()
 
 type RuleFormState = {
   id: IdType | null
@@ -217,6 +266,13 @@ type RuleFormState = {
   scenarioCode: string
   deviceFamily: string
   protocolCode: string
+}
+
+type RuntimeDisplayRouteCandidate = {
+  rawIdentifier: string
+  displayName: string
+  unit: string
+  deviceCode: string
 }
 
 const scopeTypeOptions: Array<{ label: string; value: RuntimeMetricDisplayRuleScopeType }> = [
@@ -242,6 +298,29 @@ const showScenarioCodeField = computed(
 )
 const showDeviceFamilyField = computed(() => form.scopeType === 'DEVICE_FAMILY')
 const showProtocolCodeField = computed(() => form.scopeType === 'PROTOCOL')
+const formalIdentifierSet = computed(
+  () => new Set((props.formalPropertyIdentifiers ?? []).map((identifier) => identifier.trim()).filter(Boolean))
+)
+const routeCandidate = computed<RuntimeDisplayRouteCandidate>(() => ({
+  rawIdentifier: queryText('rawIdentifier'),
+  displayName: queryText('displayName'),
+  unit: queryText('unit'),
+  deviceCode: queryText('deviceCode')
+}))
+const previewMessages = computed(() => {
+  if (!routeCandidate.value.rawIdentifier && !form.rawIdentifier.trim()) {
+    return []
+  }
+  const rawIdentifier = routeCandidate.value.rawIdentifier || form.rawIdentifier.trim()
+  const messages = ['设备属性快照', '历史趋势', '对象洞察', scopeTypeLabel(form.scopeType)]
+  if (hasSameScopeRule(rawIdentifier, form.scopeType)) {
+    messages.push('已存在同范围治理规则')
+  }
+  if (formalIdentifierSet.value.has(rawIdentifier)) {
+    messages.push('已被正式字段覆盖')
+  }
+  return messages
+})
 const hasDirtyForm = computed(
   () =>
     Boolean(form.rawIdentifier.trim()) ||
@@ -261,6 +340,14 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => [props.focusRawIdentifier, props.focusToken],
+  () => {
+    adoptFocusRawIdentifier(props.focusRawIdentifier)
+  },
+  { immediate: true }
+)
+
 function createEmptyForm(): RuleFormState {
   return {
     id: null,
@@ -275,6 +362,14 @@ function createEmptyForm(): RuleFormState {
   }
 }
 
+function queryText(key: string) {
+  const value = route.query?.[key]
+  if (Array.isArray(value)) {
+    return String(value[0] ?? '').trim()
+  }
+  return typeof value === 'string' ? value.trim() : ''
+}
+
 function hasProductId(value: IdType | null | undefined): value is IdType {
   return value !== null && value !== undefined && value !== ''
 }
@@ -282,6 +377,31 @@ function hasProductId(value: IdType | null | undefined): value is IdType {
 function resetForm() {
   Object.assign(form, createEmptyForm())
   formMessage.value = ''
+}
+
+function adoptFocusRawIdentifier(rawIdentifier?: string | null) {
+  const normalized = rawIdentifier?.trim() ?? ''
+  if (!normalized) {
+    return
+  }
+  Object.assign(form, {
+    ...createEmptyForm(),
+    rawIdentifier: normalized
+  })
+  formMessage.value = '已带入原始字段，请补充显示名称和单位'
+}
+
+function adoptRouteCandidate() {
+  if (!routeCandidate.value.rawIdentifier) {
+    return
+  }
+  Object.assign(form, {
+    ...createEmptyForm(),
+    rawIdentifier: routeCandidate.value.rawIdentifier,
+    displayName: routeCandidate.value.displayName,
+    unit: routeCandidate.value.unit
+  })
+  formMessage.value = '已带入待治理候选，请确认后保存'
 }
 
 function startEdit(row: RuntimeMetricDisplayRule) {
@@ -327,6 +447,22 @@ function scopeSignatureValue(row: RuntimeMetricDisplayRule) {
     default:
       return ''
   }
+}
+
+function isFormalCovered(row: RuntimeMetricDisplayRule) {
+  return Boolean(row.rawIdentifier?.trim() && formalIdentifierSet.value.has(row.rawIdentifier.trim()))
+}
+
+function hasSameScopeRule(rawIdentifier: string, scopeType: RuntimeMetricDisplayRuleScopeType) {
+  const normalizedRawIdentifier = rawIdentifier.trim()
+  if (!normalizedRawIdentifier) {
+    return false
+  }
+  return rows.value.some(
+    (row) =>
+      row.rawIdentifier?.trim() === normalizedRawIdentifier
+      && normalizeScopeType(row.scopeType) === scopeType
+  )
 }
 
 function normalizeText(value: string) {
@@ -378,6 +514,39 @@ function showRequestErrorMessage(error: unknown, fallbackMessage: string) {
     return
   }
   ElMessage.error(resolveRequestErrorMessage(error, fallbackMessage))
+}
+
+function buildPayloadFromRow(
+  row: RuntimeMetricDisplayRule,
+  status: RuntimeMetricDisplayRuleStatus
+): RuntimeMetricDisplayRuleUpsertPayload {
+  const scopeType = normalizeScopeType(row.scopeType)
+  return {
+    scopeType,
+    rawIdentifier: row.rawIdentifier || '',
+    displayName: row.displayName || '',
+    unit: normalizeText(row.unit || ''),
+    status,
+    scenarioCode: showScenarioCode(scopeType) ? normalizeText(row.scenarioCode || '') : null,
+    deviceFamily: scopeType === 'DEVICE_FAMILY' ? normalizeText(row.deviceFamily || '') : null,
+    protocolCode: scopeType === 'PROTOCOL' ? normalizeText(row.protocolCode || '') : null
+  }
+}
+
+async function quickDisableRow(row: RuntimeMetricDisplayRule) {
+  if (!hasProductId(props.productId) || row.id === null || row.id === undefined || row.id === '') {
+    return
+  }
+  submitting.value = true
+  try {
+    await updateRuntimeMetricDisplayRule(props.productId, row.id, buildPayloadFromRow(row, 'DISABLED'))
+    ElMessage.success('运行态名称/单位治理规则已停用')
+    await loadRows()
+  } catch (error) {
+    showRequestErrorMessage(error, '运行态名称/单位治理规则停用失败')
+  } finally {
+    submitting.value = false
+  }
 }
 
 async function loadRows() {

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <StandardPageShell class="risk-point-view">
     <StandardWorkbenchPanel
       title="风险对象中心"
@@ -11,7 +11,7 @@
       show-pagination
     >
       <template #header-actions>
-        <StandardButton action="add" @click="handleAdd">新增风险点</StandardButton>
+        <StandardButton v-permission="'risk:point:add'" action="add" @click="handleAdd">新增风险点</StandardButton>
       </template>
 
       <template #filters>
@@ -129,8 +129,12 @@
             @selection-change="handleSelectionChange"
           >
             <el-table-column type="selection" width="48" />
-            <StandardTableTextColumn prop="riskPointCode" label="风险点编号" :width="150" />
-            <StandardTableTextColumn prop="riskPointName" label="风险点名称" :min-width="180">
+            <StandardTableTextColumn
+              prop="riskPointName"
+              label="风险点"
+              secondary-prop="riskPointCode"
+              :min-width="220"
+            >
               <template #default="{ row }">
                 <StandardActionLink
                   :data-testid="`risk-point-name-link-${row.id}`"
@@ -197,7 +201,7 @@
           <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
           <div class="standard-list-empty-state__actions">
             <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
-            <StandardButton v-else action="add" @click="handleAdd">新增风险点</StandardButton>
+            <StandardButton v-else v-permission="'risk:point:add'" action="add" @click="handleAdd">新增风险点</StandardButton>
           </div>
         </div>
       </div>
@@ -370,20 +374,46 @@
                 <el-input v-model="bindForm.riskPointName" disabled />
               </el-form-item>
               <el-form-item label="设备">
-                <el-select v-model="bindForm.deviceId" placeholder="请选择设备">
-                  <el-option v-for="device in deviceList" :key="device.id" :label="device.deviceName" :value="device.id">
+                <el-select
+                  v-model="bindForm.deviceId"
+                  filterable
+                  placeholder="请选择设备"
+                  data-testid="risk-point-bind-device-select"
+                >
+                  <el-option
+                    v-for="device in deviceList"
+                    :key="device.id"
+                    :label="`${device.deviceCode} - ${device.deviceName}`"
+                    :value="device.id"
+                  >
                     {{ device.deviceCode }} - {{ device.deviceName }}
                   </el-option>
                 </el-select>
               </el-form-item>
               <el-form-item label="测点">
-                <el-select v-model="bindForm.metricIdentifier" placeholder="请选择测点">
-                  <el-option v-for="metric in metricList" :key="metric.identifier" :label="metric.name" :value="metric.identifier">
+                <el-select
+                  v-model="bindForm.metricIdentifiers"
+                  multiple
+                  collapse-tags
+                  collapse-tags-tooltip
+                  :placeholder="metricLoading ? '正在加载测点...' : '请选择测点'"
+                  :loading="metricLoading"
+                  data-testid="risk-point-bind-metric-select"
+                >
+                  <el-option
+                    v-for="metric in metricList"
+                    :key="metric.identifier"
+                    :label="metric.name"
+                    :value="metric.identifier"
+                  >
                     {{ metric.name }}
                   </el-option>
                 </el-select>
               </el-form-item>
             </div>
+            <p v-if="bindMetricEmptyText" data-testid="risk-point-bind-metric-empty">
+              {{ bindMetricEmptyText }}
+            </p>
           </section>
         </el-form>
       </div>
@@ -621,7 +651,6 @@ import { listRegions } from '@/api/region';
 import type { Region } from '@/api/region';
 import { getUser } from '@/api/user';
 import type { User } from '@/api/user';
-import { getDeviceMetricOptions } from '@/api/iot';
 import type { DeviceMetricOption, DeviceOption, GovernanceSubmissionResult, IdType } from '@/types/api';
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
@@ -640,6 +669,7 @@ import {
   bindDevice,
   listBindableDevices,
   listBindingSummaries,
+  listFormalBindingMetricOptions,
   listPendingBindings,
   getPendingBindingCandidates,
   promotePendingBinding
@@ -753,8 +783,7 @@ const bindForm = reactive({
   deviceId: '' as '' | IdType,
   deviceCode: '',
   deviceName: '',
-  metricIdentifier: '',
-  metricName: ''
+  metricIdentifiers: [] as string[]
 });
 const pendingPromotionForm = reactive({
   riskPointId: undefined as IdType | undefined,
@@ -770,6 +799,7 @@ const knownUsers = reactive<Record<string, User>>({});
 const regionRootsLoaded = ref(false);
 const regionRootsLoading = ref(false);
 let latestListRequestId = 0;
+let latestMetricRequestId = 0;
 
 const getIdKey = (value?: IdType | null) => {
   if (value === undefined || value === null || value === '') {
@@ -826,6 +856,16 @@ const bindingWorkbenchGovernanceNote = computed(() => {
 const bindApprovalNotice = computed(() =>
   bindDeviceVisible.value ? formatPendingApprovalNotice(bindSubmissionResult.value) : ''
 );
+const metricLoading = ref(false);
+const bindMetricEmptyText = computed(() => {
+  if (!getIdKey(bindForm.deviceId) || metricList.value.length > 0) {
+    return '';
+  }
+  if (metricLoading.value) {
+    return '正在加载当前设备可绑定的正式目录测点';
+  }
+  return '当前设备所属产品暂无可用于风险绑定的正式目录字段';
+});
 const pendingPromotionApprovalNotice = computed(() =>
   bindingWorkbenchVisible.value && bindingWorkbenchMode.value === 'pending'
     ? formatPendingApprovalNotice(pendingPromotionSubmissionResult.value)
@@ -1190,15 +1230,26 @@ const loadBindableDeviceOptions = async (riskPointId: string | number) => {
   }
 };
 
-const loadMetricOptions = async (deviceId: string | number) => {
+const loadMetricOptions = async (deviceId: string | number, requestId: number) => {
+  metricLoading.value = true;
   try {
-    const res = await getDeviceMetricOptions(deviceId);
+    const res = await listFormalBindingMetricOptions(deviceId);
+    if (requestId !== latestMetricRequestId || String(bindForm.deviceId) !== String(deviceId)) {
+      return;
+    }
     if (res.code === 200) {
       metricList.value = res.data || [];
     }
   } catch (error) {
+    if (requestId !== latestMetricRequestId || String(bindForm.deviceId) !== String(deviceId)) {
+      return;
+    }
     logRiskPointRequestError('加载测点选项失败', error);
     showRiskPointRequestError(error, '加载测点列表失败');
+  } finally {
+    if (requestId === latestMetricRequestId && String(bindForm.deviceId) === String(deviceId)) {
+      metricLoading.value = false;
+    }
   }
 };
 
@@ -1394,9 +1445,9 @@ const handleSelectionChange = (rows: RiskPoint[]) => {
 
 const getRiskPointRowActions = () => [
   { command: 'detail' as const, label: '详情' },
-  { command: 'edit' as const, label: '编辑' },
-  { command: 'binding-workbench' as const, label: '风险绑定' },
-  { command: 'delete' as const, label: '删除' }
+  { command: 'edit' as const, label: '编辑', permission: 'risk:point:update' },
+  { command: 'binding-workbench' as const, label: '风险绑定', permission: 'risk:point:binding-maintain' },
+  { command: 'delete' as const, label: '删除', permission: 'risk:point:delete' }
 ];
 
 const handleRiskPointRowAction = (command: RiskPointRowActionCommand, row: RiskPoint) => {
@@ -1550,8 +1601,7 @@ const resetBindForm = () => {
   bindForm.deviceId = '';
   bindForm.deviceCode = '';
   bindForm.deviceName = '';
-  bindForm.metricIdentifier = '';
-  bindForm.metricName = '';
+  bindForm.metricIdentifiers = [];
   metricList.value = [];
   bindSubmissionResult.value = null;
 };
@@ -1801,16 +1851,18 @@ const handlePendingPromotionSubmit = async () => {
 };
 
 const handleBindSubmit = async () => {
-  if (!bindForm.deviceId || !bindForm.metricIdentifier) {
-    ElMessage.warning('请选择设备和测点');
+  if (!bindForm.deviceId || bindForm.metricIdentifiers.length === 0) {
+    ElMessage.warning('请先选择设备并至少选择一个测点');
     return;
   }
   try {
     submitLoading.value = true;
     bindSubmissionResult.value = null;
     const selectedDevice = deviceList.value.find((device) => String(device.id) === String(bindForm.deviceId));
-    const selectedMetric = metricList.value.find((metric) => metric.identifier === bindForm.metricIdentifier);
-    if (!selectedDevice || !selectedMetric) {
+    const selectedMetrics = bindForm.metricIdentifiers
+      .map((metricIdentifier) => metricList.value.find((metric) => metric.identifier === metricIdentifier))
+      .filter((metric): metric is DeviceMetricOption => Boolean(metric));
+    if (!selectedDevice || selectedMetrics.length !== bindForm.metricIdentifiers.length) {
       ElMessage.warning('请选择有效的设备和测点');
       return;
     }
@@ -1819,17 +1871,19 @@ const handleBindSubmit = async () => {
       deviceId: bindForm.deviceId,
       deviceCode: selectedDevice.deviceCode,
       deviceName: selectedDevice.deviceName,
-      riskMetricId: selectedMetric.riskMetricId ?? undefined,
-      metricIdentifier: selectedMetric.identifier,
-      metricName: selectedMetric.name
+      metrics: selectedMetrics.map((metric) => ({
+        riskMetricId: metric.riskMetricId ?? undefined,
+        metricIdentifier: metric.identifier,
+        metricName: metric.name
+      }))
     });
     if (res.code === 200) {
       bindSubmissionResult.value = res.data || null;
       if (res.data?.executionStatus === 'PENDING_APPROVAL') {
-        ElMessage.success('绑定申请已提交审批');
+        ElMessage.success(`已提交 ${selectedMetrics.length} 个测点绑定申请`);
         return;
       }
-      ElMessage.success('绑定成功');
+      ElMessage.success(`已新增 ${selectedMetrics.length} 个正式测点绑定`);
       resetBindForm();
       bindDeviceVisible.value = false;
       void loadRiskPointList();
@@ -1920,11 +1974,12 @@ watch(
 watch(
   () => bindForm.deviceId,
   async (deviceId) => {
+    const requestId = ++latestMetricRequestId;
     bindForm.deviceCode = '';
     bindForm.deviceName = '';
-    bindForm.metricIdentifier = '';
-    bindForm.metricName = '';
+    bindForm.metricIdentifiers = [];
     metricList.value = [];
+    metricLoading.value = false;
     if (!getIdKey(deviceId)) {
       return;
     }
@@ -1933,15 +1988,7 @@ watch(
       bindForm.deviceCode = selectedDevice.deviceCode;
       bindForm.deviceName = selectedDevice.deviceName;
     }
-    await loadMetricOptions(deviceId);
-  }
-);
-
-watch(
-  () => bindForm.metricIdentifier,
-  (metricIdentifier) => {
-    const selectedMetric = metricList.value.find((metric) => metric.identifier === metricIdentifier);
-    bindForm.metricName = selectedMetric?.name || '';
+    await loadMetricOptions(deviceId, requestId);
   }
 );
 

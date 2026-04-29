@@ -5,10 +5,9 @@ Generated from the schema registry. Do not edit by hand.
 | Domain | Objects | Relations | Roles |
 | --- | --- | --- | --- |
 | alarm | 15 | 39 | binding_registry / catalog_registry / domain_master_data / transaction_record |
-| device | 22 | 54 | device_domain_state / domain_master_data / operation_log / relationship_mapping / snapshot_baseline / transaction_record |
+| device | 24 | 58 | device_domain_state / domain_master_data / governance_batch_log / operation_log / operation_log_archive / relationship_mapping / snapshot_baseline / transaction_record |
 | governance | 12 | 29 | domain_master_data / governance_master_data |
-| mysql-compatibility | 1 | 2 | compatibility_projection |
-| system | 17 | 26 | governance_master_data |
+| system | 19 | 28 | business_event_evidence / governance_master_data / observability_span_evidence |
 | telemetry | 5 | 19 | telemetry_compatibility_fallback / telemetry_hourly_aggregate / telemetry_raw_timeseries |
 
 ## Domain alarm
@@ -103,13 +102,15 @@ graph TD
 | iot_device | device_domain_state | iot_product（belongs_to:product_id）<br>sys_organization（belongs_to:org_id）<br>sys_tenant（belongs_to:tenant_id） | 用于设备表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_device_access_error_log | operation_log | iot_device（belongs_to:device_code）<br>iot_product（belongs_to:product_key）<br>sys_tenant（belongs_to:tenant_id） | 用于设备接入失败归档表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_device_invalid_report_state | device_domain_state | iot_product（belongs_to:product_key）<br>sys_tenant（belongs_to:tenant_id） | 用于无效 MQTT 上报最新态表的数据持久化与查询，归属设备域并服务真实环境基线。 |
-| iot_device_message_log | operation_log | iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于设备消息日志表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_device_metric_latest | device_domain_state | iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于时序最新值投影表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_device_onboarding_case | device_domain_state | iot_onboarding_template_pack（belongs_to:template_pack_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于无代码接入案例的流程编排、步骤状态和阻塞摘要持久化，不承载协议或合同正式真相。 |
 | iot_device_online_session | device_domain_state | iot_device（belongs_to:device_id）<br>sys_tenant（belongs_to:tenant_id） | 用于设备在线会话表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_device_property | device_domain_state | iot_device（belongs_to:device_id）<br>sys_tenant（belongs_to:tenant_id） | 用于设备最新属性表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_device_relation | relationship_mapping | iot_device（belongs_to:parent_device_id）<br>iot_device（belongs_to:child_device_id）<br>sys_tenant（belongs_to:tenant_id） | 用于设备逻辑通道关系表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_device_secret_rotation_log | operation_log | iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_key）<br>sys_tenant（belongs_to:tenant_id） | 用于设备密钥轮换日志表的数据持久化与查询，归属设备域并服务真实环境基线。 |
+| iot_message_log | operation_log | iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于统一消息日志的数据持久化与查询，归属设备域并作为链路追踪、验收证据和治理回放的物理真相源。 |
+| iot_message_log_archive | operation_log_archive | iot_message_log_archive_batch（belongs_to:archive_batch_id）<br>iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于保存超过热表保留期的设备消息原始证据，归属设备域并服务冷归档治理、审计核查和后续人工导出。 |
+| iot_message_log_archive_batch | governance_batch_log | - | 用于记录设备消息日志冷归档治理批次的确认信息、归档结果、删除结果和失败证据，归属设备域治理运行真相。 |
 | iot_normative_metric_definition | domain_master_data | sys_tenant（belongs_to:tenant_id） | 用于规范字段定义表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_onboarding_template_pack | device_domain_state | sys_tenant（belongs_to:tenant_id） | 用于无代码接入模板包的引用资产、默认治理配置与预填信息持久化，不承载协议或合同正式快照。 |
 | iot_product | domain_master_data | sys_tenant（belongs_to:tenant_id） | 用于产品表的数据持久化与查询，归属设备域并服务真实环境基线。 |
@@ -142,10 +143,6 @@ graph TD
   iot_device_invalid_report_state["iot_device_invalid_report_state"]
   iot_device_invalid_report_state["iot_device_invalid_report_state"] -->|"belongs_to via product_key"| iot_product["iot_product"]
   iot_device_invalid_report_state["iot_device_invalid_report_state"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
-  iot_device_message_log["iot_device_message_log"]
-  iot_device_message_log["iot_device_message_log"] -->|"belongs_to via device_id"| iot_device["iot_device"]
-  iot_device_message_log["iot_device_message_log"] -->|"belongs_to via product_id"| iot_product["iot_product"]
-  iot_device_message_log["iot_device_message_log"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_device_metric_latest["iot_device_metric_latest"]
   iot_device_metric_latest["iot_device_metric_latest"] -->|"belongs_to via device_id"| iot_device["iot_device"]
   iot_device_metric_latest["iot_device_metric_latest"] -->|"belongs_to via product_id"| iot_product["iot_product"]
@@ -169,6 +166,16 @@ graph TD
   iot_device_secret_rotation_log["iot_device_secret_rotation_log"] -->|"belongs_to via device_id"| iot_device["iot_device"]
   iot_device_secret_rotation_log["iot_device_secret_rotation_log"] -->|"belongs_to via product_key"| iot_product["iot_product"]
   iot_device_secret_rotation_log["iot_device_secret_rotation_log"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  iot_message_log["iot_message_log"]
+  iot_message_log["iot_message_log"] -->|"belongs_to via device_id"| iot_device["iot_device"]
+  iot_message_log["iot_message_log"] -->|"belongs_to via product_id"| iot_product["iot_product"]
+  iot_message_log["iot_message_log"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  iot_message_log_archive["iot_message_log_archive"]
+  iot_message_log_archive_batch["iot_message_log_archive_batch"]
+  iot_message_log_archive["iot_message_log_archive"] -->|"belongs_to via archive_batch_id"| iot_message_log_archive_batch["iot_message_log_archive_batch"]
+  iot_message_log_archive["iot_message_log_archive"] -->|"belongs_to via device_id"| iot_device["iot_device"]
+  iot_message_log_archive["iot_message_log_archive"] -->|"belongs_to via product_id"| iot_product["iot_product"]
+  iot_message_log_archive["iot_message_log_archive"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_normative_metric_definition["iot_normative_metric_definition"]
   iot_normative_metric_definition["iot_normative_metric_definition"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_onboarding_template_pack["iot_onboarding_template_pack"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
@@ -270,25 +277,12 @@ graph TD
   sys_governance_replay_feedback["sys_governance_replay_feedback"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
 ```
 
-## Domain mysql-compatibility
-
-| Object | Lineage Role | Relations | Business Boundary |
-| --- | --- | --- | --- |
-| iot_message_log | compatibility_projection | iot_device_message_log（derived_from:id）<br>iot_device_message_log（compatible_alias:trace_id） | 提供历史兼容读取入口，统一暴露设备消息日志字段，真实写入边界仍归属设备消息日志表。 |
-
-```mermaid
-graph TD
-  iot_message_log["iot_message_log"]
-  iot_device_message_log["iot_device_message_log"]
-  iot_message_log["iot_message_log"] -->|"derived_from via id"| iot_device_message_log["iot_device_message_log"]
-  iot_message_log["iot_message_log"] -->|"compatible_alias via trace_id"| iot_device_message_log["iot_device_message_log"]
-```
-
 ## Domain system
 
 | Object | Lineage Role | Relations | Business Boundary |
 | --- | --- | --- | --- |
 | sys_audit_log | governance_master_data | sys_tenant（belongs_to:tenant_id） | 用于审计日志表的数据持久化与查询，归属系统治理域并服务真实环境基线。 |
+| sys_business_event_log | business_event_evidence | sys_tenant（belongs_to:tenant_id） | 用于业务事件字典落地后的事件证据持久化，承载跨域业务动作、结果、关联对象和证据引用。 |
 | sys_dict | governance_master_data | sys_tenant（belongs_to:tenant_id） | 用于字典表的数据持久化与查询，归属系统治理域并服务真实环境基线。 |
 | sys_dict_item | governance_master_data | sys_dict（belongs_to:dict_id）<br>sys_tenant（belongs_to:tenant_id） | 用于字典项表的数据持久化与查询，归属系统治理域并服务真实环境基线。 |
 | sys_help_document | governance_master_data | sys_tenant（belongs_to:tenant_id） | 用于帮助文档表的数据持久化与查询，归属系统治理域并服务真实环境基线。 |
@@ -298,6 +292,7 @@ graph TD
 | sys_in_app_message_read | governance_master_data | sys_in_app_message（belongs_to:message_id）<br>sys_user（belongs_to:user_id）<br>sys_tenant（belongs_to:tenant_id） | 用于站内消息已读表的数据持久化与查询，归属系统治理域并服务真实环境基线。 |
 | sys_menu | governance_master_data | sys_tenant（belongs_to:tenant_id） | 用于菜单表的数据持久化与查询，归属系统治理域并服务真实环境基线。 |
 | sys_notification_channel | governance_master_data | sys_tenant（belongs_to:tenant_id） | 用于通知渠道表的数据持久化与查询，归属系统治理域并服务真实环境基线。 |
+| sys_observability_span_log | observability_span_evidence | sys_tenant（belongs_to:tenant_id） | 用于轻量持久化网页接口、设备上行链路、调度任务和慢查询的调用片段摘要，服务异常定位与性能定位。 |
 | sys_organization | governance_master_data | sys_tenant（belongs_to:tenant_id） | 用于组织机构表的数据持久化与查询，归属系统治理域并服务真实环境基线。 |
 | sys_region | governance_master_data | sys_tenant（belongs_to:tenant_id） | 用于区域表的数据持久化与查询，归属系统治理域并服务真实环境基线。 |
 | sys_role | governance_master_data | sys_tenant（belongs_to:tenant_id） | 用于角色表的数据持久化与查询，归属系统治理域并服务真实环境基线。 |
@@ -311,6 +306,8 @@ graph TD
   sys_audit_log["sys_audit_log"]
   sys_tenant["sys_tenant"]
   sys_audit_log["sys_audit_log"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  sys_business_event_log["sys_business_event_log"]
+  sys_business_event_log["sys_business_event_log"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   sys_dict["sys_dict"]
   sys_dict["sys_dict"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   sys_dict_item["sys_dict_item"]
@@ -336,6 +333,8 @@ graph TD
   sys_menu["sys_menu"]
   sys_menu["sys_menu"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   sys_notification_channel["sys_notification_channel"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  sys_observability_span_log["sys_observability_span_log"]
+  sys_observability_span_log["sys_observability_span_log"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   sys_organization["sys_organization"]
   sys_organization["sys_organization"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   sys_region["sys_region"]

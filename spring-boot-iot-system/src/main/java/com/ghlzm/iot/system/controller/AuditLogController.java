@@ -4,7 +4,10 @@ import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.AuditLog;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.service.AuditLogService;
+import com.ghlzm.iot.system.vo.SystemErrorClusterRowVO;
 import com.ghlzm.iot.system.vo.SystemErrorStatsVO;
 import org.springframework.security.core.Authentication;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +26,9 @@ public class AuditLogController {
 
       @Autowired
       private AuditLogService auditLogService;
+
+      @Autowired(required = false)
+      private GovernancePermissionGuard permissionGuard;
 
       /**
        * 查询审计日志列表
@@ -62,6 +68,28 @@ public class AuditLogController {
             return R.ok(auditLogService.getSystemErrorStats(requireCurrentUserId(authentication), log));
       }
 
+      /**
+       * 分页查询 system_error 聚合簇
+       */
+      @GetMapping("/system-error/clusters/page")
+      public R<Map<String, Object>> pageSystemErrorClusters(AuditLog log,
+                  @RequestParam(defaultValue = "1") Integer pageNum,
+                  @RequestParam(defaultValue = "10") Integer pageSize,
+                  Authentication authentication) {
+            PageResult<SystemErrorClusterRowVO> page = auditLogService.pageSystemErrorClusters(
+                    requireCurrentUserId(authentication),
+                    log,
+                    pageNum,
+                    pageSize
+            );
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("total", page.getTotal());
+            payload.put("pageNum", page.getPageNum());
+            payload.put("pageSize", page.getPageSize());
+            payload.put("records", page.getRecords());
+            return R.ok(payload);
+      }
+
       @GetMapping("/business/stats")
       public R<Map<String, Object>> getBusinessAuditStats(AuditLog log, Authentication authentication) {
             return R.ok(auditLogService.getBusinessAuditStats(requireCurrentUserId(authentication), log));
@@ -93,7 +121,11 @@ public class AuditLogController {
        */
       @DeleteMapping("/delete/{id}")
       public R<Void> deleteLog(@PathVariable Long id, Authentication authentication) {
-            auditLogService.deleteLog(requireCurrentUserId(authentication), id);
+            Long currentUserId = requireCurrentUserId(authentication);
+            if (permissionGuard != null) {
+                  permissionGuard.requireAnyPermission(currentUserId, "删除审计日志", GovernancePermissionCodes.AUDIT_DELETE);
+            }
+            auditLogService.deleteLog(currentUserId, id);
             return R.ok();
       }
 

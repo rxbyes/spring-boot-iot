@@ -133,6 +133,19 @@ describe('resolveAdaptiveActionColumnWidth', () => {
     ).toBe(160)
   })
 
+  it('honors an explicit wider minimum width for dense table actions', () => {
+    expect(
+      resolveWorkbenchActionColumnWidth({
+        directItems: [
+          { command: 'preview', label: '预览' },
+          { command: 'edit', label: '编辑' },
+          { command: 'delete', label: '删除' }
+        ],
+        minWidth: 200
+      })
+    ).toBeGreaterThanOrEqual(200)
+  })
+
   it('shrinks a current page of event-style two-action rows to the dual-action desktop width', () => {
     expect(
       resolveWorkbenchActionColumnWidthByRows({

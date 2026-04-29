@@ -15,7 +15,7 @@
       </div>
 
       <template v-else>
-        <section class="ops-drawer-section">
+        <section v-if="!embedded" class="ops-drawer-section">
           <div class="ops-drawer-section__header">
             <div>
               <h3>{{ riskPointName || '未命名风险点' }}</h3>
@@ -64,9 +64,13 @@
             </el-form-item>
             <el-form-item v-if="showAddMetricSelector" label="测点">
               <el-select
-                v-model="addForm.metricIdentifier"
+                v-model="addForm.metricIdentifiers"
                 data-testid="binding-add-metric"
-                placeholder="请选择测点"
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
+                :placeholder="addMetricLoading ? '正在加载测点...' : '请选择测点'"
+                :loading="addMetricLoading"
                 :disabled="!addForm.deviceId || addMetricOptions.length === 0 || addSubmitting"
               >
                 <el-option
@@ -86,6 +90,7 @@
           </p>
           <div class="risk-point-binding-maintenance-drawer__actions">
             <button
+              v-permission="'risk:risk-point-binding:execute'"
               type="button"
               class="risk-point-binding-maintenance-drawer__button risk-point-binding-maintenance-drawer__button--primary"
               data-testid="binding-add-submit"
@@ -130,6 +135,7 @@
                   </p>
                 </div>
                 <button
+                  v-permission="'risk:risk-point-binding:execute'"
                   type="button"
                   class="risk-point-binding-maintenance-drawer__button risk-point-binding-maintenance-drawer__button--danger"
                   :data-testid="`binding-unbind-device-${group.deviceId}`"
@@ -165,6 +171,17 @@
 
                   <div class="risk-point-binding-maintenance-drawer__metric-actions">
                     <button
+                      v-permission="'risk:risk-point-binding:execute'"
+                      type="button"
+                      class="risk-point-binding-maintenance-drawer__button"
+                      :data-testid="`binding-rename-open-${metric.bindingId}`"
+                      :disabled="actionLoadingKey === `rename:${metric.bindingId}`"
+                      @click="handleOpenRename(metric)"
+                    >
+                      修改名称
+                    </button>
+                    <button
+                      v-permission="'risk:risk-point-binding:execute'"
                       type="button"
                       class="risk-point-binding-maintenance-drawer__button"
                       :data-testid="`binding-replace-open-${metric.bindingId}`"
@@ -174,6 +191,7 @@
                       更换测点
                     </button>
                     <button
+                      v-permission="'risk:risk-point-binding:execute'"
                       type="button"
                       class="risk-point-binding-maintenance-drawer__button risk-point-binding-maintenance-drawer__button--danger"
                       :data-testid="`binding-remove-${metric.bindingId}`"
@@ -181,6 +199,38 @@
                       @click="handleRemoveBinding(metric.bindingId, group.deviceName, metric.metricName || metric.metricIdentifier)"
                     >
                       删除测点
+                    </button>
+                  </div>
+
+                  <div
+                    v-if="activeRenameBindingId === getIdKey(metric.bindingId)"
+                    class="risk-point-binding-maintenance-drawer__rename-row"
+                  >
+                    <input
+                      v-model="renameFormMap[getIdKey(metric.bindingId)]"
+                      class="risk-point-binding-maintenance-drawer__rename-input"
+                      :data-testid="`binding-rename-name-${metric.bindingId}`"
+                      maxlength="100"
+                      placeholder="请输入测点名称"
+                    />
+                    <button
+                      v-permission="'risk:risk-point-binding:execute'"
+                      type="button"
+                      class="risk-point-binding-maintenance-drawer__button risk-point-binding-maintenance-drawer__button--primary"
+                      :data-testid="`binding-rename-submit-${metric.bindingId}`"
+                      :disabled="actionLoadingKey === `rename:${metric.bindingId}`"
+                      @click="handleRenameBinding(metric.bindingId)"
+                    >
+                      保存名称
+                    </button>
+                    <button
+                      type="button"
+                      class="risk-point-binding-maintenance-drawer__button"
+                      :data-testid="`binding-rename-cancel-${metric.bindingId}`"
+                      :disabled="actionLoadingKey === `rename:${metric.bindingId}`"
+                      @click="handleCancelRename(metric.bindingId)"
+                    >
+                      取消
                     </button>
                   </div>
 
@@ -201,6 +251,7 @@
                       />
                     </el-select>
                     <button
+                      v-permission="'risk:risk-point-binding:execute'"
                       type="button"
                       class="risk-point-binding-maintenance-drawer__button risk-point-binding-maintenance-drawer__button--primary"
                       :data-testid="`binding-replace-submit-${metric.bindingId}`"
@@ -225,6 +276,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import EmptyState from '@/components/EmptyState.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import type { DeviceMetricOption, DeviceOption, IdType } from '@/types/api'
+import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import {
   bindDevice,
   bindDeviceCapability,
@@ -232,6 +284,7 @@ import {
   listBindingGroups,
   listFormalBindingMetricOptions,
   removeBinding,
+  renameBinding,
   replaceBinding,
   unbindDevice,
   type RiskPointBindingDeviceGroup,
@@ -277,13 +330,16 @@ const emit = defineEmits<{
 
 const loading = ref(false)
 const addSubmitting = ref(false)
+const addMetricLoading = ref(false)
 const actionLoadingKey = ref('')
 const bindingGroups = ref<RiskPointBindingDeviceGroup[]>([])
 const bindableDevices = ref<DeviceOption[]>([])
 const selectedAddDevice = ref<DeviceOption | null>(null)
 const addMetricOptions = ref<DeviceMetricOption[]>([])
+const activeRenameBindingId = ref<string | null>(null)
 const activeReplaceBindingId = ref<string | null>(null)
 const metricOptionCache = reactive<Record<string, DeviceMetricOption[]>>({})
+const renameFormMap = reactive<Record<string, string>>({})
 const replaceSelectionMap = reactive<Record<string, string>>({})
 let latestDrawerLoadRequestId = 0
 let latestAddMetricRequestId = 0
@@ -291,7 +347,7 @@ let latestReplaceMetricRequestId = 0
 
 const addForm = reactive({
   deviceId: '' as '' | IdType,
-  metricIdentifier: ''
+  metricIdentifiers: [] as string[]
 })
 
 const totalBoundMetricCount = computed(() =>
@@ -312,6 +368,9 @@ const addDeviceHint = computed(() => {
   }
   if (!showAddMetricSelector.value) {
     return getDeviceOnlyBindingHint(selectedAddDevice.value)
+  }
+  if (addMetricLoading.value) {
+    return '正在加载当前设备可绑定的正式目录测点。'
   }
   return addMetricOptions.value.length === 0 ? '当前设备所属产品暂无可用于风险绑定的正式目录字段。' : ''
 })
@@ -345,6 +404,13 @@ const getBindingSourceLabel = (source: RiskPointBindingMetric['bindingSource']) 
 const isDeviceOnlyGroup = (group: RiskPointBindingDeviceGroup) => isDeviceOnlyBindingMode(group)
 const getGroupCapabilityLabel = (group: RiskPointBindingDeviceGroup) =>
   `${getDeviceCapabilityLabel(resolveBindingGroupCapabilityType(group))} · 设备级正式绑定`
+
+const showRequestErrorMessage = (error: unknown, fallbackMessage: string) => {
+  if (isHandledRequestError(error)) {
+    return
+  }
+  ElMessage.error(resolveRequestErrorMessage(error, fallbackMessage))
+}
 
 const getIdKey = (value?: IdType | null) => {
   if (value === undefined || value === null || value === '') {
@@ -416,12 +482,14 @@ const resetDrawerState = () => {
   latestReplaceMetricRequestId += 1
   loading.value = false
   addSubmitting.value = false
+  addMetricLoading.value = false
   bindingGroups.value = []
   bindableDevices.value = []
   addMetricOptions.value = []
   addForm.deviceId = ''
-  addForm.metricIdentifier = ''
+  addForm.metricIdentifiers = []
   selectedAddDevice.value = null
+  activeRenameBindingId.value = null
   activeReplaceBindingId.value = null
   actionLoadingKey.value = ''
   Object.keys(metricOptionCache).forEach((key) => {
@@ -429,6 +497,9 @@ const resetDrawerState = () => {
   })
   Object.keys(replaceSelectionMap).forEach((key) => {
     delete replaceSelectionMap[key]
+  })
+  Object.keys(renameFormMap).forEach((key) => {
+    delete renameFormMap[key]
   })
 }
 
@@ -479,7 +550,7 @@ const loadDrawerData = async () => {
   } catch (error) {
     if (isActiveDrawerRequest(requestId, riskPointId)) {
       console.error('加载风险点正式绑定维护数据失败', error)
-      ElMessage.error(error instanceof Error ? error.message : '加载正式绑定维护数据失败')
+      showRequestErrorMessage(error, '加载正式绑定维护数据失败')
     }
   } finally {
     if (isActiveDrawerRequest(requestId, riskPointId)) {
@@ -508,15 +579,17 @@ const refreshAddMetricOptionsForCurrentDevice = () => {
     addForm.deviceId,
     metricOptionCache[getIdKey(addForm.deviceId)] || addMetricOptions.value
   )
-  if (addForm.metricIdentifier && !addMetricOptions.value.some((item) => item.identifier === addForm.metricIdentifier)) {
-    addForm.metricIdentifier = ''
+  if (addForm.metricIdentifiers.length > 0) {
+    const availableIdentifiers = new Set(addMetricOptions.value.map((item) => item.identifier))
+    addForm.metricIdentifiers = addForm.metricIdentifiers.filter((identifier) => availableIdentifiers.has(identifier))
   }
 }
 
 const handleAddDeviceChange = async (deviceId: string | number) => {
   const requestId = ++latestAddMetricRequestId
-  addForm.metricIdentifier = ''
+  addForm.metricIdentifiers = []
   addMetricOptions.value = []
+  addMetricLoading.value = false
   if (!deviceId) {
     selectedAddDevice.value = null
     return
@@ -526,6 +599,7 @@ const handleAddDeviceChange = async (deviceId: string | number) => {
   if (!supportsMetricBinding(device)) {
     return
   }
+  addMetricLoading.value = true
   try {
     const options = filterAvailableMetricOptions(deviceId, await getMetricOptions(deviceId))
     if (
@@ -541,7 +615,15 @@ const handleAddDeviceChange = async (deviceId: string | number) => {
       return
     }
     console.error('加载新增测点选项失败', error)
-    ElMessage.error(error instanceof Error ? error.message : '加载测点列表失败')
+    showRequestErrorMessage(error, '加载测点列表失败')
+  } finally {
+    if (
+      requestId === latestAddMetricRequestId
+      && props.modelValue
+      && getIdKey(addForm.deviceId) === getIdKey(deviceId)
+    ) {
+      addMetricLoading.value = false
+    }
   }
 }
 
@@ -553,20 +635,27 @@ const handleAddBinding = async () => {
     ElMessage.warning('请先选择设备')
     return
   }
-  if (showAddMetricSelector.value && !addForm.metricIdentifier) {
-    ElMessage.warning('请选择要绑定的测点')
+  if (showAddMetricSelector.value && addForm.metricIdentifiers.length === 0) {
+    ElMessage.warning('请至少选择一个测点')
     return
   }
 
   try {
     addSubmitting.value = true
+    const selectedMetrics = addForm.metricIdentifiers
+      .map((metricIdentifier) => getSelectedMetricOption(addForm.deviceId, metricIdentifier))
+      .filter((metric): metric is DeviceMetricOption => Boolean(metric))
     const res = showAddMetricSelector.value
       ? await bindDevice({
           riskPointId: props.riskPointId,
           deviceId: addForm.deviceId,
-          riskMetricId: getSelectedMetricOption(addForm.deviceId, addForm.metricIdentifier)?.riskMetricId ?? undefined,
-          metricIdentifier: addForm.metricIdentifier,
-          metricName: getSelectedMetricOption(addForm.deviceId, addForm.metricIdentifier)?.name || addForm.metricIdentifier
+          deviceCode: selectedAddDevice.value?.deviceCode,
+          deviceName: selectedAddDevice.value?.deviceName,
+          metrics: selectedMetrics.map((metric) => ({
+            riskMetricId: metric.riskMetricId ?? undefined,
+            metricIdentifier: metric.identifier,
+            metricName: metric.name || metric.identifier
+          }))
         })
       : await bindDeviceCapability({
           riskPointId: props.riskPointId,
@@ -577,13 +666,19 @@ const handleAddBinding = async () => {
       ElMessage.error(res.msg || `${addSubmitLabel.value}失败`)
       return
     }
-    await handleMutationSuccess(`${addSubmitLabel.value}成功`, () => {
-      addForm.metricIdentifier = ''
+    const metricCount = selectedMetrics.length
+    const successMessage = showAddMetricSelector.value
+      ? res.data?.executionStatus === 'PENDING_APPROVAL'
+        ? `已提交 ${metricCount} 个测点绑定申请`
+        : `已新增 ${metricCount} 个正式测点绑定`
+      : `${addSubmitLabel.value}成功`
+    await handleMutationSuccess(successMessage, () => {
+      addForm.metricIdentifiers = []
       addMetricOptions.value = []
     })
   } catch (error) {
     console.error('新增正式绑定失败', error)
-    ElMessage.error(error instanceof Error ? error.message : '新增正式绑定失败')
+    showRequestErrorMessage(error, '新增正式绑定失败')
   } finally {
     addSubmitting.value = false
   }
@@ -611,7 +706,7 @@ const handleWholeDeviceUnbind = async (group: RiskPointBindingDeviceGroup) => {
       return
     }
     console.error('整机解绑失败', error)
-    ElMessage.error(error instanceof Error ? error.message : '整机解绑失败')
+    showRequestErrorMessage(error, '整机解绑失败')
   } finally {
     actionLoadingKey.value = ''
   }
@@ -636,7 +731,47 @@ const handleRemoveBinding = async (bindingId: IdType, deviceName: string, metric
       return
     }
     console.error('删除测点绑定失败', error)
-    ElMessage.error(error instanceof Error ? error.message : '删除测点绑定失败')
+    showRequestErrorMessage(error, '删除测点绑定失败')
+  } finally {
+    actionLoadingKey.value = ''
+  }
+}
+
+const handleOpenRename = (metric: RiskPointBindingMetric) => {
+  const bindingIdKey = getIdKey(metric.bindingId)
+  activeRenameBindingId.value = bindingIdKey
+  activeReplaceBindingId.value = null
+  renameFormMap[bindingIdKey] = metric.metricName || metric.metricIdentifier
+}
+
+const handleCancelRename = (bindingId: IdType) => {
+  const bindingIdKey = getIdKey(bindingId)
+  activeRenameBindingId.value = null
+  delete renameFormMap[bindingIdKey]
+}
+
+const handleRenameBinding = async (bindingId: IdType) => {
+  const bindingIdKey = getIdKey(bindingId)
+  const metricName = (renameFormMap[bindingIdKey] || '').trim()
+  if (!metricName) {
+    ElMessage.warning('请输入测点名称')
+    return
+  }
+
+  try {
+    actionLoadingKey.value = `rename:${bindingId}`
+    const res = await renameBinding(bindingId, { metricName })
+    if (res.code !== 200) {
+      ElMessage.error(res.msg || '修改测点名称失败')
+      return
+    }
+    await handleMutationSuccess('修改测点名称成功', () => {
+      activeRenameBindingId.value = null
+      delete renameFormMap[bindingIdKey]
+    })
+  } catch (error) {
+    console.error('修改测点名称失败', error)
+    showRequestErrorMessage(error, '修改测点名称失败')
   } finally {
     actionLoadingKey.value = ''
   }
@@ -656,6 +791,7 @@ const handleOpenReplace = async (deviceId: IdType, bindingId: IdType) => {
       return
     }
     const bindingIdKey = getIdKey(bindingId)
+    activeRenameBindingId.value = null
     activeReplaceBindingId.value = bindingIdKey
     replaceSelectionMap[bindingIdKey] = options[0]?.identifier || ''
   } catch (error) {
@@ -667,7 +803,7 @@ const handleOpenReplace = async (deviceId: IdType, bindingId: IdType) => {
       return
     }
     console.error('加载替换测点选项失败', error)
-    ElMessage.error(error instanceof Error ? error.message : '加载替换测点列表失败')
+    showRequestErrorMessage(error, '加载替换测点列表失败')
   } finally {
     if (requestId === latestReplaceMetricRequestId) {
       actionLoadingKey.value = ''
@@ -712,7 +848,7 @@ const handleReplaceBinding = async (deviceId: IdType, bindingId: IdType) => {
       return
     }
     console.error('替换测点失败', error)
-    ElMessage.error(error instanceof Error ? error.message : '替换测点失败')
+    showRequestErrorMessage(error, '替换测点失败')
   } finally {
     actionLoadingKey.value = ''
   }
@@ -829,6 +965,7 @@ watch(
 .risk-point-binding-maintenance-drawer__group-header,
 .risk-point-binding-maintenance-drawer__metric-main,
 .risk-point-binding-maintenance-drawer__metric-actions,
+.risk-point-binding-maintenance-drawer__rename-row,
 .risk-point-binding-maintenance-drawer__replace-row {
   display: flex;
   align-items: center;
@@ -874,8 +1011,19 @@ watch(
   justify-content: flex-end;
 }
 
+.risk-point-binding-maintenance-drawer__rename-row,
 .risk-point-binding-maintenance-drawer__replace-row {
   justify-content: stretch;
+}
+
+.risk-point-binding-maintenance-drawer__rename-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--el-border-color, #dcdfe6);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
 }
 
 .risk-point-binding-maintenance-drawer__replace-row :deep(.el-select) {
@@ -886,6 +1034,7 @@ watch(
   .risk-point-binding-maintenance-drawer__group-header,
   .risk-point-binding-maintenance-drawer__metric-main,
   .risk-point-binding-maintenance-drawer__metric-actions,
+  .risk-point-binding-maintenance-drawer__rename-row,
   .risk-point-binding-maintenance-drawer__replace-row {
     align-items: stretch;
     flex-direction: column;
@@ -896,6 +1045,7 @@ watch(
   }
 
   .risk-point-binding-maintenance-drawer__actions .risk-point-binding-maintenance-drawer__button,
+  .risk-point-binding-maintenance-drawer__rename-row .risk-point-binding-maintenance-drawer__button,
   .risk-point-binding-maintenance-drawer__replace-row .risk-point-binding-maintenance-drawer__button,
   .risk-point-binding-maintenance-drawer__group-header .risk-point-binding-maintenance-drawer__button {
     width: 100%;

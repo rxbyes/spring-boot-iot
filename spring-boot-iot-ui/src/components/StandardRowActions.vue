@@ -26,6 +26,7 @@ const shouldWrap = computed(() => props.wrap || props.variant === 'editor')
 
 const classes = computed(() => [
   'standard-row-actions',
+  'standard-row-actions--foundation',
   `standard-row-actions--variant-${props.variant}`,
   `standard-row-actions--${props.gap}`,
   `standard-row-actions--distribution-${props.distribution}`,

@@ -8,6 +8,7 @@ import com.ghlzm.iot.alarm.entity.RiskMetricEmergencyPlanBinding;
 import com.ghlzm.iot.alarm.entity.RiskMetricLinkageBinding;
 import com.ghlzm.iot.alarm.dto.RiskGovernanceGapQuery;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
+import com.ghlzm.iot.alarm.entity.RiskPointDeviceCapabilityBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.mapper.EmergencyPlanMapper;
@@ -15,17 +16,21 @@ import com.ghlzm.iot.alarm.mapper.LinkageRuleMapper;
 import com.ghlzm.iot.alarm.mapper.RiskMetricEmergencyPlanBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskMetricCatalogMapper;
 import com.ghlzm.iot.alarm.mapper.RiskMetricLinkageBindingMapper;
+import com.ghlzm.iot.alarm.mapper.RiskPointDeviceCapabilityBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
 import com.ghlzm.iot.alarm.service.RiskMetricActionBindingBackfillService;
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogPublishRule;
 import com.ghlzm.iot.alarm.service.RiskGovernanceService;
+import com.ghlzm.iot.alarm.service.ThresholdPolicyRecommendationService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceDashboardOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceGapItemVO;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceMissingPolicyProductMetricSummaryVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceReleaseBatchDiffVO;
 import com.ghlzm.iot.alarm.vo.RiskMetricCatalogItemVO;
+import com.ghlzm.iot.common.device.DeviceBindingCapabilitySupport;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.entity.Device;
@@ -86,6 +91,8 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     private ProductContractReleaseSnapshotMapper productContractReleaseSnapshotMapper;
+    private RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper;
+    private ThresholdPolicyRecommendationService thresholdPolicyRecommendationService;
 
     RiskGovernanceServiceImpl(DeviceMapper deviceMapper,
                               RiskPointMapper riskPointMapper,
@@ -152,6 +159,16 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         this.productContractReleaseSnapshotMapper = productContractReleaseSnapshotMapper;
     }
 
+    @Autowired(required = false)
+    void setRiskPointDeviceCapabilityBindingMapper(RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper) {
+        this.capabilityBindingMapper = capabilityBindingMapper;
+    }
+
+    @Autowired(required = false)
+    void setThresholdPolicyRecommendationService(ThresholdPolicyRecommendationService thresholdPolicyRecommendationService) {
+        this.thresholdPolicyRecommendationService = thresholdPolicyRecommendationService;
+    }
+
     @Override
     public PageResult<RiskGovernanceGapItemVO> listMissingBindings(RiskGovernanceGapQuery query) {
         long pageNum = normalizePageNum(query);
@@ -161,6 +178,14 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 .stream()
                 .map(RiskPointDevice::getDeviceId)
                 .collect(Collectors.toSet());
+        if (capabilityBindingMapper != null) {
+            capabilityBindingMapper.selectList(new LambdaQueryWrapper<RiskPointDeviceCapabilityBinding>()
+                            .eq(RiskPointDeviceCapabilityBinding::getDeleted, 0))
+                    .stream()
+                    .map(RiskPointDeviceCapabilityBinding::getDeviceId)
+                    .filter(Objects::nonNull)
+                    .forEach(boundDeviceIds::add);
+        }
 
         List<RiskGovernanceGapItemVO> items = deviceMapper.selectList(new LambdaQueryWrapper<Device>()
                         .eq(Device::getDeleted, 0)
@@ -189,10 +214,64 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                         .in(!riskPointIds.isEmpty(), RiskPoint::getId, riskPointIds))
                 .stream()
                 .collect(Collectors.toMap(RiskPoint::getId, Function.identity(), (left, right) -> left));
+        Map<Long, Long> deviceProductIds = loadDeviceProductIds(bindings);
+        Map<Long, Product> productMap = loadProductsById(new LinkedHashSet<>(deviceProductIds.values()));
         List<RiskGovernanceGapItemVO> items = bindings.stream()
-                .map(binding -> toMissingPolicyItem(binding, riskPointMap.get(binding.getRiskPointId())))
+                .map(binding -> toMissingPolicyItem(binding, riskPointMap.get(binding.getRiskPointId()),
+                        deviceProductIds, productMap))
                 .toList();
         return toPage(items, pageNum, pageSize);
+    }
+
+    @Override
+    public PageResult<RiskGovernanceMissingPolicyProductMetricSummaryVO> pageMissingPolicyProductMetricSummaries(
+            RiskGovernanceGapQuery query) {
+        long pageNum = normalizePageNum(query);
+        long pageSize = normalizePageSize(query);
+        List<RiskPointDevice> bindings = listMissingPolicyBindings(query);
+        if (bindings.isEmpty()) {
+            return PageResult.empty(pageNum, pageSize);
+        }
+        Map<Long, Long> deviceProductIds = loadDeviceProductIds(bindings);
+        Map<Long, Long> riskMetricProductIds = loadRiskMetricProductIds(bindings);
+        Set<Long> productIds = new LinkedHashSet<>(deviceProductIds.values());
+        productIds.addAll(riskMetricProductIds.values());
+        Map<Long, Product> productMap = loadProductsById(productIds);
+        Map<String, MissingPolicyProductMetricAccumulator> accumulators = new LinkedHashMap<>();
+        for (RiskPointDevice binding : bindings) {
+            String metricKey = toMissingPolicyDimensionKey(binding);
+            if (!StringUtils.hasText(metricKey)) {
+                continue;
+            }
+            Long productId = binding.getDeviceId() == null ? null : deviceProductIds.get(binding.getDeviceId());
+            if (productId == null && binding.getRiskMetricId() != null) {
+                productId = riskMetricProductIds.get(binding.getRiskMetricId());
+            }
+            Long resolvedProductId = productId;
+            String groupKey = (resolvedProductId == null ? "unknown" : resolvedProductId.toString()) + "#" + metricKey;
+            Product product = resolvedProductId == null ? null : productMap.get(resolvedProductId);
+            MissingPolicyProductMetricAccumulator accumulator = accumulators.computeIfAbsent(
+                    groupKey,
+                    key -> new MissingPolicyProductMetricAccumulator(resolvedProductId, product, binding)
+            );
+            accumulator.add(binding);
+        }
+        List<MissingPolicyProductMetricAccumulator> summaries = accumulators.values().stream()
+                .sorted(Comparator.comparingLong(MissingPolicyProductMetricAccumulator::getBindingCount)
+                        .reversed()
+                        .thenComparing(item -> normalizeText(item.getProductName()), Comparator.nullsLast(String::compareTo))
+                        .thenComparing(item -> normalizeText(item.getMetricIdentifier()), Comparator.nullsLast(String::compareTo)))
+                .toList();
+        if (summaries.isEmpty()) {
+            return PageResult.empty(pageNum, pageSize);
+        }
+        int fromIndex = (int) Math.min((pageNum - 1) * pageSize, summaries.size());
+        int toIndex = (int) Math.min(fromIndex + pageSize, summaries.size());
+        List<RiskGovernanceMissingPolicyProductMetricSummaryVO> records = summaries.subList(fromIndex, toIndex)
+                .stream()
+                .map(accumulator -> accumulator.toVO(thresholdPolicyRecommendationService))
+                .toList();
+        return PageResult.of((long) summaries.size(), pageNum, pageSize, records);
     }
 
     @Override
@@ -376,8 +455,9 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 .filter(StringUtils::hasText)
                 .map(String::trim)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        Product product = productId == null ? null : productMapper.selectById(productId);
         long publishableContractPropertyCount = riskMetricCatalogPublishRule
-                .resolveRiskEnabledIdentifiers(null, propertyModels)
+                .resolveRiskEnabledIdentifiers(product, null, null, propertyModels)
                 .size();
 
         List<RiskMetricCatalog> catalogs = selectEnabledCatalogs(productId);
@@ -644,15 +724,71 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
 
     private boolean matchesPolicy(RiskPointDevice binding,
                                   Map<String, List<RuleDefinition>> enabledRulesByMetric,
-                                  Map<Long, List<RuleDefinition>> enabledRulesByRiskMetricId) {
+                                  Map<Long, List<RuleDefinition>> enabledRulesByRiskMetricId,
+                                  Map<Long, Long> deviceProductIds,
+                                  Map<Long, Long> riskMetricProductIds,
+                                  Map<Long, Product> productMap) {
         if (binding == null) {
             return false;
         }
-        if (binding.getRiskMetricId() != null && enabledRulesByRiskMetricId.containsKey(binding.getRiskMetricId())) {
-            return true;
+        List<RuleDefinition> candidates = new ArrayList<>();
+        if (binding.getRiskMetricId() != null) {
+            candidates.addAll(enabledRulesByRiskMetricId.getOrDefault(binding.getRiskMetricId(), List.of()));
         }
-        return StringUtils.hasText(binding.getMetricIdentifier())
-                && enabledRulesByMetric.containsKey(binding.getMetricIdentifier().trim());
+        if (StringUtils.hasText(binding.getMetricIdentifier())) {
+            String metricKey = metricIdentifierKey(binding.getMetricIdentifier());
+            candidates.addAll(enabledRulesByMetric.getOrDefault(metricKey, List.of()));
+            String leafKey = metricLeafIdentifier(metricKey);
+            if (StringUtils.hasText(leafKey) && !leafKey.equals(metricKey)) {
+                candidates.addAll(enabledRulesByMetric.getOrDefault(leafKey, List.of()));
+            }
+        }
+        Long productId = binding.getDeviceId() == null ? null : deviceProductIds.get(binding.getDeviceId());
+        if (productId == null && binding.getRiskMetricId() != null && riskMetricProductIds != null) {
+            productId = riskMetricProductIds.get(binding.getRiskMetricId());
+        }
+        Long matchedProductId = productId;
+        Product product = matchedProductId == null || productMap == null ? null : productMap.get(matchedProductId);
+        return candidates.stream().anyMatch(rule -> matchesPolicyScope(rule, binding, matchedProductId, product));
+    }
+
+    private boolean matchesPolicyScope(RuleDefinition rule, RiskPointDevice binding, Long productId, Product product) {
+        String scope = normalizeRuleScope(rule == null ? null : rule.getRuleScope());
+        return switch (scope) {
+            case "BINDING" -> binding != null
+                    && binding.getId() != null
+                    && binding.getId().equals(rule.getRiskPointDeviceId());
+            case "DEVICE" -> binding != null
+                    && binding.getDeviceId() != null
+                    && binding.getDeviceId().equals(rule.getDeviceId());
+            case "PRODUCT" -> productId != null && productId.equals(rule.getProductId());
+            case "PRODUCT_TYPE" -> product != null
+                    && StringUtils.hasText(rule.getProductType())
+                    && DeviceBindingCapabilitySupport.resolve(product.getProductKey(), product.getProductName())
+                    .name()
+                    .equalsIgnoreCase(rule.getProductType().trim());
+            default -> true;
+        };
+    }
+
+    private String normalizeRuleScope(String scope) {
+        return StringUtils.hasText(scope) ? scope.trim().toUpperCase(Locale.ROOT) : "METRIC";
+    }
+
+    private String metricIdentifierKey(String value) {
+        return StringUtils.hasText(value) ? value.trim().toLowerCase(Locale.ROOT) : null;
+    }
+
+    private String metricLeafIdentifier(String value) {
+        String identifier = metricIdentifierKey(value);
+        if (!StringUtils.hasText(identifier)) {
+            return null;
+        }
+        if ("l1_lf_1".equals(identifier) || "l4_nw_1".equals(identifier)) {
+            return "value";
+        }
+        int dotIndex = identifier.lastIndexOf('.');
+        return dotIndex >= 0 ? identifier.substring(dotIndex + 1) : identifier;
     }
 
     private RiskGovernanceGapItemVO toMissingBindingItem(Device device) {
@@ -666,13 +802,23 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         return item;
     }
 
-    private RiskGovernanceGapItemVO toMissingPolicyItem(RiskPointDevice binding, RiskPoint riskPoint) {
+    private RiskGovernanceGapItemVO toMissingPolicyItem(RiskPointDevice binding,
+                                                        RiskPoint riskPoint,
+                                                        Map<Long, Long> deviceProductIds,
+                                                        Map<Long, Product> productMap) {
         RiskGovernanceGapItemVO item = new RiskGovernanceGapItemVO();
         item.setIssueType("MISSING_POLICY");
         item.setIssueLabel("待配置阈值策略");
         item.setDeviceId(binding.getDeviceId());
         item.setDeviceCode(binding.getDeviceCode());
         item.setDeviceName(binding.getDeviceName());
+        Long productId = binding.getDeviceId() == null || deviceProductIds == null
+                ? null
+                : deviceProductIds.get(binding.getDeviceId());
+        Product product = productId == null || productMap == null ? null : productMap.get(productId);
+        item.setProductId(productId);
+        item.setProductKey(product == null ? null : product.getProductKey());
+        item.setProductName(product == null ? null : product.getProductName());
         item.setRiskPointId(binding.getRiskPointId());
         item.setRiskPointName(riskPoint == null ? null : riskPoint.getRiskPointName());
         item.setRiskMetricId(binding.getRiskMetricId());
@@ -1160,16 +1306,103 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         List<RuleDefinition> enabledRules = ruleDefinitionMapper.selectList(new LambdaQueryWrapper<RuleDefinition>()
                 .eq(RuleDefinition::getDeleted, 0)
                 .eq(RuleDefinition::getStatus, 0));
-        Map<String, List<RuleDefinition>> enabledRulesByMetric = enabledRules.stream()
+        Map<String, List<RuleDefinition>> enabledRulesByMetric = new LinkedHashMap<>();
+        enabledRules.stream()
                 .filter(rule -> StringUtils.hasText(rule.getMetricIdentifier()))
-                .collect(Collectors.groupingBy(rule -> rule.getMetricIdentifier().trim()));
+                .forEach(rule -> {
+                    String metricKey = metricIdentifierKey(rule.getMetricIdentifier());
+                    if (StringUtils.hasText(metricKey)) {
+                        enabledRulesByMetric.computeIfAbsent(metricKey, key -> new ArrayList<>()).add(rule);
+                    }
+                    String leafKey = metricLeafIdentifier(metricKey);
+                    if (StringUtils.hasText(leafKey) && !leafKey.equals(metricKey)) {
+                        enabledRulesByMetric.computeIfAbsent(leafKey, key -> new ArrayList<>()).add(rule);
+                    }
+                });
         Map<Long, List<RuleDefinition>> enabledRulesByRiskMetricId = enabledRules.stream()
                 .filter(rule -> rule.getRiskMetricId() != null)
                 .collect(Collectors.groupingBy(RuleDefinition::getRiskMetricId));
+        Long productId = query == null ? null : query.getProductId();
+        Map<Long, Long> deviceProductIds = loadDeviceProductIds(bindings);
+        Map<Long, Long> riskMetricProductIds = loadRiskMetricProductIds(bindings);
+        Set<Long> scopeProductIds = new LinkedHashSet<>(deviceProductIds.values());
+        scopeProductIds.addAll(riskMetricProductIds.values());
+        Map<Long, Product> productMap = enabledRules.stream()
+                .anyMatch(rule -> "PRODUCT_TYPE".equals(normalizeRuleScope(rule.getRuleScope())))
+                ? loadProductsById(scopeProductIds)
+                : Map.of();
         return bindings.stream()
-                .filter(binding -> !matchesPolicy(binding, enabledRulesByMetric, enabledRulesByRiskMetricId))
+                .filter(binding -> !matchesPolicy(binding, enabledRulesByMetric, enabledRulesByRiskMetricId,
+                        deviceProductIds, riskMetricProductIds, productMap))
+                .filter(binding -> matchesProduct(binding, productId, deviceProductIds))
                 .filter(binding -> matchesDeviceCode(binding, query))
                 .toList();
+    }
+
+    private Map<Long, Long> loadDeviceProductIds(List<RiskPointDevice> bindings) {
+        Set<Long> deviceIds = bindings == null
+                ? Set.of()
+                : bindings.stream()
+                .map(RiskPointDevice::getDeviceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (deviceIds.isEmpty()) {
+            return Map.of();
+        }
+        return deviceMapper.selectList(new LambdaQueryWrapper<Device>()
+                        .in(Device::getId, deviceIds))
+                .stream()
+                .filter(device -> device.getId() != null)
+                .filter(device -> device.getProductId() != null)
+                .collect(Collectors.toMap(Device::getId, Device::getProductId, (left, right) -> left));
+    }
+
+    private Map<Long, Long> loadRiskMetricProductIds(List<RiskPointDevice> bindings) {
+        Set<Long> riskMetricIds = bindings == null
+                ? Set.of()
+                : bindings.stream()
+                .map(RiskPointDevice::getRiskMetricId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (riskMetricIds.isEmpty()) {
+            return Map.of();
+        }
+        List<RiskMetricCatalog> catalogs = riskMetricCatalogMapper.selectList(new LambdaQueryWrapper<RiskMetricCatalog>()
+                .select(RiskMetricCatalog::getId, RiskMetricCatalog::getProductId)
+                .eq(RiskMetricCatalog::getDeleted, 0)
+                .in(RiskMetricCatalog::getId, riskMetricIds));
+        if (catalogs == null || catalogs.isEmpty()) {
+            return Map.of();
+        }
+        return catalogs.stream()
+                .filter(catalog -> catalog.getId() != null)
+                .filter(catalog -> catalog.getProductId() != null)
+                .collect(Collectors.toMap(RiskMetricCatalog::getId, RiskMetricCatalog::getProductId, (left, right) -> left));
+    }
+
+    private Map<Long, Product> loadProductsById(Set<Long> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Product> products = productMapper.selectList(new LambdaQueryWrapper<Product>()
+                .eq(Product::getDeleted, 0)
+                .in(Product::getId, productIds));
+        if (products == null || products.isEmpty()) {
+            return Map.of();
+        }
+        return products.stream()
+                .filter(product -> product.getId() != null)
+                .collect(Collectors.toMap(Product::getId, Function.identity(), (left, right) -> left));
+    }
+
+    private boolean matchesProduct(RiskPointDevice binding, Long productId, Map<Long, Long> deviceProductIds) {
+        if (productId == null) {
+            return true;
+        }
+        if (binding == null || binding.getDeviceId() == null || deviceProductIds == null) {
+            return false;
+        }
+        return productId.equals(deviceProductIds.get(binding.getDeviceId()));
     }
 
     private String toMissingPolicyDimensionKey(RiskPointDevice binding) {
@@ -1206,6 +1439,98 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         return StringUtils.hasText(metricName) ? metricName.trim() : null;
     }
 
+    private static class MissingPolicyProductMetricAccumulator {
+        private final Long productId;
+        private final String productKey;
+        private final String productName;
+        private final Product product;
+        private final Long riskMetricId;
+        private final String metricIdentifier;
+        private final String metricName;
+        private long bindingCount;
+        private final Set<Long> riskPointIds = new LinkedHashSet<>();
+        private final Set<Long> deviceIds = new LinkedHashSet<>();
+
+        MissingPolicyProductMetricAccumulator(Long productId, Product product, RiskPointDevice firstBinding) {
+            this.productId = productId;
+            this.product = product;
+            this.productKey = product == null ? null : product.getProductKey();
+            this.productName = product == null ? null : product.getProductName();
+            this.riskMetricId = firstBinding == null ? null : firstBinding.getRiskMetricId();
+            this.metricIdentifier = firstBinding == null ? null : firstBinding.getMetricIdentifier();
+            this.metricName = firstBinding == null ? null : firstBinding.getMetricName();
+        }
+
+        void add(RiskPointDevice binding) {
+            if (binding == null) {
+                return;
+            }
+            bindingCount++;
+            if (binding.getRiskPointId() != null) {
+                riskPointIds.add(binding.getRiskPointId());
+            }
+            if (binding.getDeviceId() != null) {
+                deviceIds.add(binding.getDeviceId());
+            }
+        }
+
+        long getBindingCount() {
+            return bindingCount;
+        }
+
+        String getProductName() {
+            return productName;
+        }
+
+        String getMetricIdentifier() {
+            return metricIdentifier;
+        }
+
+        RiskGovernanceMissingPolicyProductMetricSummaryVO toVO(
+                ThresholdPolicyRecommendationService thresholdPolicyRecommendationService) {
+            RiskGovernanceMissingPolicyProductMetricSummaryVO item = new RiskGovernanceMissingPolicyProductMetricSummaryVO();
+            item.setProductId(productId);
+            item.setProductKey(productKey);
+            item.setProductName(productName);
+            item.setRiskMetricId(riskMetricId);
+            item.setMetricIdentifier(metricIdentifier);
+            item.setMetricName(metricName);
+            item.setBindingCount(bindingCount);
+            item.setRiskPointCount((long) riskPointIds.size());
+            item.setDeviceCount((long) deviceIds.size());
+            applyRecommendation(item, thresholdPolicyRecommendationService);
+            return item;
+        }
+
+        private void applyRecommendation(RiskGovernanceMissingPolicyProductMetricSummaryVO item,
+                                         ThresholdPolicyRecommendationService thresholdPolicyRecommendationService) {
+            if (thresholdPolicyRecommendationService == null) {
+                return;
+            }
+            try {
+                ThresholdPolicyRecommendationService.ThresholdPolicyRecommendation recommendation =
+                        thresholdPolicyRecommendationService.recommend(product, metricIdentifier, Set.copyOf(deviceIds));
+                if (recommendation == null) {
+                    return;
+                }
+                item.setRecommendationWindowDays(recommendation.windowDays());
+                item.setRecommendationSampleCount(recommendation.sampleCount());
+                item.setRecommendationMinValue(recommendation.minValue());
+                item.setRecommendationMaxValue(recommendation.maxValue());
+                item.setRecommendationAvgValue(recommendation.avgValue());
+                item.setRecommendedExpression(recommendation.recommendedExpression());
+                item.setRecommendedLowerExpression(recommendation.recommendedLowerExpression());
+                item.setRecommendedUpperExpression(recommendation.recommendedUpperExpression());
+                item.setRecommendationStatus(recommendation.status());
+                item.setRecommendationDirection(recommendation.direction());
+                item.setRecommendationReason(recommendation.reason());
+            } catch (RuntimeException ignored) {
+                item.setRecommendationStatus("UNAVAILABLE");
+                item.setRecommendationReason("recommendation query failed");
+            }
+        }
+    }
+
     record ReleaseModelSnapshotItem(
             String modelType,
             String identifier,
@@ -1229,7 +1554,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         return query == null || query.getPageSize() == null || query.getPageSize() < 1 ? 10L : Math.min(query.getPageSize(), 100L);
     }
 
-    private PageResult<RiskGovernanceGapItemVO> toPage(List<RiskGovernanceGapItemVO> items, long pageNum, long pageSize) {
+    private <T> PageResult<T> toPage(List<T> items, long pageNum, long pageSize) {
         if (items == null || items.isEmpty()) {
             return PageResult.empty(pageNum, pageSize);
         }

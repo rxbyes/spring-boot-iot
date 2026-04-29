@@ -2,61 +2,102 @@ package com.ghlzm.iot.alarm.service.impl;
 
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogPublishRule;
 import com.ghlzm.iot.device.entity.Device;
+import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
  * 风险指标目录发布规则默认实现。
+ *
+ * <p>目录准入真相源只来自契约字段页显式保存的
+ * {@code metadataJson.objectInsight.customMetrics[]} 中
+ * {@code group=measure && enabled=true && includeInTrend=true} 的正式字段。</p>
  */
 @Component
 public class DefaultRiskMetricCatalogPublishRule implements RiskMetricCatalogPublishRule {
 
-    /**
-     * 以场景键聚合可发布指标，后续扩展只需追加场景与字段集合。
-     */
-    private static final Map<String, List<String>> SCENARIO_PUBLISHABLE_IDENTIFIERS = Map.of(
-            "phase1-crack", List.of("value"),
-            "phase2-gnss", List.of("gpsTotalX", "gpsTotalY", "gpsTotalZ"),
-            "phase3-deep-displacement", List.of("dispsX", "dispsY"),
-            "phase4-rain-gauge", List.of("value")
-    );
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     @Override
     public Set<String> resolveRiskEnabledIdentifiers(Device device, List<ProductModel> releasedContracts) {
-        if (releasedContracts == null || releasedContracts.isEmpty()) {
+        return Set.of();
+    }
+
+    @Override
+    public Set<String> resolveRiskEnabledIdentifiers(Product product,
+                                                     String scenarioCode,
+                                                     Device device,
+                                                     List<ProductModel> releasedContracts) {
+        if (releasedContracts == null || releasedContracts.isEmpty() || product == null) {
             return Set.of();
         }
-        Set<String> releasedIdentifiers = collectReleasedIdentifiers(releasedContracts);
-        if (releasedIdentifiers.isEmpty()) {
+        Set<String> measureTruthIdentifiers = resolveMeasureTruthIdentifiers(product.getMetadataJson());
+        if (measureTruthIdentifiers.isEmpty()) {
             return Set.of();
         }
         Set<String> enabledIdentifiers = new LinkedHashSet<>();
-        for (List<String> publishableIdentifiers : SCENARIO_PUBLISHABLE_IDENTIFIERS.values()) {
-            for (String identifier : publishableIdentifiers) {
-                if (releasedIdentifiers.contains(identifier)) {
-                    enabledIdentifiers.add(identifier);
-                }
+        for (ProductModel contract : releasedContracts) {
+            if (contract == null) {
+                continue;
+            }
+            String modelType = normalize(contract.getModelType());
+            if (StringUtils.hasText(modelType) && !"property".equalsIgnoreCase(modelType)) {
+                continue;
+            }
+            String identifier = normalize(contract.getIdentifier());
+            if (StringUtils.hasText(identifier) && measureTruthIdentifiers.contains(identifier)) {
+                enabledIdentifiers.add(identifier);
             }
         }
         return enabledIdentifiers;
     }
 
-    private Set<String> collectReleasedIdentifiers(List<ProductModel> releasedContracts) {
-        Map<String, String> normalizedByIdentifier = new LinkedHashMap<>();
-        for (ProductModel contract : releasedContracts) {
-            String identifier = normalize(contract == null ? null : contract.getIdentifier());
-            if (identifier != null) {
-                normalizedByIdentifier.put(identifier, identifier);
+    private Set<String> resolveMeasureTruthIdentifiers(String metadataJson) {
+        JsonNode customMetrics = readCustomMetrics(metadataJson);
+        if (customMetrics == null || !customMetrics.isArray()) {
+            return Set.of();
+        }
+        Set<String> identifiers = new LinkedHashSet<>();
+        for (JsonNode item : customMetrics) {
+            if (item == null || !item.isObject()) {
+                continue;
+            }
+            String identifier = normalize(item.path("identifier").asText(null));
+            String group = normalize(item.path("group").asText(null));
+            boolean enabled = !item.has("enabled") || item.path("enabled").asBoolean(true);
+            boolean includeInTrend = !item.has("includeInTrend") || item.path("includeInTrend").asBoolean(true);
+            if (StringUtils.hasText(identifier)
+                    && "measure".equalsIgnoreCase(group)
+                    && enabled
+                    && includeInTrend) {
+                identifiers.add(identifier);
             }
         }
-        return new LinkedHashSet<>(normalizedByIdentifier.values());
+        return identifiers;
+    }
+
+    private JsonNode readCustomMetrics(String metadataJson) {
+        String normalized = normalize(metadataJson);
+        if (!StringUtils.hasText(normalized)) {
+            return null;
+        }
+        try {
+            JsonNode root = objectMapper.readTree(normalized);
+            if (root == null || !root.isObject()) {
+                return null;
+            }
+            return root.path("objectInsight").path("customMetrics");
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     private String normalize(String value) {

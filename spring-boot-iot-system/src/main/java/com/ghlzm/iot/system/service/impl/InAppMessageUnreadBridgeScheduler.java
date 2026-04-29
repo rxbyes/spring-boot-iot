@@ -1,6 +1,7 @@
 package com.ghlzm.iot.system.service.impl;
 
 import com.ghlzm.iot.system.service.InAppMessageUnreadBridgeService;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Component;
  * 站内消息未读桥接调度器。
  */
 @Component
+@ConditionalOnProperty(value = "iot.scheduling.enabled", havingValue = "true", matchIfMissing = true)
 public class InAppMessageUnreadBridgeScheduler {
 
     private final InAppMessageUnreadBridgeService inAppMessageUnreadBridgeService;

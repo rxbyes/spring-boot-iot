@@ -1,0 +1,30 @@
+{
+  "version": "1.0.0",
+  "policyName": "quality-factory-default-readiness",
+  "rules": {
+    "missingScenarioRefs": {
+      "severity": "error",
+      "allowScenarioRefs": []
+    },
+    "unreferencedScenarios": {
+      "severity": "warning",
+      "allowScenarioIds": [],
+      "allowScopes": ["baseline"]
+    },
+    "metadata": {
+      "severity": "error",
+      "requiredPriorities": ["P1", "P2"]
+    },
+    "minimumScenarioCountByPriority": {
+      "severity": "error",
+      "minimums": {
+        "P0": 1,
+        "P1": 1
+      }
+    },
+    "requiredRunnerTypes": {
+      "severity": "warning",
+      "runnerTypes": ["browserPlan", "apiSmoke"]
+    }
+  }
+}

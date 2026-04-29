@@ -1,5 +1,6 @@
 package com.ghlzm.iot.admin.observability.alerting;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -7,6 +8,7 @@ import org.springframework.stereotype.Component;
  * 规则化运维告警调度器。
  */
 @Component
+@ConditionalOnProperty(value = "iot.scheduling.enabled", havingValue = "true", matchIfMissing = true)
 public class ObservabilityAlertingScheduler {
 
     private final ObservabilityAlertingService observabilityAlertingService;

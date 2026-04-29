@@ -231,6 +231,7 @@ import { getRiskMonitoringGisPoints, getRiskMonitoringList, type RiskMonitoringG
 import { getRiskPointList, type RiskPoint } from '../api/riskPoint';
 import type { IdType } from '../types/api';
 import { resolveWorkbenchActionColumnWidth } from '../utils/adaptiveActionColumn';
+import { normalizeOptionalId } from '../utils/id';
 import { getRiskLevelTagType, getRiskLevelText } from '../utils/riskLevel';
 
 interface SelectOption {
@@ -244,7 +245,7 @@ const points = ref<RiskMonitoringGisPoint[]>([]);
 const riskPoints = ref<RiskPoint[]>([]);
 const regionOptions = ref<SelectOption[]>([]);
 const detailVisible = ref(false);
-const activeBindingId = ref<number | null>(null);
+const activeBindingId = ref<IdType | null>(null);
 const gisAdvice = '优先补齐未定位风险点的经纬度信息';
 const gisRowActions = [{ command: 'detail' as const, label: '详情' }];
 const { pagination: locatedPagination, applyLocalRecords: applyLocatedRecords, resetPage: resetLocatedPage, setPageNum: setLocatedPageNum, setPageSize: setLocatedPageSize } = useServerPagination();
@@ -388,8 +389,8 @@ async function openDetailByRiskPoint(riskPointId: IdType) {
       ElMessage.warning('当前风险点没有可用的监测绑定详情');
       return;
     }
-    const normalizedBindingId = Number(bindingId);
-    if (Number.isNaN(normalizedBindingId)) {
+    const normalizedBindingId = normalizeOptionalId(bindingId);
+    if (normalizedBindingId === undefined) {
       ElMessage.warning('监测详情标识无效');
       return;
     }

@@ -36,9 +36,9 @@
       </div>
     </div>
 
-    <div class="business-acceptance-result-summary-panel__actions">
-      <StandardButton action="query" @click="$emit('open-automation-results')">
-        进入结果与基线中心
+    <div v-if="showEvidenceAction" class="business-acceptance-result-summary-panel__actions">
+      <StandardButton v-permission="'system:business-acceptance:open-result'" action="query" @click="$emit('open-automation-results')">
+        进入结果证据
       </StandardButton>
     </div>
   </PanelCard>
@@ -58,6 +58,7 @@ const props = defineProps<{
   failedModuleCount: number;
   failedModuleNames: string[];
   durationText?: string;
+  showEvidenceAction?: boolean;
 }>();
 
 defineEmits<{
@@ -91,7 +92,7 @@ const summaryMessage = computed(() => {
   if (props.failedModuleCount > 0) {
     return `本次业务验收共有 ${props.failedModuleCount} 个模块未通过，请继续展开模块明细查看失败步骤、接口和页面动作。`;
   }
-  return `本次业务验收共通过 ${props.passedModuleCount} 个模块，可按需进入结果与基线中心查看底层证据。`;
+  return `本次业务验收共通过 ${props.passedModuleCount} 个模块，可按需进入自动化治理台查看结果证据。`;
 });
 </script>
 

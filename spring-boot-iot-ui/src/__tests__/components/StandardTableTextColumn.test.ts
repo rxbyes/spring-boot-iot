@@ -17,6 +17,14 @@ const ElTableColumnStub = defineComponent({
     'showOverflowTooltip'
   ],
   setup(props, { slots }) {
+    const scope = {
+      row: {
+        deviceCode: 'D-001',
+        deviceName: 'North Slope Gateway',
+        productKey: 'demo-product'
+      }
+    }
+
     return () =>
       h('div', { class: 'el-table-column-stub', 'data-prop': props.prop as string }, [
         h(
@@ -33,18 +41,18 @@ const ElTableColumnStub = defineComponent({
         h(
           'div',
           { class: 'el-table-column-stub__default' },
-          slots.default?.({ row: { deviceCode: 'D-001' } }) ?? []
+          slots.default?.(scope) ?? []
         )
       ])
   }
 })
 
 describe('StandardTableTextColumn', () => {
-  it('passes column props without creating custom slots when none are provided', () => {
+  it('passes column props and renders fallback text content when no slots are provided', () => {
     const wrapper = mount(StandardTableTextColumn, {
       props: {
         prop: 'deviceCode',
-        label: '设备编码'
+        label: 'Device Code'
       },
       global: {
         stubs: {
@@ -55,19 +63,17 @@ describe('StandardTableTextColumn', () => {
 
     expect(wrapper.find('.el-table-column-stub').attributes('data-prop')).toBe('deviceCode')
     expect(wrapper.find('.el-table-column-stub__header').text()).toBe('')
-    expect(wrapper.find('.el-table-column-stub__default').text()).toBe('')
+    expect(wrapper.find('.el-table-column-stub__default').text()).toContain('D-001')
     expect(wrapper.find('.el-table-column-stub__header').attributes('data-tooltip')).toContain('top-start')
+    expect(wrapper.find('.standard-table-text__primary--solo').text()).toBe('D-001')
   })
 
-  it('renders header and default slots through a stable slot object', () => {
+  it('renders stacked primary and secondary text when a secondary prop is provided', () => {
     const wrapper = mount(StandardTableTextColumn, {
       props: {
-        prop: 'deviceCode',
-        label: '设备编码'
-      },
-      slots: {
-        header: '<span class="custom-header">自定义表头</span>',
-        default: '<span class="custom-cell">自定义单元格</span>'
+        prop: 'deviceName',
+        label: 'Device',
+        secondaryProp: 'deviceCode'
       },
       global: {
         stubs: {
@@ -76,7 +82,28 @@ describe('StandardTableTextColumn', () => {
       }
     })
 
-    expect(wrapper.find('.custom-header').text()).toBe('自定义表头')
-    expect(wrapper.find('.custom-cell').text()).toBe('自定义单元格')
+    expect(wrapper.find('.standard-table-text__primary').text()).toBe('North Slope Gateway')
+    expect(wrapper.find('.standard-table-text__secondary').text()).toBe('D-001')
+  })
+
+  it('keeps custom default and secondary slots inside the shared text stack', () => {
+    const wrapper = mount(StandardTableTextColumn, {
+      props: {
+        label: 'Product'
+      },
+      slots: {
+        default: '<span class="custom-primary">Demo Product</span>',
+        secondary: '<span class="custom-secondary">demo-product</span>'
+      },
+      global: {
+        stubs: {
+          'el-table-column': ElTableColumnStub
+        }
+      }
+    })
+
+    expect(wrapper.find('.custom-primary').text()).toBe('Demo Product')
+    expect(wrapper.find('.custom-secondary').text()).toBe('demo-product')
+    expect(wrapper.find('.standard-table-text__secondary').exists()).toBe(true)
   })
 })

@@ -85,7 +85,7 @@ const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
   props: ['title', 'description'],
   template: `
-    <section class="device-onboarding-panel">
+    <section class="device-onboarding-panel standard-workbench-panel--workbench-foundation">
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <slot name="filters" />
@@ -114,6 +114,17 @@ const StandardButtonStub = defineComponent({
   template: '<button type="button" @click="$emit(\'click\')"><slot /></button>'
 })
 
+const StandardListFilterHeaderStub = defineComponent({
+  name: 'StandardListFilterHeader',
+  template: `
+    <section class="device-onboarding-filter-header standard-list-filter-header--workbench-foundation">
+      <slot name="primary" />
+      <slot name="advanced" />
+      <slot name="actions" />
+    </section>
+  `
+})
+
 function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
@@ -126,12 +137,88 @@ function mountView() {
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         PanelCard: PanelCardStub,
         StandardButton: StandardButtonStub,
-        StandardListFilterHeader: true,
+        StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardTableToolbar: true,
         StandardPagination: true
       }
     }
   })
+}
+
+function buildCaseRecords() {
+  return [
+    {
+      id: 9101,
+      tenantId: 1,
+      caseCode: 'CASE-9101',
+      caseName: '裂缝传感器接入',
+      scenarioCode: 'phase1-crack',
+      deviceFamily: 'crack_sensor',
+      protocolFamilyCode: null,
+      decryptProfileCode: null,
+      protocolTemplateCode: null,
+      productId: null,
+      releaseBatchId: null,
+      currentStep: 'PRODUCT_GOVERNANCE',
+      status: 'BLOCKED',
+      blockers: ['待绑定产品并完成契约治理']
+    },
+    {
+      id: 9201,
+      tenantId: 1,
+      caseCode: 'CASE-9201',
+      caseName: '裂缝传感器验收通过',
+      scenarioCode: 'phase1-crack',
+      deviceFamily: 'crack_sensor',
+      protocolFamilyCode: 'legacy-dp-crack',
+      decryptProfileCode: 'aes-62000002',
+      protocolTemplateCode: 'nf-crack-v1',
+      productId: 1001,
+      releaseBatchId: 88001,
+      deviceCode: 'DEV-9201',
+      currentStep: 'ACCEPTANCE',
+      status: 'READY',
+      blockers: [],
+      acceptance: {
+        jobId: 'doa-job-9201',
+        runId: '20260418193000',
+        status: 'PASSED',
+        summary: '8/8 检查项通过',
+        failedLayers: [],
+        jumpPath: '/automation-governance?tab=evidence&runId=20260418193000'
+      }
+    },
+    {
+      id: 9301,
+      tenantId: 1,
+      caseCode: 'CASE-9301',
+      caseName: '雨量计接入待验收',
+      scenarioCode: 'phase4-rain-gauge',
+      deviceFamily: 'rain_gauge',
+      protocolFamilyCode: 'legacy-dp-rain',
+      decryptProfileCode: 'aes-62000003',
+      protocolTemplateCode: 'nf-rain-v1',
+      productId: 1002,
+      releaseBatchId: 88002,
+      deviceCode: 'DEV-9301',
+      currentStep: 'ACCEPTANCE',
+      status: 'READY',
+      blockers: []
+    }
+  ]
+}
+
+function buildCasePageResponse(records = buildCaseRecords()) {
+  return {
+    code: 200,
+    msg: 'success',
+    data: {
+      total: records.length,
+      pageNum: 1,
+      pageSize: 10,
+      records
+    }
+  }
 }
 
 describe('DeviceOnboardingWorkbenchView', () => {
@@ -151,75 +238,7 @@ describe('DeviceOnboardingWorkbenchView', () => {
     mockMessageError.mockReset()
     mockRouter.push.mockReset()
 
-    mockPageDeviceOnboardingCases.mockResolvedValue({
-      code: 200,
-      msg: 'success',
-      data: {
-        total: 1,
-        pageNum: 1,
-        pageSize: 10,
-        records: [
-          {
-            id: 9101,
-            tenantId: 1,
-            caseCode: 'CASE-9101',
-            caseName: '裂缝传感器接入',
-            scenarioCode: 'phase1-crack',
-            deviceFamily: 'crack_sensor',
-            protocolFamilyCode: null,
-            decryptProfileCode: null,
-            protocolTemplateCode: null,
-            productId: null,
-            releaseBatchId: null,
-            currentStep: 'PRODUCT_GOVERNANCE',
-            status: 'BLOCKED',
-            blockers: ['待绑定产品并完成契约治理']
-          },
-          {
-            id: 9201,
-            tenantId: 1,
-            caseCode: 'CASE-9201',
-            caseName: '裂缝传感器验收通过',
-            scenarioCode: 'phase1-crack',
-            deviceFamily: 'crack_sensor',
-            protocolFamilyCode: 'legacy-dp-crack',
-            decryptProfileCode: 'aes-62000002',
-            protocolTemplateCode: 'nf-crack-v1',
-            productId: 1001,
-            releaseBatchId: 88001,
-            deviceCode: 'DEV-9201',
-            currentStep: 'ACCEPTANCE',
-            status: 'READY',
-            blockers: [],
-            acceptance: {
-              jobId: 'doa-job-9201',
-              runId: '20260418193000',
-              status: 'PASSED',
-              summary: '8/8 检查项通过',
-              failedLayers: [],
-              jumpPath: '/automation-results?runId=20260418193000'
-            }
-          },
-          {
-            id: 9301,
-            tenantId: 1,
-            caseCode: 'CASE-9301',
-            caseName: '雨量计接入待验收',
-            scenarioCode: 'phase4-rain-gauge',
-            deviceFamily: 'rain_gauge',
-            protocolFamilyCode: 'legacy-dp-rain',
-            decryptProfileCode: 'aes-62000003',
-            protocolTemplateCode: 'nf-rain-v1',
-            productId: 1002,
-            releaseBatchId: 88002,
-            deviceCode: 'DEV-9301',
-            currentStep: 'ACCEPTANCE',
-            status: 'READY',
-            blockers: []
-          }
-        ]
-      }
-    })
+    mockPageDeviceOnboardingCases.mockResolvedValue(buildCasePageResponse())
     mockCreateDeviceOnboardingCase.mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -408,10 +427,13 @@ describe('DeviceOnboardingWorkbenchView', () => {
     const wrapper = mountView()
     await flushPromises()
 
+    expect(wrapper.find('.standard-workbench-panel--workbench-foundation').exists()).toBe(true)
+    expect(wrapper.find('.standard-list-filter-header--workbench-foundation').exists()).toBe(true)
     expect(wrapper.text()).toContain('无代码接入台')
+    expect(wrapper.text()).toContain('产品相关执行统一跳到产品工作台处理')
     expect(wrapper.text()).toContain('裂缝传感器接入')
     expect(wrapper.text()).toContain('待绑定产品并完成契约治理')
-    expect(wrapper.text()).toContain('前往产品治理')
+    expect(wrapper.text()).toContain('前往产品列表')
     expect(wrapper.text()).toContain('阻塞案例')
   })
 
@@ -431,6 +453,23 @@ describe('DeviceOnboardingWorkbenchView', () => {
       deviceCode: 'DEV-9102'
     }))
     expect(mockMessageSuccess).toHaveBeenCalled()
+  })
+
+  it('preserves 18-digit product ids when creating onboarding cases', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="onboarding-case-code"]').setValue('CASE-9103')
+    await wrapper.get('[data-testid="onboarding-case-name"]').setValue('GNSS 接入')
+    await wrapper.get('input[placeholder="可选，填正式产品 ID"]').setValue('202603192100560252')
+    await wrapper.get('[data-testid="onboarding-save"]').trigger('click')
+    await flushPromises()
+
+    expect(mockCreateDeviceOnboardingCase).toHaveBeenCalledWith(expect.objectContaining({
+      caseCode: 'CASE-9103',
+      caseName: 'GNSS 接入',
+      productId: '202603192100560252'
+    }))
   })
 
   it('applies template pack defaults into the onboarding case form', async () => {
@@ -472,19 +511,99 @@ describe('DeviceOnboardingWorkbenchView', () => {
     }))
   })
 
-  it('refreshes row status and routes to products for product governance rows', async () => {
+  it('shows a direct product workbench action only for bound cases', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="onboarding-open-product-9101"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="onboarding-open-product-9201"]').text()).toContain('进入产品工作台')
+
+    await wrapper.get('[data-testid="onboarding-open-product-9201"]').trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith('/products/1001/overview')
+  })
+
+  it('routes product governance rows without productId to the products list', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="onboarding-next-9101"]').text()).toContain('前往产品列表')
+
+    await wrapper.get('[data-testid="onboarding-next-9101"]').trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith('/products')
+  })
+
+  it('routes product governance rows with productId to contract fields', async () => {
+    const governanceRecords = buildCaseRecords().map((row) => {
+      if (row.id !== 9101) {
+        return row
+      }
+      return {
+        ...row,
+        productId: 1001,
+        protocolFamilyCode: 'legacy-dp-crack',
+        decryptProfileCode: 'aes-62000002',
+        protocolTemplateCode: 'nf-crack-v1',
+        currentStep: 'PRODUCT_GOVERNANCE',
+        status: 'BLOCKED',
+        blockers: ['待完成产品契约治理']
+      }
+    })
+
+    mockPageDeviceOnboardingCases.mockReset()
+    mockPageDeviceOnboardingCases.mockResolvedValueOnce(buildCasePageResponse(governanceRecords))
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="onboarding-next-9101"]').text()).toContain('前往契约字段')
+
+    await wrapper.get('[data-testid="onboarding-next-9101"]').trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith('/products/1001/contracts')
+  })
+
+  it('routes refreshed contract release rows with productId to contract fields', async () => {
+    const refreshedRecords = buildCaseRecords().map((row) => {
+      if (row.id !== 9101) {
+        return row
+      }
+      return {
+        ...row,
+        productId: 1001,
+        releaseBatchId: 88001,
+        currentStep: 'CONTRACT_RELEASE',
+        status: 'IN_PROGRESS',
+        blockers: ['待发布正式合同批次']
+      }
+    })
+
+    mockPageDeviceOnboardingCases.mockReset()
+    mockPageDeviceOnboardingCases
+      .mockResolvedValueOnce(buildCasePageResponse())
+      .mockResolvedValueOnce(buildCasePageResponse(refreshedRecords))
+    mockRefreshDeviceOnboardingCaseStatus.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: refreshedRecords[0]
+    })
+
     const wrapper = mountView()
     await flushPromises()
 
     await wrapper.get('[data-testid="onboarding-refresh-9101"]').trigger('click')
     await flushPromises()
+
+    expect(wrapper.get('[data-testid="onboarding-next-9101"]').text()).toContain('前往契约字段')
+
     await wrapper.get('[data-testid="onboarding-next-9101"]').trigger('click')
 
     expect(mockRefreshDeviceOnboardingCaseStatus).toHaveBeenCalledWith(9101)
-    expect(mockRouter.push).toHaveBeenCalledWith('/products')
+    expect(mockRouter.push).toHaveBeenCalledWith('/products/1001/contracts')
   })
 
-  it('shows acceptance summary and jumps to automation results when run exists', async () => {
+  it('shows acceptance summary and routes run links into governance evidence', async () => {
     const wrapper = mountView()
     await flushPromises()
 
@@ -492,7 +611,7 @@ describe('DeviceOnboardingWorkbenchView', () => {
 
     await wrapper.get('[data-testid="onboarding-result-9201"]').trigger('click')
 
-    expect(mockRouter.push).toHaveBeenCalledWith('/automation-results?runId=20260418193000')
+    expect(mockRouter.push).toHaveBeenCalledWith('/automation-governance?tab=evidence&runId=20260418193000')
   })
 
   it('starts acceptance for ready acceptance rows', async () => {

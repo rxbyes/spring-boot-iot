@@ -18,6 +18,10 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.service.DeviceService;
+import com.ghlzm.iot.device.service.MetricIdentifierResolver;
+import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
+import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
+import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
@@ -1038,6 +1042,73 @@ class RiskPointServiceImplTest {
     }
 
     @Test
+    void bindDeviceAndReturnShouldRestoreSoftDeletedBindingWhenUniqueKeyStillOccupied() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                null,
+                deviceService
+        ));
+
+        RiskPointDevice request = new RiskPointDevice();
+        request.setRiskPointId(60L);
+        request.setDeviceId(1987748663115309057L);
+        request.setDeviceCode("SJ11F4148737700A");
+        request.setDeviceName("SJ11F4148737700A");
+        request.setRiskMetricId(6101L);
+        request.setMetricIdentifier("gX");
+        request.setMetricName("gX");
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(60L);
+        riskPoint.setOrgId(7101L);
+        riskPoint.setTenantId(1L);
+        Device device = activeDevice(1987748663115309057L, 7101L, "SJ11F4148737700A");
+
+        RiskPointDevice softDeleted = new RiskPointDevice();
+        softDeleted.setId(9003L);
+        softDeleted.setRiskPointId(60L);
+        softDeleted.setDeviceId(1987748663115309057L);
+        softDeleted.setMetricIdentifier("gX");
+        softDeleted.setDeleted(1);
+        softDeleted.setCreateBy(1000L);
+
+        doReturn(riskPoint).when(service).getById(60L);
+        doReturn(riskPoint).when(service).getById(60L, 1001L);
+        when(deviceService.getRequiredById(1001L, 1987748663115309057L)).thenReturn(device);
+        doReturn(null).when(deviceMapper).selectOne(any());
+        doReturn(softDeleted).when(deviceMapper).findSoftDeletedBinding(60L, 1987748663115309057L, "gX");
+        doReturn(List.of()).when(deviceMapper).selectList(any());
+        doAnswer(invocation -> 1).when(deviceMapper).restoreSoftDeletedBinding(any(RiskPointDevice.class));
+
+        RiskPointDevice saved = service.bindDeviceAndReturn(request, 1001L);
+
+        assertEquals(9003L, saved.getId());
+        assertEquals(0, saved.getDeleted());
+        assertEquals(1000L, saved.getCreateBy());
+        assertEquals(1001L, saved.getUpdateBy());
+        assertNotNull(saved.getUpdateTime());
+        verify(deviceMapper, never()).insert(any(RiskPointDevice.class));
+        verify(deviceMapper).restoreSoftDeletedBinding(argThat((RiskPointDevice binding) ->
+                Long.valueOf(9003L).equals(binding.getId())
+                        && Long.valueOf(60L).equals(binding.getRiskPointId())
+                        && Long.valueOf(1987748663115309057L).equals(binding.getDeviceId())
+                        && "SJ11F4148737700A".equals(binding.getDeviceCode())
+                        && "gX".equals(binding.getMetricIdentifier())
+                        && Integer.valueOf(0).equals(binding.getDeleted())
+        ));
+    }
+
+    @Test
     void bindDeviceAndReturnShouldRejectMismatchedCatalogIdentifier() {
         RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
         OrganizationService organizationService = mock(OrganizationService.class);
@@ -1086,6 +1157,88 @@ class RiskPointServiceImplTest {
 
         assertEquals("目录指标与测点标识符不一致", error.getMessage());
         verify(deviceMapper, never()).insert(any(RiskPointDevice.class));
+    }
+
+    @Test
+    void bindDeviceAndReturnShouldNormalizeCatalogMetricIdentifierToRuntimeAlias() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        RiskMetricCatalogService riskMetricCatalogService = mock(RiskMetricCatalogService.class);
+        PublishedProductContractSnapshotService snapshotService = mock(PublishedProductContractSnapshotService.class);
+        MetricIdentifierResolver metricIdentifierResolver = mock(MetricIdentifierResolver.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                null,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                null,
+                deviceService,
+                riskMetricCatalogService,
+                null,
+                snapshotService,
+                metricIdentifierResolver
+        ));
+
+        RiskPointDevice request = new RiskPointDevice();
+        request.setRiskPointId(12L);
+        request.setDeviceId(2001L);
+        request.setRiskMetricId(9101L);
+        request.setMetricIdentifier("L1_LF_1.value");
+        request.setMetricName("裂缝量");
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setOrgId(7101L);
+        riskPoint.setTenantId(1L);
+        Device device = activeDevice(2001L, 7101L, "ops-device-01");
+        device.setProductId(3001L);
+        RiskMetricCatalog catalog = new RiskMetricCatalog();
+        catalog.setId(9101L);
+        catalog.setProductId(3001L);
+        catalog.setContractIdentifier("L1_LF_1.value");
+        catalog.setRiskMetricName("裂缝量");
+        PublishedProductContractSnapshot snapshot = PublishedProductContractSnapshot.builder()
+                .productId(3001L)
+                .publishedIdentifier("L1_LF_1.value")
+                .canonicalAlias("L1_LF_1.value", "value")
+                .canonicalAlias("value", "value")
+                .build();
+
+        doReturn(riskPoint).when(service).getById(12L);
+        doReturn(riskPoint).when(service).getById(12L, 1001L);
+        doReturn(null).when(deviceMapper).selectOne(any());
+        doReturn(List.of()).when(deviceMapper).selectList(any());
+        when(deviceService.getRequiredById(1001L, 2001L)).thenReturn(device);
+        when(riskMetricCatalogService.getById(9101L)).thenReturn(catalog);
+        when(snapshotService.getRequiredSnapshot(3001L)).thenReturn(snapshot);
+        when(metricIdentifierResolver.resolveForRuntime(snapshot, "L1_LF_1.value"))
+                .thenReturn(MetricIdentifierResolution.of(
+                        "L1_LF_1.value",
+                        "value",
+                        MetricIdentifierResolution.SOURCE_PUBLISHED_SNAPSHOT
+                ));
+        doAnswer(invocation -> {
+            RiskPointDevice saved = invocation.getArgument(0);
+            saved.setId(9004L);
+            return 1;
+        }).when(deviceMapper).insert(any(RiskPointDevice.class));
+
+        RiskPointDevice saved = service.bindDeviceAndReturn(request, 1001L);
+
+        assertEquals("value", saved.getMetricIdentifier());
+        assertEquals("裂缝量", saved.getMetricName());
+        verify(deviceMapper).insert(org.mockito.ArgumentMatchers.<RiskPointDevice>argThat(binding ->
+                Long.valueOf(12L).equals(binding.getRiskPointId())
+                        && Long.valueOf(2001L).equals(binding.getDeviceId())
+                        && "value".equals(binding.getMetricIdentifier())
+                        && "裂缝量".equals(binding.getMetricName())
+        ));
     }
 
     @Test
@@ -1441,6 +1594,38 @@ class RiskPointServiceImplTest {
         String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
         assertTrue(sqlSegment.contains("tenant_id"));
         assertTrue(sqlSegment.contains("responsible_user") || sqlSegment.contains("create_by"));
+    }
+
+    @Test
+    void pageRiskPointsShouldUseStableUniqueOrdering() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService
+        ));
+
+        Page<RiskPoint> page = new Page<>(1L, 10L);
+        page.setRecords(List.of());
+        page.setTotal(0L);
+        doReturn(page).when(service).page(any(Page.class), any(LambdaQueryWrapper.class));
+
+        service.pageRiskPoints(null, null, null, null, 1L, 10L);
+
+        @SuppressWarnings("unchecked")
+        org.mockito.ArgumentCaptor<LambdaQueryWrapper<RiskPoint>> wrapperCaptor = org.mockito.ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(service).page(any(Page.class), wrapperCaptor.capture());
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment().toLowerCase(Locale.ROOT);
+        int createTimeOrderIndex = sqlSegment.indexOf("create_time");
+        int idOrderIndex = sqlSegment.indexOf("id", createTimeOrderIndex + 1);
+        assertTrue(createTimeOrderIndex >= 0, "风险点分页应先按创建时间倒序");
+        assertTrue(idOrderIndex > createTimeOrderIndex, "创建时间相同时应继续按唯一 id 倒序，避免跨页重复");
     }
 
     @Test

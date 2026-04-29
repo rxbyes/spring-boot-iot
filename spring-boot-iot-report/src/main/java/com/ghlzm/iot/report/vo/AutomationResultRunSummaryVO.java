@@ -18,4 +18,6 @@ public class AutomationResultRunSummaryVO {
     private List<String> relatedEvidenceFiles;
     private String status;
     private List<String> runnerTypes;
+    private String packageCode;
+    private String environmentCode;
 }

@@ -3,7 +3,7 @@
     :variant="variant"
     :gap="resolvedGap"
     :distribution="resolvedDistribution"
-    class="standard-workbench-row-actions"
+    class="standard-workbench-row-actions standard-workbench-row-actions--quiet"
   >
     <StandardActionLink
       v-for="(item, index) in resolvedDirectItems"
@@ -27,9 +27,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { getActivePinia } from 'pinia'
 import StandardActionLink from '@/components/StandardActionLink.vue'
 import StandardActionMenu from '@/components/StandardActionMenu.vue'
 import StandardRowActions from '@/components/StandardRowActions.vue'
+import { usePermissionStore } from '@/stores/permission'
 import { splitWorkbenchRowActions, WORKBENCH_TABLE_ACTION_GAP } from '@/utils/adaptiveActionColumn'
 
 defineOptions({
@@ -37,6 +39,7 @@ defineOptions({
 })
 
 type WorkbenchRowCommand = string | number | object
+type WorkbenchActionPermission = string | string[]
 
 interface WorkbenchDirectActionItem {
   key?: string
@@ -45,6 +48,7 @@ interface WorkbenchDirectActionItem {
   disabled?: boolean
   title?: string
   dataTestid?: string
+  permission?: WorkbenchActionPermission
 }
 
 interface WorkbenchMenuActionItem {
@@ -53,6 +57,7 @@ interface WorkbenchMenuActionItem {
   label: string
   disabled?: boolean
   divided?: boolean
+  permission?: WorkbenchActionPermission
 }
 
 const props = withDefaults(
@@ -80,6 +85,30 @@ const emit = defineEmits<{
   (event: 'command', command: WorkbenchRowCommand): void
 }>()
 
+let permissionStore: ReturnType<typeof usePermissionStore> | null = null
+
+function getPermissionStore() {
+  if (!getActivePinia()) {
+    return null
+  }
+  permissionStore = permissionStore ?? usePermissionStore()
+  return permissionStore
+}
+
+function hasActionPermission(permission?: WorkbenchActionPermission) {
+  if (!permission) {
+    return true
+  }
+  const store = getPermissionStore()
+  if (!store) {
+    return true
+  }
+  if (Array.isArray(permission)) {
+    return permission.some((code) => store.hasPermission(code))
+  }
+  return store.hasPermission(permission)
+}
+
 const resolvedGap = computed(() => {
   if (props.variant === 'table') {
     return WORKBENCH_TABLE_ACTION_GAP
@@ -88,8 +117,8 @@ const resolvedGap = computed(() => {
 })
 const resolvedActions = computed(() =>
   splitWorkbenchRowActions({
-    directItems: props.directItems,
-    menuItems: props.menuItems,
+    directItems: props.directItems.filter((item) => hasActionPermission(item.permission)),
+    menuItems: props.menuItems.filter((item) => hasActionPermission(item.permission)),
     maxDirectItems: props.maxDirectItems
   })
 )

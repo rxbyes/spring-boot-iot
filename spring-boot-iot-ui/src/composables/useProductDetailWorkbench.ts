@@ -124,7 +124,8 @@ export function useProductDetailWorkbench() {
       product.value = null
       overviewSummary.value = null
       clearDeviceState()
-      errorMessage.value = '产品编号缺失，无法打开工作区。'
+      loading.value = false
+      errorMessage.value = '当前链接缺少有效产品上下文，请返回产品定义中心重新选择产品。'
       return false
     }
 
@@ -157,7 +158,7 @@ export function useProductDetailWorkbench() {
       product.value = null
       overviewSummary.value = null
       clearDeviceState()
-      errorMessage.value = resolveRequestErrorMessage(error, '加载产品工作区失败')
+      errorMessage.value = '未找到可用的产品上下文，请返回产品定义中心重新选择产品。'
       return false
     } finally {
       if (requestId === latestProductRequestId) {

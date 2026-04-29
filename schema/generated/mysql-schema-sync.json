@@ -1728,6 +1728,36 @@
           "definition": "TINYINT NOT NULL DEFAULT 0",
           "isTag": false,
           "name": "deleted"
+        },
+        {
+          "name": "rule_scope",
+          "definition": "VARCHAR(32) NOT NULL DEFAULT 'METRIC'",
+          "commentZh": "策略作用域",
+          "isTag": false
+        },
+        {
+          "name": "product_type",
+          "definition": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "产品类型模板",
+          "isTag": false
+        },
+        {
+          "name": "product_id",
+          "definition": "BIGINT DEFAULT NULL",
+          "commentZh": "产品ID",
+          "isTag": false
+        },
+        {
+          "name": "device_id",
+          "definition": "BIGINT DEFAULT NULL",
+          "commentZh": "设备ID",
+          "isTag": false
+        },
+        {
+          "name": "risk_point_device_id",
+          "definition": "BIGINT DEFAULT NULL",
+          "commentZh": "风险点设备绑定ID",
+          "isTag": false
         }
       ],
       "name": "rule_definition"
@@ -2416,83 +2446,6 @@
       "columns": [
         {
           "commentZh": "主键",
-          "definition": "BIGINT NOT NULL",
-          "isTag": false,
-          "name": "id"
-        },
-        {
-          "commentZh": "租户ID",
-          "definition": "BIGINT NOT NULL DEFAULT 1",
-          "isTag": false,
-          "name": "tenant_id"
-        },
-        {
-          "commentZh": "设备ID",
-          "definition": "BIGINT NOT NULL",
-          "isTag": false,
-          "name": "device_id"
-        },
-        {
-          "commentZh": "产品ID",
-          "definition": "BIGINT DEFAULT NULL",
-          "isTag": false,
-          "name": "product_id"
-        },
-        {
-          "commentZh": "消息类型（遥测/事件/属性/应答）",
-          "definition": "VARCHAR(32) NOT NULL",
-          "isTag": false,
-          "name": "message_type"
-        },
-        {
-          "commentZh": "主题",
-          "definition": "VARCHAR(255) DEFAULT NULL",
-          "isTag": false,
-          "name": "topic"
-        },
-        {
-          "commentZh": "原始消息",
-          "definition": "JSON DEFAULT NULL",
-          "isTag": false,
-          "name": "payload"
-        },
-        {
-          "commentZh": "上报时间",
-          "definition": "DATETIME NOT NULL",
-          "isTag": false,
-          "name": "report_time"
-        },
-        {
-          "commentZh": "链路追踪ID",
-          "definition": "VARCHAR(64) DEFAULT NULL",
-          "isTag": false,
-          "name": "trace_id"
-        },
-        {
-          "commentZh": "设备编码",
-          "definition": "VARCHAR(64) DEFAULT NULL",
-          "isTag": false,
-          "name": "device_code"
-        },
-        {
-          "commentZh": "产品标识",
-          "definition": "VARCHAR(64) DEFAULT NULL",
-          "isTag": false,
-          "name": "product_key"
-        },
-        {
-          "commentZh": "日志创建时间",
-          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "isTag": false,
-          "name": "create_time"
-        }
-      ],
-      "name": "iot_device_message_log"
-    },
-    {
-      "columns": [
-        {
-          "commentZh": "主键",
           "definition": "BIGINT NOT NULL AUTO_INCREMENT",
           "isTag": false,
           "name": "id"
@@ -3136,6 +3089,285 @@
         }
       ],
       "name": "iot_device_secret_rotation_log"
+    },
+    {
+      "columns": [
+        {
+          "commentZh": "主键",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "id"
+        },
+        {
+          "commentZh": "租户ID",
+          "definition": "BIGINT NOT NULL DEFAULT 1",
+          "isTag": false,
+          "name": "tenant_id"
+        },
+        {
+          "commentZh": "设备ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "device_id"
+        },
+        {
+          "commentZh": "产品ID",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "product_id"
+        },
+        {
+          "commentZh": "消息类型（遥测/事件/属性/应答）",
+          "definition": "VARCHAR(32) NOT NULL",
+          "isTag": false,
+          "name": "message_type"
+        },
+        {
+          "commentZh": "主题",
+          "definition": "VARCHAR(255) DEFAULT NULL",
+          "isTag": false,
+          "name": "topic"
+        },
+        {
+          "commentZh": "原始消息",
+          "definition": "JSON DEFAULT NULL",
+          "isTag": false,
+          "name": "payload"
+        },
+        {
+          "commentZh": "上报时间",
+          "definition": "DATETIME NOT NULL",
+          "isTag": false,
+          "name": "report_time"
+        },
+        {
+          "commentZh": "链路追踪ID",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "trace_id"
+        },
+        {
+          "commentZh": "设备编码",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "device_code"
+        },
+        {
+          "commentZh": "产品标识",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "product_key"
+        },
+        {
+          "commentZh": "日志创建时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "create_time"
+        }
+      ],
+      "name": "iot_message_log"
+    },
+    {
+      "columns": [
+        {
+          "commentZh": "主键",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "id"
+        },
+        {
+          "commentZh": "原热表日志ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "original_log_id"
+        },
+        {
+          "commentZh": "归档批次ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "archive_batch_id"
+        },
+        {
+          "commentZh": "租户ID",
+          "definition": "BIGINT NOT NULL DEFAULT 1",
+          "isTag": false,
+          "name": "tenant_id"
+        },
+        {
+          "commentZh": "设备ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "device_id"
+        },
+        {
+          "commentZh": "产品ID",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "product_id"
+        },
+        {
+          "commentZh": "消息类型（遥测/事件/属性/应答）",
+          "definition": "VARCHAR(32) NOT NULL",
+          "isTag": false,
+          "name": "message_type"
+        },
+        {
+          "commentZh": "主题",
+          "definition": "VARCHAR(255) DEFAULT NULL",
+          "isTag": false,
+          "name": "topic"
+        },
+        {
+          "commentZh": "原始消息",
+          "definition": "JSON DEFAULT NULL",
+          "isTag": false,
+          "name": "payload"
+        },
+        {
+          "commentZh": "上报时间",
+          "definition": "DATETIME NOT NULL",
+          "isTag": false,
+          "name": "report_time"
+        },
+        {
+          "commentZh": "链路追踪ID",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "trace_id"
+        },
+        {
+          "commentZh": "设备编码",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "device_code"
+        },
+        {
+          "commentZh": "产品标识",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "product_key"
+        },
+        {
+          "commentZh": "原日志创建时间",
+          "definition": "DATETIME NOT NULL",
+          "isTag": false,
+          "name": "create_time"
+        },
+        {
+          "commentZh": "归档时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "archived_at"
+        }
+      ],
+      "name": "iot_message_log_archive"
+    },
+    {
+      "columns": [
+        {
+          "commentZh": "主键",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "id"
+        },
+        {
+          "commentZh": "批次号",
+          "definition": "VARCHAR(64) NOT NULL",
+          "isTag": false,
+          "name": "batch_no"
+        },
+        {
+          "commentZh": "来源热表",
+          "definition": "VARCHAR(64) NOT NULL",
+          "isTag": false,
+          "name": "source_table"
+        },
+        {
+          "commentZh": "治理模式",
+          "definition": "VARCHAR(16) NOT NULL",
+          "isTag": false,
+          "name": "governance_mode"
+        },
+        {
+          "commentZh": "批次状态",
+          "definition": "VARCHAR(32) NOT NULL",
+          "isTag": false,
+          "name": "status"
+        },
+        {
+          "commentZh": "保留天数",
+          "definition": "INT NOT NULL",
+          "isTag": false,
+          "name": "retention_days"
+        },
+        {
+          "commentZh": "过期阈值时间",
+          "definition": "DATETIME NOT NULL",
+          "isTag": false,
+          "name": "cutoff_at"
+        },
+        {
+          "commentZh": "确认报告路径",
+          "definition": "VARCHAR(500) DEFAULT NULL",
+          "isTag": false,
+          "name": "confirm_report_path"
+        },
+        {
+          "commentZh": "确认报告生成时间",
+          "definition": "DATETIME DEFAULT NULL",
+          "isTag": false,
+          "name": "confirm_report_generated_at"
+        },
+        {
+          "commentZh": "确认过期行数",
+          "definition": "INT NOT NULL DEFAULT 0",
+          "isTag": false,
+          "name": "confirmed_expired_rows"
+        },
+        {
+          "commentZh": "候选过期行数",
+          "definition": "INT NOT NULL DEFAULT 0",
+          "isTag": false,
+          "name": "candidate_rows"
+        },
+        {
+          "commentZh": "已归档行数",
+          "definition": "INT NOT NULL DEFAULT 0",
+          "isTag": false,
+          "name": "archived_rows"
+        },
+        {
+          "commentZh": "已删除行数",
+          "definition": "INT NOT NULL DEFAULT 0",
+          "isTag": false,
+          "name": "deleted_rows"
+        },
+        {
+          "commentZh": "失败原因",
+          "definition": "VARCHAR(1000) DEFAULT NULL",
+          "isTag": false,
+          "name": "failed_reason"
+        },
+        {
+          "commentZh": "批次附加证据",
+          "definition": "JSON DEFAULT NULL",
+          "isTag": false,
+          "name": "artifacts_json"
+        },
+        {
+          "commentZh": "创建时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "create_time"
+        },
+        {
+          "commentZh": "更新时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "update_time"
+        }
+      ],
+      "name": "iot_message_log_archive_batch"
     },
     {
       "columns": [
@@ -5660,6 +5892,161 @@
           "name": "tenant_id"
         },
         {
+          "commentZh": "链路追踪ID",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "trace_id"
+        },
+        {
+          "commentZh": "业务事件编码",
+          "definition": "VARCHAR(128) NOT NULL",
+          "isTag": false,
+          "name": "event_code"
+        },
+        {
+          "commentZh": "业务事件名称",
+          "definition": "VARCHAR(128) DEFAULT NULL",
+          "isTag": false,
+          "name": "event_name"
+        },
+        {
+          "commentZh": "业务域编码",
+          "definition": "VARCHAR(64) NOT NULL",
+          "isTag": false,
+          "name": "domain_code"
+        },
+        {
+          "commentZh": "业务动作编码",
+          "definition": "VARCHAR(64) NOT NULL",
+          "isTag": false,
+          "name": "action_code"
+        },
+        {
+          "commentZh": "业务对象类型",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "object_type"
+        },
+        {
+          "commentZh": "业务对象标识",
+          "definition": "VARCHAR(128) DEFAULT NULL",
+          "isTag": false,
+          "name": "object_id"
+        },
+        {
+          "commentZh": "业务对象名称",
+          "definition": "VARCHAR(255) DEFAULT NULL",
+          "isTag": false,
+          "name": "object_name"
+        },
+        {
+          "commentZh": "操作者用户ID",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "actor_user_id"
+        },
+        {
+          "commentZh": "操作者名称",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "actor_name"
+        },
+        {
+          "commentZh": "事件结果状态",
+          "definition": "VARCHAR(32) NOT NULL DEFAULT 'SUCCESS'",
+          "isTag": false,
+          "name": "result_status"
+        },
+        {
+          "commentZh": "事件来源类型",
+          "definition": "VARCHAR(32) NOT NULL DEFAULT 'SYSTEM'",
+          "isTag": false,
+          "name": "source_type"
+        },
+        {
+          "commentZh": "关联证据类型",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "evidence_type"
+        },
+        {
+          "commentZh": "关联证据标识",
+          "definition": "VARCHAR(128) DEFAULT NULL",
+          "isTag": false,
+          "name": "evidence_id"
+        },
+        {
+          "commentZh": "请求方法",
+          "definition": "VARCHAR(16) DEFAULT NULL",
+          "isTag": false,
+          "name": "request_method"
+        },
+        {
+          "commentZh": "请求URI",
+          "definition": "VARCHAR(255) DEFAULT NULL",
+          "isTag": false,
+          "name": "request_uri"
+        },
+        {
+          "commentZh": "耗时毫秒",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "duration_ms"
+        },
+        {
+          "commentZh": "错误编码",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "error_code"
+        },
+        {
+          "commentZh": "错误摘要",
+          "definition": "VARCHAR(500) DEFAULT NULL",
+          "isTag": false,
+          "name": "error_message"
+        },
+        {
+          "commentZh": "事件扩展元数据",
+          "definition": "JSON DEFAULT NULL",
+          "isTag": false,
+          "name": "metadata_json"
+        },
+        {
+          "commentZh": "事件发生时间",
+          "definition": "DATETIME NOT NULL",
+          "isTag": false,
+          "name": "occurred_at"
+        },
+        {
+          "commentZh": "创建时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "create_time"
+        },
+        {
+          "commentZh": "逻辑删除标记",
+          "definition": "TINYINT NOT NULL DEFAULT 0",
+          "isTag": false,
+          "name": "deleted"
+        }
+      ],
+      "name": "sys_business_event_log"
+    },
+    {
+      "columns": [
+        {
+          "commentZh": "主键",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "id"
+        },
+        {
+          "commentZh": "租户ID",
+          "definition": "BIGINT NOT NULL DEFAULT 1",
+          "isTag": false,
+          "name": "tenant_id"
+        },
+        {
           "commentZh": "字典名称",
           "definition": "VARCHAR(128) NOT NULL",
           "isTag": false,
@@ -6545,6 +6932,131 @@
           "name": "tenant_id"
         },
         {
+          "commentZh": "链路追踪ID",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "trace_id"
+        },
+        {
+          "commentZh": "父调用片段标识",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "parent_span_id"
+        },
+        {
+          "commentZh": "调用片段类型",
+          "definition": "VARCHAR(64) NOT NULL",
+          "isTag": false,
+          "name": "span_type"
+        },
+        {
+          "commentZh": "调用片段名称",
+          "definition": "VARCHAR(128) NOT NULL",
+          "isTag": false,
+          "name": "span_name"
+        },
+        {
+          "commentZh": "业务域编码",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "domain_code"
+        },
+        {
+          "commentZh": "关联事件编码",
+          "definition": "VARCHAR(128) DEFAULT NULL",
+          "isTag": false,
+          "name": "event_code"
+        },
+        {
+          "commentZh": "业务对象类型",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "object_type"
+        },
+        {
+          "commentZh": "业务对象标识",
+          "definition": "VARCHAR(128) DEFAULT NULL",
+          "isTag": false,
+          "name": "object_id"
+        },
+        {
+          "commentZh": "传输类型",
+          "definition": "VARCHAR(32) DEFAULT NULL",
+          "isTag": false,
+          "name": "transport_type"
+        },
+        {
+          "commentZh": "调用片段状态",
+          "definition": "VARCHAR(32) NOT NULL DEFAULT 'SUCCESS'",
+          "isTag": false,
+          "name": "status"
+        },
+        {
+          "commentZh": "耗时毫秒",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "duration_ms"
+        },
+        {
+          "commentZh": "开始时间",
+          "definition": "DATETIME NOT NULL",
+          "isTag": false,
+          "name": "started_at"
+        },
+        {
+          "commentZh": "结束时间",
+          "definition": "DATETIME DEFAULT NULL",
+          "isTag": false,
+          "name": "finished_at"
+        },
+        {
+          "commentZh": "异常类型",
+          "definition": "VARCHAR(255) DEFAULT NULL",
+          "isTag": false,
+          "name": "error_class"
+        },
+        {
+          "commentZh": "异常摘要",
+          "definition": "VARCHAR(500) DEFAULT NULL",
+          "isTag": false,
+          "name": "error_message"
+        },
+        {
+          "commentZh": "调用片段标签数据",
+          "definition": "JSON DEFAULT NULL",
+          "isTag": false,
+          "name": "tags_json"
+        },
+        {
+          "commentZh": "创建时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "create_time"
+        },
+        {
+          "commentZh": "逻辑删除标记",
+          "definition": "TINYINT NOT NULL DEFAULT 0",
+          "isTag": false,
+          "name": "deleted"
+        }
+      ],
+      "name": "sys_observability_span_log"
+    },
+    {
+      "columns": [
+        {
+          "commentZh": "主键",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "id"
+        },
+        {
+          "commentZh": "租户ID",
+          "definition": "BIGINT NOT NULL DEFAULT 1",
+          "isTag": false,
+          "name": "tenant_id"
+        },
+        {
           "commentZh": "父ID",
           "definition": "BIGINT NOT NULL DEFAULT 0",
           "isTag": false,
@@ -7197,7 +7709,7 @@
     },
     {
       "name": "rule_definition",
-      "sql": "-- 表：rule_definition\n-- 说明：阈值规则表\nCREATE TABLE rule_definition (\n  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',\n  rule_name VARCHAR(128) NOT NULL COMMENT '规则名称',\n  risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',\n  metric_identifier VARCHAR(64) NOT NULL COMMENT '测点标识符',\n  metric_name VARCHAR(64) DEFAULT NULL COMMENT '测点名称',\n  expression VARCHAR(256) DEFAULT NULL COMMENT '表达式',\n  duration INT NOT NULL DEFAULT 0 COMMENT '持续时间(秒)',\n  alarm_level VARCHAR(20) DEFAULT NULL COMMENT '适用告警等级（红/橙/黄/蓝）',\n  notification_methods VARCHAR(64) DEFAULT NULL COMMENT '通知方式',\n  convert_to_event TINYINT NOT NULL DEFAULT 0 COMMENT '是否转事件',\n  status TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0启用 1停用',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_metric_identifier (metric_identifier),\n  KEY idx_rule_definition_metric_catalog (risk_metric_id)\n) COMMENT='阈值规则表';"
+      "sql": "-- 表：rule_definition\n-- 说明：阈值规则表\nCREATE TABLE rule_definition (\n  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',\n  rule_name VARCHAR(128) NOT NULL COMMENT '规则名称',\n  risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',\n  metric_identifier VARCHAR(64) NOT NULL COMMENT '测点标识符',\n  metric_name VARCHAR(64) DEFAULT NULL COMMENT '测点名称',\n  rule_scope VARCHAR(32) NOT NULL DEFAULT 'METRIC' COMMENT '策略作用域',\n  product_type VARCHAR(32) DEFAULT NULL COMMENT '产品类型模板',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  device_id BIGINT DEFAULT NULL COMMENT '设备ID',\n  risk_point_device_id BIGINT DEFAULT NULL COMMENT '风险点设备绑定ID',\n  expression VARCHAR(256) DEFAULT NULL COMMENT '表达式',\n  duration INT NOT NULL DEFAULT 0 COMMENT '持续时间(秒)',\n  alarm_level VARCHAR(20) DEFAULT NULL COMMENT '适用告警等级（红/橙/黄/蓝）',\n  notification_methods VARCHAR(64) DEFAULT NULL COMMENT '通知方式',\n  convert_to_event TINYINT NOT NULL DEFAULT 0 COMMENT '是否转事件',\n  status TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0启用 1停用',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_metric_identifier (metric_identifier),\n  KEY idx_rule_definition_metric_catalog (risk_metric_id),\n  KEY idx_rule_definition_product_type_metric (product_type, risk_metric_id, metric_identifier),\n  KEY idx_rule_definition_product_metric (product_id, risk_metric_id, metric_identifier),\n  KEY idx_rule_definition_device_metric (device_id, risk_metric_id, metric_identifier),\n  KEY idx_rule_definition_binding_metric (risk_point_device_id, risk_metric_id, metric_identifier)\n) COMMENT='阈值规则表';"
     },
     {
       "name": "iot_command_record",
@@ -7214,10 +7726,6 @@
     {
       "name": "iot_device_invalid_report_state",
       "sql": "-- 表：iot_device_invalid_report_state\n-- 说明：无效 MQTT 上报最新态表\nCREATE TABLE iot_device_invalid_report_state (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  governance_key VARCHAR(255) NOT NULL COMMENT '治理唯一键',\n  reason_code VARCHAR(64) NOT NULL COMMENT '治理原因编码',\n  request_method VARCHAR(16) DEFAULT NULL COMMENT '请求方式',\n  failure_stage VARCHAR(32) DEFAULT NULL COMMENT '失败阶段',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',\n  topic_route_type VARCHAR(32) DEFAULT NULL COMMENT '主题路由类型',\n  topic VARCHAR(255) DEFAULT NULL COMMENT '最近主题',\n  client_id VARCHAR(128) DEFAULT NULL COMMENT '最近客户端标识',\n  payload_size INT DEFAULT NULL COMMENT '载荷大小',\n  payload_encoding VARCHAR(16) DEFAULT NULL COMMENT '载荷编码',\n  last_payload LONGTEXT DEFAULT NULL COMMENT '最近载荷',\n  last_trace_id VARCHAR(64) DEFAULT NULL COMMENT '最近链路追踪ID',\n  sample_error_message VARCHAR(500) DEFAULT NULL COMMENT '样本错误消息',\n  sample_exception_class VARCHAR(255) DEFAULT NULL COMMENT '样本异常类',\n  first_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次命中时间',\n  last_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最近命中时间',\n  hit_count BIGINT NOT NULL DEFAULT 0 COMMENT '总命中次数',\n  sampled_count BIGINT NOT NULL DEFAULT 0 COMMENT '已采样次数',\n  suppressed_count BIGINT NOT NULL DEFAULT 0 COMMENT '被抑制次数',\n  suppressed_until DATETIME DEFAULT NULL COMMENT '抑制截止时间',\n  resolved TINYINT NOT NULL DEFAULT 0 COMMENT '是否已解封',\n  resolved_time DATETIME DEFAULT NULL COMMENT '解封时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_invalid_report_state_governance_key (governance_key),\n  KEY idx_invalid_report_device_resolved (device_code, product_key, resolved, last_seen_time),\n  KEY idx_invalid_report_reason_time (reason_code, last_seen_time)\n) COMMENT='无效 MQTT 上报最新态表';"
-    },
-    {
-      "name": "iot_device_message_log",
-      "sql": "-- 表：iot_device_message_log\n-- 说明：设备消息日志表\nCREATE TABLE iot_device_message_log (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  message_type VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）',\n  topic VARCHAR(255) DEFAULT NULL COMMENT '主题',\n  payload JSON DEFAULT NULL COMMENT '原始消息',\n  report_time DATETIME NOT NULL COMMENT '上报时间',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '日志创建时间',\n  PRIMARY KEY (id),\n  KEY idx_device_time (device_id, report_time),\n  KEY idx_message_type (message_type),\n  KEY idx_trace_id (trace_id),\n  KEY idx_device_code_time (device_code, report_time)\n) COMMENT='设备消息日志表';"
     },
     {
       "name": "iot_device_metric_latest",
@@ -7242,6 +7750,18 @@
     {
       "name": "iot_device_secret_rotation_log",
       "sql": "-- 表：iot_device_secret_rotation_log\n-- 说明：设备密钥轮换日志表\nCREATE TABLE iot_device_secret_rotation_log (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  device_code VARCHAR(64) NOT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  rotation_batch_id VARCHAR(64) NOT NULL COMMENT '轮换批次ID',\n  reason VARCHAR(500) DEFAULT NULL COMMENT '轮换原因',\n  previous_secret_digest VARCHAR(128) DEFAULT NULL COMMENT '上一版密钥摘要',\n  current_secret_digest VARCHAR(128) DEFAULT NULL COMMENT '当前密钥摘要',\n  rotated_by BIGINT NOT NULL COMMENT '轮换执行人',\n  approved_by BIGINT NOT NULL COMMENT '审批人',\n  rotate_time DATETIME NOT NULL COMMENT '轮换时间',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_device_rotation_device_time (device_id, rotate_time),\n  KEY idx_device_rotation_batch (rotation_batch_id)\n) COMMENT='设备密钥轮换日志表';"
+    },
+    {
+      "name": "iot_message_log",
+      "sql": "-- 表：iot_message_log\n-- 说明：设备消息日志表\nCREATE TABLE iot_message_log (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  message_type VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）',\n  topic VARCHAR(255) DEFAULT NULL COMMENT '主题',\n  payload JSON DEFAULT NULL COMMENT '原始消息',\n  report_time DATETIME NOT NULL COMMENT '上报时间',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '日志创建时间',\n  PRIMARY KEY (id),\n  KEY idx_device_time (device_id, report_time),\n  KEY idx_message_type (message_type),\n  KEY idx_trace_id (trace_id),\n  KEY idx_device_code_time (device_code, report_time)\n) COMMENT='设备消息日志表';"
+    },
+    {
+      "name": "iot_message_log_archive",
+      "sql": "-- 表：iot_message_log_archive\n-- 说明：设备消息日志冷归档表\nCREATE TABLE iot_message_log_archive (\n  id BIGINT NOT NULL COMMENT '主键',\n  original_log_id BIGINT NOT NULL COMMENT '原热表日志ID',\n  archive_batch_id BIGINT NOT NULL COMMENT '归档批次ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  message_type VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）',\n  topic VARCHAR(255) DEFAULT NULL COMMENT '主题',\n  payload JSON DEFAULT NULL COMMENT '原始消息',\n  report_time DATETIME NOT NULL COMMENT '上报时间',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  create_time DATETIME NOT NULL COMMENT '原日志创建时间',\n  archived_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '归档时间',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_original_log_id (original_log_id),\n  KEY idx_archive_batch_id (archive_batch_id),\n  KEY idx_trace_id_report_time (trace_id, report_time),\n  KEY idx_device_code_report_time (device_code, report_time)\n) COMMENT='设备消息日志冷归档表';"
+    },
+    {
+      "name": "iot_message_log_archive_batch",
+      "sql": "-- 表：iot_message_log_archive_batch\n-- 说明：设备消息日志冷归档批次表\nCREATE TABLE iot_message_log_archive_batch (\n  id BIGINT NOT NULL COMMENT '主键',\n  batch_no VARCHAR(64) NOT NULL COMMENT '批次号',\n  source_table VARCHAR(64) NOT NULL COMMENT '来源热表',\n  governance_mode VARCHAR(16) NOT NULL COMMENT '治理模式',\n  status VARCHAR(32) NOT NULL COMMENT '批次状态',\n  retention_days INT NOT NULL COMMENT '保留天数',\n  cutoff_at DATETIME NOT NULL COMMENT '过期阈值时间',\n  confirm_report_path VARCHAR(500) DEFAULT NULL COMMENT '确认报告路径',\n  confirm_report_generated_at DATETIME DEFAULT NULL COMMENT '确认报告生成时间',\n  confirmed_expired_rows INT NOT NULL DEFAULT 0 COMMENT '确认过期行数',\n  candidate_rows INT NOT NULL DEFAULT 0 COMMENT '候选过期行数',\n  archived_rows INT NOT NULL DEFAULT 0 COMMENT '已归档行数',\n  deleted_rows INT NOT NULL DEFAULT 0 COMMENT '已删除行数',\n  failed_reason VARCHAR(1000) DEFAULT NULL COMMENT '失败原因',\n  artifacts_json JSON DEFAULT NULL COMMENT '批次附加证据',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_batch_no (batch_no),\n  KEY idx_source_status_time (source_table, status, create_time)\n) COMMENT='设备消息日志冷归档批次表';"
     },
     {
       "name": "iot_normative_metric_definition",
@@ -7340,6 +7860,10 @@
       "sql": "-- 表：sys_audit_log\n-- 说明：审计日志表\nCREATE TABLE sys_audit_log (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  user_id BIGINT DEFAULT NULL COMMENT '用户ID',\n  user_name VARCHAR(64) DEFAULT NULL COMMENT '用户名',\n  operation_type VARCHAR(64) DEFAULT NULL COMMENT '操作类型',\n  operation_module VARCHAR(128) DEFAULT NULL COMMENT '操作模块',\n  operation_method VARCHAR(255) NOT NULL DEFAULT '' COMMENT '操作方法',\n  request_url VARCHAR(255) DEFAULT NULL COMMENT '请求URL',\n  request_method VARCHAR(16) DEFAULT NULL COMMENT '请求方法',\n  request_params LONGTEXT DEFAULT NULL COMMENT '请求参数',\n  response_result LONGTEXT DEFAULT NULL COMMENT '响应结果',\n  ip_address VARCHAR(64) DEFAULT NULL COMMENT 'IP地址',\n  location VARCHAR(128) DEFAULT NULL COMMENT '位置',\n  operation_result TINYINT DEFAULT NULL COMMENT '操作结果 1成功 0失败',\n  result_message VARCHAR(500) DEFAULT NULL COMMENT '结果消息',\n  operation_time DATETIME DEFAULT NULL COMMENT '操作时间',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  error_code VARCHAR(64) DEFAULT NULL COMMENT '错误编码',\n  exception_class VARCHAR(255) DEFAULT NULL COMMENT '异常类型',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_operation_time (operation_time),\n  KEY idx_trace_id (trace_id),\n  KEY idx_device_code (device_code),\n  KEY idx_audit_deleted_operation_time (deleted, operation_time, create_time, id),\n  KEY idx_audit_deleted_type_time (deleted, operation_type, operation_time, create_time, id),\n  KEY idx_audit_deleted_request_method_time (deleted, request_method, operation_time, create_time, id)\n) COMMENT='审计日志表';"
     },
     {
+      "name": "sys_business_event_log",
+      "sql": "-- 表：sys_business_event_log\n-- 说明：业务事件日志表\nCREATE TABLE sys_business_event_log (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  event_code VARCHAR(128) NOT NULL COMMENT '业务事件编码',\n  event_name VARCHAR(128) DEFAULT NULL COMMENT '业务事件名称',\n  domain_code VARCHAR(64) NOT NULL COMMENT '业务域编码',\n  action_code VARCHAR(64) NOT NULL COMMENT '业务动作编码',\n  object_type VARCHAR(64) DEFAULT NULL COMMENT '业务对象类型',\n  object_id VARCHAR(128) DEFAULT NULL COMMENT '业务对象标识',\n  object_name VARCHAR(255) DEFAULT NULL COMMENT '业务对象名称',\n  actor_user_id BIGINT DEFAULT NULL COMMENT '操作者用户ID',\n  actor_name VARCHAR(64) DEFAULT NULL COMMENT '操作者名称',\n  result_status VARCHAR(32) NOT NULL DEFAULT 'SUCCESS' COMMENT '事件结果状态',\n  source_type VARCHAR(32) NOT NULL DEFAULT 'SYSTEM' COMMENT '事件来源类型',\n  evidence_type VARCHAR(64) DEFAULT NULL COMMENT '关联证据类型',\n  evidence_id VARCHAR(128) DEFAULT NULL COMMENT '关联证据标识',\n  request_method VARCHAR(16) DEFAULT NULL COMMENT '请求方法',\n  request_uri VARCHAR(255) DEFAULT NULL COMMENT '请求URI',\n  duration_ms BIGINT DEFAULT NULL COMMENT '耗时毫秒',\n  error_code VARCHAR(64) DEFAULT NULL COMMENT '错误编码',\n  error_message VARCHAR(500) DEFAULT NULL COMMENT '错误摘要',\n  metadata_json JSON DEFAULT NULL COMMENT '事件扩展元数据',\n  occurred_at DATETIME NOT NULL COMMENT '事件发生时间',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_business_event_trace (trace_id),\n  KEY idx_business_event_domain_time (deleted, domain_code, occurred_at, id),\n  KEY idx_business_event_code_time (event_code, occurred_at),\n  KEY idx_business_event_object (object_type, object_id),\n  KEY idx_business_event_result_time (result_status, occurred_at)\n) COMMENT='业务事件日志表';"
+    },
+    {
       "name": "sys_dict",
       "sql": "-- 表：sys_dict\n-- 说明：字典表\nCREATE TABLE sys_dict (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  dict_name VARCHAR(128) NOT NULL COMMENT '字典名称',\n  dict_code VARCHAR(64) NOT NULL COMMENT '字典编码',\n  dict_type VARCHAR(32) DEFAULT NULL COMMENT '字典类型',\n  dict_value VARCHAR(255) NOT NULL DEFAULT '' COMMENT '历史兼容字段',\n  dict_label VARCHAR(128) NOT NULL DEFAULT '' COMMENT '历史兼容字段',\n  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1启用 0禁用',\n  sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_dict_code_tenant (tenant_id, dict_code),\n  KEY idx_dict_deleted_sort (deleted, sort_no, id),\n  KEY idx_dict_deleted_type_sort (deleted, dict_type, sort_no, id)\n) COMMENT='字典表';"
     },
@@ -7374,6 +7898,10 @@
     {
       "name": "sys_notification_channel",
       "sql": "-- 表：sys_notification_channel\n-- 说明：通知渠道表\nCREATE TABLE sys_notification_channel (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  channel_name VARCHAR(128) NOT NULL COMMENT '渠道名称',\n  channel_code VARCHAR(64) NOT NULL COMMENT '渠道编码',\n  channel_type VARCHAR(32) DEFAULT NULL COMMENT '渠道类型',\n  config LONGTEXT DEFAULT NULL COMMENT '渠道配置(JSON)',\n  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1启用 0禁用',\n  sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_channel_code_tenant (tenant_id, channel_code),\n  KEY idx_channel_deleted_sort (deleted, sort_no, id),\n  KEY idx_channel_deleted_type_sort (deleted, channel_type, sort_no, id)\n) COMMENT='通知渠道表';"
+    },
+    {
+      "name": "sys_observability_span_log",
+      "sql": "-- 表：sys_observability_span_log\n-- 说明：可观测调用片段日志表\nCREATE TABLE sys_observability_span_log (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  parent_span_id BIGINT DEFAULT NULL COMMENT '父调用片段标识',\n  span_type VARCHAR(64) NOT NULL COMMENT '调用片段类型',\n  span_name VARCHAR(128) NOT NULL COMMENT '调用片段名称',\n  domain_code VARCHAR(64) DEFAULT NULL COMMENT '业务域编码',\n  event_code VARCHAR(128) DEFAULT NULL COMMENT '关联事件编码',\n  object_type VARCHAR(64) DEFAULT NULL COMMENT '业务对象类型',\n  object_id VARCHAR(128) DEFAULT NULL COMMENT '业务对象标识',\n  transport_type VARCHAR(32) DEFAULT NULL COMMENT '传输类型',\n  status VARCHAR(32) NOT NULL DEFAULT 'SUCCESS' COMMENT '调用片段状态',\n  duration_ms BIGINT DEFAULT NULL COMMENT '耗时毫秒',\n  started_at DATETIME NOT NULL COMMENT '开始时间',\n  finished_at DATETIME DEFAULT NULL COMMENT '结束时间',\n  error_class VARCHAR(255) DEFAULT NULL COMMENT '异常类型',\n  error_message VARCHAR(500) DEFAULT NULL COMMENT '异常摘要',\n  tags_json JSON DEFAULT NULL COMMENT '调用片段标签数据',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_observability_span_trace (trace_id),\n  KEY idx_observability_span_type_time (span_type, started_at),\n  KEY idx_observability_span_status_time (status, started_at),\n  KEY idx_observability_span_event (event_code, started_at),\n  KEY idx_observability_span_object (object_type, object_id)\n) COMMENT='可观测调用片段日志表';"
     },
     {
       "name": "sys_organization",
@@ -7865,6 +8393,42 @@
           ],
           "kind": "INDEX",
           "name": "idx_rule_definition_metric_catalog"
+        },
+        {
+          "name": "idx_rule_definition_product_type_metric",
+          "kind": "INDEX",
+          "columns": [
+            "product_type",
+            "risk_metric_id",
+            "metric_identifier"
+          ]
+        },
+        {
+          "name": "idx_rule_definition_product_metric",
+          "kind": "INDEX",
+          "columns": [
+            "product_id",
+            "risk_metric_id",
+            "metric_identifier"
+          ]
+        },
+        {
+          "name": "idx_rule_definition_device_metric",
+          "kind": "INDEX",
+          "columns": [
+            "device_id",
+            "risk_metric_id",
+            "metric_identifier"
+          ]
+        },
+        {
+          "name": "idx_rule_definition_binding_metric",
+          "kind": "INDEX",
+          "columns": [
+            "risk_point_device_id",
+            "risk_metric_id",
+            "metric_identifier"
+          ]
         }
       ],
       "name": "rule_definition"
@@ -8016,48 +8580,6 @@
         }
       ],
       "name": "iot_device_invalid_report_state"
-    },
-    {
-      "indexes": [
-        {
-          "columns": [
-            "id"
-          ],
-          "kind": "PRIMARY",
-          "name": "PRIMARY"
-        },
-        {
-          "columns": [
-            "device_id",
-            "report_time"
-          ],
-          "kind": "INDEX",
-          "name": "idx_device_time"
-        },
-        {
-          "columns": [
-            "message_type"
-          ],
-          "kind": "INDEX",
-          "name": "idx_message_type"
-        },
-        {
-          "columns": [
-            "trace_id"
-          ],
-          "kind": "INDEX",
-          "name": "idx_trace_id"
-        },
-        {
-          "columns": [
-            "device_code",
-            "report_time"
-          ],
-          "kind": "INDEX",
-          "name": "idx_device_code_time"
-        }
-      ],
-      "name": "iot_device_message_log"
     },
     {
       "indexes": [
@@ -8254,6 +8776,118 @@
         }
       ],
       "name": "iot_device_secret_rotation_log"
+    },
+    {
+      "indexes": [
+        {
+          "columns": [
+            "id"
+          ],
+          "kind": "PRIMARY",
+          "name": "PRIMARY"
+        },
+        {
+          "columns": [
+            "device_id",
+            "report_time"
+          ],
+          "kind": "INDEX",
+          "name": "idx_device_time"
+        },
+        {
+          "columns": [
+            "message_type"
+          ],
+          "kind": "INDEX",
+          "name": "idx_message_type"
+        },
+        {
+          "columns": [
+            "trace_id"
+          ],
+          "kind": "INDEX",
+          "name": "idx_trace_id"
+        },
+        {
+          "columns": [
+            "device_code",
+            "report_time"
+          ],
+          "kind": "INDEX",
+          "name": "idx_device_code_time"
+        }
+      ],
+      "name": "iot_message_log"
+    },
+    {
+      "indexes": [
+        {
+          "columns": [
+            "id"
+          ],
+          "kind": "PRIMARY",
+          "name": "PRIMARY"
+        },
+        {
+          "columns": [
+            "original_log_id"
+          ],
+          "kind": "UNIQUE",
+          "name": "uk_original_log_id"
+        },
+        {
+          "columns": [
+            "archive_batch_id"
+          ],
+          "kind": "INDEX",
+          "name": "idx_archive_batch_id"
+        },
+        {
+          "columns": [
+            "trace_id",
+            "report_time"
+          ],
+          "kind": "INDEX",
+          "name": "idx_trace_id_report_time"
+        },
+        {
+          "columns": [
+            "device_code",
+            "report_time"
+          ],
+          "kind": "INDEX",
+          "name": "idx_device_code_report_time"
+        }
+      ],
+      "name": "iot_message_log_archive"
+    },
+    {
+      "indexes": [
+        {
+          "columns": [
+            "id"
+          ],
+          "kind": "PRIMARY",
+          "name": "PRIMARY"
+        },
+        {
+          "columns": [
+            "batch_no"
+          ],
+          "kind": "UNIQUE",
+          "name": "uk_batch_no"
+        },
+        {
+          "columns": [
+            "source_table",
+            "status",
+            "create_time"
+          ],
+          "kind": "INDEX",
+          "name": "idx_source_status_time"
+        }
+      ],
+      "name": "iot_message_log_archive_batch"
     },
     {
       "indexes": [
@@ -8898,6 +9532,59 @@
         },
         {
           "columns": [
+            "trace_id"
+          ],
+          "kind": "INDEX",
+          "name": "idx_business_event_trace"
+        },
+        {
+          "columns": [
+            "deleted",
+            "domain_code",
+            "occurred_at",
+            "id"
+          ],
+          "kind": "INDEX",
+          "name": "idx_business_event_domain_time"
+        },
+        {
+          "columns": [
+            "event_code",
+            "occurred_at"
+          ],
+          "kind": "INDEX",
+          "name": "idx_business_event_code_time"
+        },
+        {
+          "columns": [
+            "object_type",
+            "object_id"
+          ],
+          "kind": "INDEX",
+          "name": "idx_business_event_object"
+        },
+        {
+          "columns": [
+            "result_status",
+            "occurred_at"
+          ],
+          "kind": "INDEX",
+          "name": "idx_business_event_result_time"
+        }
+      ],
+      "name": "sys_business_event_log"
+    },
+    {
+      "indexes": [
+        {
+          "columns": [
+            "id"
+          ],
+          "kind": "PRIMARY",
+          "name": "PRIMARY"
+        },
+        {
+          "columns": [
             "tenant_id",
             "dict_code"
           ],
@@ -9254,6 +9941,57 @@
         },
         {
           "columns": [
+            "trace_id"
+          ],
+          "kind": "INDEX",
+          "name": "idx_observability_span_trace"
+        },
+        {
+          "columns": [
+            "span_type",
+            "started_at"
+          ],
+          "kind": "INDEX",
+          "name": "idx_observability_span_type_time"
+        },
+        {
+          "columns": [
+            "status",
+            "started_at"
+          ],
+          "kind": "INDEX",
+          "name": "idx_observability_span_status_time"
+        },
+        {
+          "columns": [
+            "event_code",
+            "started_at"
+          ],
+          "kind": "INDEX",
+          "name": "idx_observability_span_event"
+        },
+        {
+          "columns": [
+            "object_type",
+            "object_id"
+          ],
+          "kind": "INDEX",
+          "name": "idx_observability_span_object"
+        }
+      ],
+      "name": "sys_observability_span_log"
+    },
+    {
+      "indexes": [
+        {
+          "columns": [
+            "id"
+          ],
+          "kind": "PRIMARY",
+          "name": "PRIMARY"
+        },
+        {
+          "columns": [
             "tenant_id",
             "org_code"
           ],
@@ -9522,7 +10260,6 @@
     "iot_device": "active",
     "iot_device_access_error_log": "active",
     "iot_device_invalid_report_state": "active",
-    "iot_device_message_log": "active",
     "iot_device_metric_latest": "active",
     "iot_device_onboarding_case": "active",
     "iot_device_online_session": "active",
@@ -9533,6 +10270,9 @@
     "iot_event_work_order": "active",
     "iot_governance_ops_alert": "active",
     "iot_governance_work_item": "active",
+    "iot_message_log": "active",
+    "iot_message_log_archive": "active",
+    "iot_message_log_archive_batch": "active",
     "iot_normative_metric_definition": "active",
     "iot_onboarding_template_pack": "active",
     "iot_product": "active",
@@ -9562,6 +10302,7 @@
     "risk_point_highway_detail": "archived",
     "rule_definition": "active",
     "sys_audit_log": "active",
+    "sys_business_event_log": "active",
     "sys_dict": "active",
     "sys_dict_item": "active",
     "sys_governance_approval_order": "active",
@@ -9575,6 +10316,7 @@
     "sys_in_app_message_read": "active",
     "sys_menu": "active",
     "sys_notification_channel": "active",
+    "sys_observability_span_log": "active",
     "sys_organization": "active",
     "sys_region": "active",
     "sys_role": "active",
@@ -9583,10 +10325,5 @@
     "sys_user": "active",
     "sys_user_role": "active"
   },
-  "viewSql": [
-    {
-      "name": "iot_message_log",
-      "sql": "-- 视图：iot_message_log\n-- 说明：设备消息日志兼容视图\nCREATE OR REPLACE VIEW iot_message_log AS\nSELECT id, tenant_id, device_id, product_id, trace_id, device_code, product_key, message_type, topic, payload, report_time, create_time FROM iot_device_message_log;"
-    }
-  ]
+  "viewSql": []
 }

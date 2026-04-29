@@ -1,6 +1,8 @@
 package com.ghlzm.iot.device.service;
 
 import com.ghlzm.iot.device.entity.CommandRecord;
+import com.ghlzm.iot.device.vo.CommandRecordPageItemVO;
+import com.ghlzm.iot.common.response.PageResult;
 
 import java.time.LocalDateTime;
 
@@ -39,4 +41,14 @@ public interface CommandRecordService {
      * 为后续超时扫描预留最小状态更新接口。
      */
     boolean markTimeout(String commandId, LocalDateTime timeoutTime);
+
+    /**
+     * 按设备编码查询命令台账。
+     */
+    PageResult<CommandRecordPageItemVO> pageByDevice(Long currentUserId,
+                                                     String deviceCode,
+                                                     String capabilityCode,
+                                                     String status,
+                                                     Long pageNum,
+                                                     Long pageSize);
 }

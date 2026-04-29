@@ -229,4 +229,26 @@ describe('RealTimeMonitoringView', () => {
     expect(pagination.props('pageSizes')).toEqual([10, 20, 50, 100])
     expect(pagination.props('layout')).toBe('total, sizes, prev, pager, next, jumper')
   })
+
+  it('opens detail with a long binding id without numeric coercion', async () => {
+    const longBindingId = '202604280000000201'
+    mockGetRiskMonitoringList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [{ ...createMonitoringRow(), bindingId: longBindingId }]
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    ;(wrapper.vm as any).openDetail(longBindingId)
+
+    expect((wrapper.vm as any).activeBindingId).toBe(longBindingId)
+    expect((wrapper.vm as any).detailVisible).toBe(true)
+  })
 })

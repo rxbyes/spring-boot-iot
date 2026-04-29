@@ -26,20 +26,25 @@ describe('StandardWorkbenchPanel', () => {
       }
     })
 
+    expect(wrapper.classes()).toContain('standard-workbench-panel--workbench-foundation')
     expect(wrapper.find('.standard-workbench-panel__eyebrow').text()).toBe('PRODUCT CENTER')
     expect(wrapper.find('.standard-workbench-panel__title').text()).toBe('产品定义中心')
     expect(wrapper.find('.standard-workbench-panel__caption').text()).toContain('统一维护产品台账')
   })
 
-  it('uses shared workbench spacing tokens instead of page-private gaps', () => {
+  it('routes shared workbench spacing through a local alias chain', () => {
     const source = readFileSync(
       resolve(import.meta.dirname, '../../components/StandardWorkbenchPanel.vue'),
       'utf8'
     )
 
-    expect(source).toContain('--ops-workbench-gap')
-    expect(source).toContain('var(--ops-workbench-gap')
-    expect(source).toContain('standard-workbench-panel__body')
+    expect(source).toContain('--standard-workbench-panel-gap:')
+    expect(source).toContain(
+      '--standard-workbench-panel-gap: var(--standard-workbench-gap, var(--ops-workbench-gap, 0.72rem));'
+    )
+    expect(source).not.toContain('--ops-workbench-gap: var(--ops-workbench-gap);')
+    expect(source).toContain('margin-bottom: var(--standard-workbench-panel-gap);')
+    expect(source).toContain('margin-top: var(--standard-workbench-panel-gap);')
   })
 
   it('binds heading typography to the shared song-style hierarchy tokens', () => {
@@ -53,5 +58,26 @@ describe('StandardWorkbenchPanel', () => {
     expect(source).toContain('var(--type-caption-size)')
     expect(source).toContain('var(--font-letter-spacing-wide)')
     expect(source).toContain('var(--font-letter-spacing-tight)')
+  })
+
+  it('marks the filter band as compact when filters are rendered', () => {
+    const wrapper = mount(StandardWorkbenchPanel, {
+      props: {
+        title: 'Workbench',
+        showFilters: true
+      },
+      slots: {
+        filters: '<div class="filter-stub">Filter</div>'
+      },
+      global: {
+        stubs: {
+          PanelCard: PanelCardStub
+        }
+      }
+    })
+
+    expect(wrapper.find('.standard-workbench-panel__filters').classes()).toContain(
+      'standard-workbench-panel__filters--compact'
+    )
   })
 })

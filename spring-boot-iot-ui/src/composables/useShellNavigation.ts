@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { usePermissionStore } from '../stores/permission';
 import type { ShellNavigationState } from '../types/shell';
 import type { MenuTreeNode } from '../types/auth';
-import { normalizeOptionalRoutePath, normalizeRoutePath } from '../utils/routePath';
+import { normalizeOptionalRoutePath, normalizeRoutePath, routePathMatchesPattern } from '../utils/routePath';
 import {
   createSectionHomeNavItem,
   isCompatibilityWorkspacePath,
@@ -62,7 +62,7 @@ function appendNavItem(items: WorkspaceNavItem[], node: MenuTreeNode, pathSet: S
     return;
   }
   const path = normalizeOptionalRoutePath(node.path);
-  if (path && !pathSet.has(path)) {
+  if (path && !pathSet.has(path) && !node.meta?.hiddenInSidebar) {
     pathSet.add(path);
     items.push({
       to: path,
@@ -73,6 +73,24 @@ function appendNavItem(items: WorkspaceNavItem[], node: MenuTreeNode, pathSet: S
   }
 
   (node.children || []).forEach((child) => appendNavItem(items, child, pathSet));
+}
+
+function menuNodeMatchesRoute(node: MenuTreeNode, routePath: string): boolean {
+  if (node.type !== 2) {
+    const path = normalizeOptionalRoutePath(node.path);
+    if (path && routePathMatchesPattern(path, routePath)) {
+      return true;
+    }
+  }
+  return (node.children || []).some((child) => menuNodeMatchesRoute(child, routePath));
+}
+
+function findDynamicGroupKeyByRoute(menus: MenuTreeNode[], routePath: string): string | null {
+  const matchedRoot = menus.find((root) => root.type !== 2 && menuNodeMatchesRoute(root, routePath));
+  if (!matchedRoot) {
+    return null;
+  }
+  return matchedRoot.menuCode || `menu-${matchedRoot.id}`;
 }
 
 function mergeDynamicGroupItems(
@@ -185,10 +203,23 @@ export function useShellNavigation(): ShellNavigationState {
   const flattenedItems = computed(() => navigationGroups.value.flatMap((group) => group.items));
   const currentRoutePath = computed(() => normalizeRoutePath(route.path));
   const activeGroup = computed(() => {
-    const matchedGroup = navigationGroups.value.find((group) => group.items.some((item) => item.to === currentRoutePath.value));
+    const dynamicGroupKey = permissionStore.isLoggedIn
+      ? findDynamicGroupKeyByRoute(permissionStore.menus || [], currentRoutePath.value)
+      : null;
+    if (dynamicGroupKey) {
+      const dynamicGroup = navigationGroups.value.find((group) => group.key === dynamicGroupKey);
+      if (dynamicGroup) {
+        return dynamicGroup;
+      }
+    }
+    const matchedGroup = navigationGroups.value.find((group) =>
+      group.items.some((item) => routePathMatchesPattern(item.to, currentRoutePath.value))
+    );
     return matchedGroup || navigationGroups.value[0] || guestGroup;
   });
-  const activeMenuItem = computed(() => flattenedItems.value.find((item) => item.to === currentRoutePath.value) || null);
+  const activeMenuItem = computed(() =>
+    flattenedItems.value.find((item) => routePathMatchesPattern(item.to, currentRoutePath.value)) || null
+  );
   const activeGroupHomePath = computed(() => resolveGroupLandingPath(activeGroup.value));
   const showSidebarContext = computed(() => currentRoutePath.value === activeGroupHomePath.value);
   const activeTitle = computed(() => {

@@ -4,6 +4,7 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.dto.GovernanceWorkItemTransitionDTO;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.service.GovernanceWorkItemService;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemPageQuery;
 import com.ghlzm.iot.system.vo.GovernanceDecisionContextVO;
@@ -27,12 +28,14 @@ class GovernanceWorkItemControllerTest {
 
     @Mock
     private GovernanceWorkItemService governanceWorkItemService;
+    @Mock
+    private GovernancePermissionGuard permissionGuard;
 
     private GovernanceWorkItemController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new GovernanceWorkItemController(governanceWorkItemService);
+        controller = new GovernanceWorkItemController(governanceWorkItemService, permissionGuard);
     }
 
     @Test

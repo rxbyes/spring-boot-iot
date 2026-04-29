@@ -11,7 +11,7 @@
       show-pagination
     >
       <template #header-actions>
-        <StandardButton action="add" :icon="Plus" @click="handleAdd"
+        <StandardButton v-permission="'system:organization:add'" action="add" :icon="Plus" @click="handleAdd"
           >新增</StandardButton
         >
       </template>
@@ -87,6 +87,7 @@
               >导出列设置</StandardButton
             >
             <StandardButton
+              v-permission="'system:organization:export'"
               action="batch"
               link
               :disabled="selectedRows.length === 0"
@@ -94,6 +95,7 @@
               >导出选中</StandardButton
             >
             <StandardButton
+              v-permission="'system:organization:export'"
               action="refresh"
               link
               :disabled="tableData.length === 0"
@@ -151,8 +153,12 @@
             @selection-change="handleSelectionChange"
           >
             <el-table-column type="selection" width="48" />
-            <StandardTableTextColumn prop="orgCode" label="组织编码" :width="150" />
-            <StandardTableTextColumn prop="orgName" label="组织名称" :width="200" />
+            <StandardTableTextColumn
+              prop="orgName"
+              label="组织"
+              secondary-prop="orgCode"
+              :min-width="220"
+            />
             <el-table-column prop="orgType" label="组织类型" width="120">
               <template #default="{ row }">
                 <el-tag :type="getOrgTypeTag(row.orgType)">
@@ -568,9 +574,9 @@ const handleSelectionChange = (rows: Organization[]) => {
 };
 
 const getOrganizationRowActions = () => [
-  { command: "edit" as const, label: "编辑" },
-  { command: "add-sub" as const, label: "新增子级" },
-  { command: "delete" as const, label: "删除" },
+  { command: "edit" as const, label: "编辑", permission: "system:organization:update" },
+  { command: "add-sub" as const, label: "新增子级", permission: "system:organization:add-child" },
+  { command: "delete" as const, label: "删除", permission: "system:organization:delete" },
 ];
 
 const handleOrganizationRowAction = (

@@ -136,6 +136,16 @@ describe('automationPlan utils', () => {
     expect(inventory.some((item: { route: string; source: string }) => item.route === '/external-dashboard' && item.source === 'manual')).toBe(true);
   });
 
+  it('uses automation governance as the static quality fallback route', () => {
+    const inventory = buildAutomationPageInventory({
+      menus: [],
+      manualPages: []
+    });
+
+    expect(inventory.some((item: { route: string; title: string }) => item.route === '/automation-governance' && item.title === '自动化治理台')).toBe(true);
+    expect(inventory.some((item: { route: string }) => item.route === '/automation-test')).toBe(false);
+  });
+
   it('creates safe smoke scaffolds from discovered pages', () => {
     const scenario = createScenarioFromInventory(
       createManualInventoryItem({

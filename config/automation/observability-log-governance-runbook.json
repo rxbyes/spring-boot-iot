@@ -1,0 +1,7 @@
+{
+  "policyPath": "config/automation/observability-log-governance-policy.json",
+  "outputDir": "logs/observability",
+  "defaultMode": "dry-run",
+  "maxApplyReportAgeHours": 24,
+  "governanceScriptPath": "scripts/govern-observability-logs.py"
+}

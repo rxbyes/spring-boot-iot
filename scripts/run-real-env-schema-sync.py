@@ -15,6 +15,12 @@ from typing import Dict, List, Tuple
 
 import pymysql
 
+SCRIPT_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(SCRIPT_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_REPO_ROOT))
+
+from scripts.schema.load_registry import RegistryObject, load_registry
+
 
 CreateSqlMap = Dict[str, str]
 ColumnSpecMap = Dict[str, List[Tuple[str, str]]]
@@ -63,6 +69,38 @@ GOVERNANCE_APPROVAL_POLICY_SEEDS = (
         "approver_mode": "FIXED_USER",
         "remark": "映射规则回滚固定复核人",
     },
+    {
+        "preferred_id": 99001009,
+        "tenant_id": 0,
+        "scope_type": "GLOBAL",
+        "action_code": "RULE_DEFINITION_CREATE",
+        "approver_mode": "FIXED_USER",
+        "remark": "threshold policy create fixed reviewer",
+    },
+    {
+        "preferred_id": 99001010,
+        "tenant_id": 0,
+        "scope_type": "GLOBAL",
+        "action_code": "RULE_DEFINITION_BATCH_CREATE",
+        "approver_mode": "FIXED_USER",
+        "remark": "threshold policy batch create fixed reviewer",
+    },
+    {
+        "preferred_id": 99001011,
+        "tenant_id": 0,
+        "scope_type": "GLOBAL",
+        "action_code": "RULE_DEFINITION_UPDATE",
+        "approver_mode": "FIXED_USER",
+        "remark": "threshold policy update fixed reviewer",
+    },
+    {
+        "preferred_id": 99001012,
+        "tenant_id": 0,
+        "scope_type": "GLOBAL",
+        "action_code": "RULE_DEFINITION_DELETE",
+        "approver_mode": "FIXED_USER",
+        "remark": "threshold policy delete fixed reviewer",
+    },
 )
 
 COLLECTOR_CHILD_BASELINE_PRODUCTS = (
@@ -83,12 +121,28 @@ COLLECTOR_CHILD_BASELINE_PRODUCTS = (
         "remark": "shared dev collector-child baseline",
     },
     {
+        "id": 202603192100560256,
+        "product_key": "nf-monitor-water-surface-v1",
+        "product_name": "南方测绘 监测型 地表水位监测仪",
+        "manufacturer": "南方测绘",
+        "description": "监测型地表水位设备，协议 mqtt-json，直连接入",
+        "remark": "shared dev water-surface governance baseline",
+    },
+    {
         "id": 202603192100560250,
         "product_key": "nf-monitor-deep-displacement-v1",
         "product_name": "南方测绘 监测型 深部位移监测仪",
         "manufacturer": "南方测绘",
         "description": "监测型深部位移监测设备，协议 mqtt-json，直连接入",
         "remark": "shared dev collector-child baseline",
+    },
+    {
+        "id": 202603192100560245,
+        "product_key": "nf-monitor-radar-v1",
+        "product_name": "南方测绘 监测型 雷达监测仪",
+        "manufacturer": "南方测绘",
+        "description": "监测型雷达设备，协议 mqtt-json，直连接入",
+        "remark": "shared dev radar governance baseline",
     },
     {
         "id": 202603192100560253,
@@ -182,6 +236,66 @@ COLLECTOR_CHILD_BASELINE_PRODUCT_MODELS = (
         "description": "deep displacement sensor state",
     },
     {
+        "id": 202604110200041,
+        "product_id": 202603192100560256,
+        "identifier": "temp",
+        "model_name": "地表水温",
+        "data_type": "double",
+        "specs_json": {"unit": "℃", "category": "water_surface"},
+        "sort_no": 1,
+        "description": "地表水温",
+    },
+    {
+        "id": 202604110200042,
+        "product_id": 202603192100560256,
+        "identifier": "value",
+        "model_name": "地表水位",
+        "data_type": "double",
+        "specs_json": {"unit": "m", "precision": 3},
+        "sort_no": 2,
+        "description": "地表水位",
+    },
+    {
+        "id": 202604110200051,
+        "product_id": 202603192100560245,
+        "identifier": "X",
+        "model_name": "雷达X",
+        "data_type": "double",
+        "specs_json": {"unit": "mm", "precision": 4},
+        "sort_no": 1,
+        "description": "雷达 X 轴位移",
+    },
+    {
+        "id": 202604110200052,
+        "product_id": 202603192100560245,
+        "identifier": "Y",
+        "model_name": "雷达Y",
+        "data_type": "double",
+        "specs_json": {"unit": "mm", "precision": 4},
+        "sort_no": 2,
+        "description": "雷达 Y 轴位移",
+    },
+    {
+        "id": 202604110200053,
+        "product_id": 202603192100560245,
+        "identifier": "Z",
+        "model_name": "雷达Z",
+        "data_type": "double",
+        "specs_json": {"unit": "mm", "precision": 4},
+        "sort_no": 3,
+        "description": "雷达 Z 轴位移",
+    },
+    {
+        "id": 202604110200054,
+        "product_id": 202603192100560245,
+        "identifier": "speed",
+        "model_name": "雷达速度",
+        "data_type": "double",
+        "specs_json": {"unit": "mm/s", "precision": 4},
+        "sort_no": 4,
+        "description": "雷达速度",
+    },
+    {
         "id": 202604110200031,
         "product_id": 202603192100560253,
         "identifier": "value",
@@ -217,11 +331,25 @@ COLLECTOR_CHILD_BASELINE_METADATA = {
             {"identifier": "sensor_state", "displayName": "传感器状态", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 20},
         ]
     },
+    "nf-monitor-water-surface-v1": {
+        "customMetrics": [
+            {"identifier": "temp", "displayName": "地表水温", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 10},
+            {"identifier": "value", "displayName": "地表水位", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 20},
+        ]
+    },
     "nf-monitor-deep-displacement-v1": {
         "customMetrics": [
             {"identifier": "dispsX", "displayName": "顺滑动方向累计变形量", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 10},
             {"identifier": "dispsY", "displayName": "垂直坡面方向累计变形量", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 20},
             {"identifier": "sensor_state", "displayName": "传感器状态", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 30},
+        ]
+    },
+    "nf-monitor-radar-v1": {
+        "customMetrics": [
+            {"identifier": "X", "displayName": "雷达X", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 10},
+            {"identifier": "Y", "displayName": "雷达Y", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 20},
+            {"identifier": "Z", "displayName": "雷达Z", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 30},
+            {"identifier": "speed", "displayName": "雷达速度", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 40},
         ]
     },
     "nf-monitor-tipping-bucket-rain-gauge-v1": {
@@ -343,7 +471,692 @@ COLLECTOR_CHILD_BASELINE_NORMATIVE_METRICS = (
         "version_no": 1,
         "metadata_json": {"thresholdKind": "cumulative", "riskCategory": "RAIN_GAUGE", "metricRole": "CONTEXT"},
     },
+    {
+        "id": 920033,
+        "scenario_code": "phase3-weather",
+        "device_family": "AIR_TEMPERATURE",
+        "identifier": "value",
+        "display_name": "气温",
+        "unit": "℃",
+        "precision_digits": 2,
+        "monitor_content_code": "L3",
+        "monitor_type_code": "QW",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "temperature",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "WEATHER", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920034,
+        "scenario_code": "phase3-water-surface",
+        "device_family": "SURFACE_WATER",
+        "identifier": "temp",
+        "display_name": "地表水温",
+        "unit": "℃",
+        "precision_digits": 2,
+        "monitor_content_code": "L3",
+        "monitor_type_code": "DB",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "temperature",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "SURFACE_WATER", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920035,
+        "scenario_code": "phase3-water-surface",
+        "device_family": "SURFACE_WATER",
+        "identifier": "value",
+        "display_name": "地表水位",
+        "unit": "m",
+        "precision_digits": 3,
+        "monitor_content_code": "L3",
+        "monitor_type_code": "DB",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "water_level",
+        "threshold_type": "absolute",
+        "semantic_direction": "HIGHER_IS_RISKIER",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "SURFACE_WATER", "metricRole": "PRIMARY"},
+    },
+    {
+        "id": 920041,
+        "scenario_code": "phase5-mud-level",
+        "device_family": "MUD_LEVEL",
+        "identifier": "value",
+        "display_name": "泥水位高程",
+        "unit": "m",
+        "precision_digits": 3,
+        "monitor_content_code": "L4",
+        "monitor_type_code": "NW",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "water_level",
+        "threshold_type": "absolute",
+        "semantic_direction": "HIGHER_IS_RISKIER",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "MUD_LEVEL", "metricRole": "PRIMARY"},
+    },
+    {
+        "id": 920051,
+        "scenario_code": "phase6-radar",
+        "device_family": "RADAR",
+        "identifier": "X",
+        "display_name": "雷达 X 坐标",
+        "unit": "m",
+        "precision_digits": 3,
+        "monitor_content_code": "L4",
+        "monitor_type_code": "LD",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "position",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "RADAR", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920052,
+        "scenario_code": "phase6-radar",
+        "device_family": "RADAR",
+        "identifier": "Y",
+        "display_name": "雷达 Y 坐标",
+        "unit": "m",
+        "precision_digits": 3,
+        "monitor_content_code": "L4",
+        "monitor_type_code": "LD",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "position",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "RADAR", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920053,
+        "scenario_code": "phase6-radar",
+        "device_family": "RADAR",
+        "identifier": "Z",
+        "display_name": "雷达 Z 坐标",
+        "unit": "m",
+        "precision_digits": 3,
+        "monitor_content_code": "L4",
+        "monitor_type_code": "LD",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "position",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "RADAR", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920054,
+        "scenario_code": "phase6-radar",
+        "device_family": "RADAR",
+        "identifier": "speed",
+        "display_name": "雷达移动速度",
+        "unit": "m/s",
+        "precision_digits": 3,
+        "monitor_content_code": "L4",
+        "monitor_type_code": "LD",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "speed",
+        "threshold_type": "absolute",
+        "semantic_direction": "HIGHER_IS_RISKIER",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "RADAR", "metricRole": "PRIMARY"},
+    },
+    {
+        "id": 920101,
+        "scenario_code": "phase1-vibration",
+        "device_family": "VIBRATION",
+        "identifier": "PLX",
+        "display_name": "X 轴振动频率",
+        "unit": "Hz",
+        "precision_digits": 3,
+        "monitor_content_code": "L1",
+        "monitor_type_code": "ZD",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "frequency",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "VIBRATION", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920102,
+        "scenario_code": "phase1-vibration",
+        "device_family": "VIBRATION",
+        "identifier": "PLY",
+        "display_name": "Y 轴振动频率",
+        "unit": "Hz",
+        "precision_digits": 3,
+        "monitor_content_code": "L1",
+        "monitor_type_code": "ZD",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "frequency",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "VIBRATION", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920103,
+        "scenario_code": "phase1-vibration",
+        "device_family": "VIBRATION",
+        "identifier": "PLZ",
+        "display_name": "Z 轴振动频率",
+        "unit": "Hz",
+        "precision_digits": 3,
+        "monitor_content_code": "L1",
+        "monitor_type_code": "ZD",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "frequency",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "VIBRATION", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920104,
+        "scenario_code": "phase1-vibration",
+        "device_family": "VIBRATION",
+        "identifier": "value",
+        "display_name": "振动幅度",
+        "unit": "mm",
+        "precision_digits": 3,
+        "monitor_content_code": "L1",
+        "monitor_type_code": "ZD",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "vibration_amplitude",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "VIBRATION", "metricRole": "PRIMARY"},
+    },
+    {
+        "id": 920105,
+        "scenario_code": "phase1-vibration",
+        "device_family": "VIBRATION",
+        "identifier": "SJX",
+        "display_name": "X 轴瞬时位移",
+        "unit": "mm",
+        "precision_digits": 3,
+        "monitor_content_code": "L1",
+        "monitor_type_code": "ZD",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "displacement",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "VIBRATION", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920106,
+        "scenario_code": "phase1-vibration",
+        "device_family": "VIBRATION",
+        "identifier": "SJY",
+        "display_name": "Y 轴瞬时位移",
+        "unit": "mm",
+        "precision_digits": 3,
+        "monitor_content_code": "L1",
+        "monitor_type_code": "ZD",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "displacement",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "VIBRATION", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920107,
+        "scenario_code": "phase1-vibration",
+        "device_family": "VIBRATION",
+        "identifier": "SJZ",
+        "display_name": "Z 轴瞬时位移",
+        "unit": "mm",
+        "precision_digits": 3,
+        "monitor_content_code": "L1",
+        "monitor_type_code": "ZD",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "displacement",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "VIBRATION", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920108,
+        "scenario_code": "phase1-vibration",
+        "device_family": "VIBRATION",
+        "identifier": "SJValue",
+        "display_name": "合方向瞬时位移",
+        "unit": "mm",
+        "precision_digits": 3,
+        "monitor_content_code": "L1",
+        "monitor_type_code": "ZD",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "displacement",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "VIBRATION", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920109,
+        "scenario_code": "phase2-acoustic-emission",
+        "device_family": "ACOUSTIC_EMISSION",
+        "identifier": "amplitude",
+        "display_name": "地声幅度",
+        "unit": "dB",
+        "precision_digits": 2,
+        "monitor_content_code": "L2",
+        "monitor_type_code": "SF",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "acoustic_emission",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "ACOUSTIC_EMISSION", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920110,
+        "scenario_code": "phase2-acoustic-emission",
+        "device_family": "ACOUSTIC_EMISSION",
+        "identifier": "energy",
+        "display_name": "地声能量",
+        "unit": "mV·ms",
+        "precision_digits": 2,
+        "monitor_content_code": "L2",
+        "monitor_type_code": "SF",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "acoustic_emission",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "ACOUSTIC_EMISSION", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920111,
+        "scenario_code": "phase2-acoustic-emission",
+        "device_family": "ACOUSTIC_EMISSION",
+        "identifier": "ringing",
+        "display_name": "振铃计数",
+        "unit": "num.",
+        "precision_digits": 0,
+        "monitor_content_code": "L2",
+        "monitor_type_code": "SF",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "acoustic_emission",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "ACOUSTIC_EMISSION", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920112,
+        "scenario_code": "phase2-acoustic-emission",
+        "device_family": "ACOUSTIC_EMISSION",
+        "identifier": "risetime",
+        "display_name": "上升时间",
+        "unit": "μs",
+        "precision_digits": 0,
+        "monitor_content_code": "L2",
+        "monitor_type_code": "SF",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "acoustic_emission",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "ACOUSTIC_EMISSION", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920113,
+        "scenario_code": "phase2-acoustic-emission",
+        "device_family": "ACOUSTIC_EMISSION",
+        "identifier": "risecount",
+        "display_name": "上升计数",
+        "unit": "num.",
+        "precision_digits": 0,
+        "monitor_content_code": "L2",
+        "monitor_type_code": "SF",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "acoustic_emission",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "ACOUSTIC_EMISSION", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920114,
+        "scenario_code": "phase2-acoustic-emission",
+        "device_family": "ACOUSTIC_EMISSION",
+        "identifier": "duration",
+        "display_name": "持续时间",
+        "unit": "μs",
+        "precision_digits": 0,
+        "monitor_content_code": "L2",
+        "monitor_type_code": "SF",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "acoustic_emission",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "ACOUSTIC_EMISSION", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920115,
+        "scenario_code": "phase2-acoustic-emission",
+        "device_family": "ACOUSTIC_EMISSION",
+        "identifier": "arrivaltime",
+        "display_name": "到达时间",
+        "unit": "μs",
+        "precision_digits": 0,
+        "monitor_content_code": "L2",
+        "monitor_type_code": "SF",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "acoustic_emission",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "ACOUSTIC_EMISSION", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920116,
+        "scenario_code": "phase2-acoustic-emission",
+        "device_family": "ACOUSTIC_EMISSION",
+        "identifier": "RMS",
+        "display_name": "有效值电压",
+        "unit": "V",
+        "precision_digits": 3,
+        "monitor_content_code": "L2",
+        "monitor_type_code": "SF",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "acoustic_emission",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "ACOUSTIC_EMISSION", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920117,
+        "scenario_code": "phase2-acoustic-emission",
+        "device_family": "ACOUSTIC_EMISSION",
+        "identifier": "ASL",
+        "display_name": "平均信号电平",
+        "unit": "dB",
+        "precision_digits": 2,
+        "monitor_content_code": "L2",
+        "monitor_type_code": "SF",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "acoustic_emission",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "ACOUSTIC_EMISSION", "metricRole": "CONTEXT"},
+    },
+    {
+        "id": 920118,
+        "scenario_code": "phase3-settlement",
+        "device_family": "SETTLEMENT",
+        "identifier": "value",
+        "display_name": "沉降量",
+        "unit": "mm",
+        "precision_digits": 3,
+        "monitor_content_code": "L3",
+        "monitor_type_code": "CJ",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "settlement",
+        "threshold_type": "absolute",
+        "semantic_direction": "HIGHER_IS_RISKIER",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "SETTLEMENT", "metricRole": "PRIMARY"},
+    },
+    {
+        "id": 920119,
+        "scenario_code": "phase3-air-pressure",
+        "device_family": "AIR_PRESSURE",
+        "identifier": "value",
+        "display_name": "气压",
+        "unit": "kPa",
+        "precision_digits": 3,
+        "monitor_content_code": "L3",
+        "monitor_type_code": "QY",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "air_pressure",
+        "threshold_type": "absolute",
+        "semantic_direction": "REFERENCE_ONLY",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "AIR_PRESSURE", "metricRole": "PRIMARY"},
+    },
+    {
+        "id": 920120,
+        "scenario_code": "phase4-surface-flow-speed",
+        "device_family": "SURFACE_FLOW_SPEED",
+        "identifier": "value",
+        "display_name": "表面流速",
+        "unit": "m/s",
+        "precision_digits": 3,
+        "monitor_content_code": "L4",
+        "monitor_type_code": "BMLS",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "flow_speed",
+        "threshold_type": "absolute",
+        "semantic_direction": "HIGHER_IS_RISKIER",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "SURFACE_FLOW_SPEED", "metricRole": "PRIMARY"},
+    },
 )
+
+
+def _normalize_seed_value(value: object, default: str = "") -> str:
+    if value is None:
+        return default
+    text = str(value).strip()
+    return text if text else default
+
+
+def _normative_metric_seed_label(seed: dict) -> str:
+    return (
+        f"id={_normalize_seed_value(seed.get('id'))} "
+        f"scenario={_normalize_seed_value(seed.get('scenario_code'))} "
+        f"family={_normalize_seed_value(seed.get('device_family'))} "
+        f"fallback={_normalize_seed_value(seed.get('monitor_content_code')).upper()}/"
+        f"{_normalize_seed_value(seed.get('monitor_type_code')).upper()}/"
+        f"{_normalize_seed_value(seed.get('identifier'))}"
+    )
+
+
+def find_normative_metric_seed_conflicts(seeds) -> List[dict]:
+    """Find seed conflicts that would make Lx_XX fallback ambiguous or unstable."""
+    ids: Dict[str, List[str]] = {}
+    fallback_keys: Dict[Tuple[str, str, str], List[str]] = {}
+    for seed in seeds:
+        seed_id = _normalize_seed_value(seed.get("id"))
+        ids.setdefault(seed_id, []).append(_normative_metric_seed_label(seed))
+
+        status = _normalize_seed_value(seed.get("status"), "ACTIVE").upper()
+        if status != "ACTIVE":
+            continue
+        fallback_key = (
+            _normalize_seed_value(seed.get("monitor_content_code")).upper(),
+            _normalize_seed_value(seed.get("monitor_type_code")).upper(),
+            _normalize_seed_value(seed.get("identifier")).lower(),
+        )
+        if not all(fallback_key):
+            continue
+        fallback_keys.setdefault(fallback_key, []).append(_normative_metric_seed_label(seed))
+
+    conflicts: List[dict] = []
+    for seed_id, labels in sorted(ids.items()):
+        if seed_id and len(labels) > 1:
+            conflicts.append(
+                {
+                    "type": "DUPLICATE_ID",
+                    "key": seed_id,
+                    "message": f"duplicate id {seed_id}: " + "; ".join(labels),
+                }
+            )
+    for fallback_key, labels in sorted(fallback_keys.items()):
+        if len(labels) > 1:
+            key_text = f"{fallback_key[0]}/{fallback_key[1]}/{fallback_key[2]}"
+            conflicts.append(
+                {
+                    "type": "DUPLICATE_FALLBACK_KEY",
+                    "key": key_text,
+                    "message": f"duplicate fallback key {key_text}: " + "; ".join(labels),
+                }
+            )
+    return conflicts
+
+
+def validate_normative_metric_seed_conflicts(seeds) -> None:
+    conflicts = find_normative_metric_seed_conflicts(seeds)
+    if conflicts:
+        details = "\n".join(f"- {conflict['message']}" for conflict in conflicts)
+        raise ValueError("规范字段种子存在冲突，已停止同步以避免运行态歧义:\n" + details)
+
 
 COLLECTOR_CHILD_BASELINE_MAPPING_RULES = (
     {
@@ -365,6 +1178,66 @@ COLLECTOR_CHILD_BASELINE_MAPPING_RULES = (
         "raw_identifier": "L3_YL_1.totalValue",
         "logical_channel_code": "L3_YL_1",
         "target_normative_identifier": "totalValue",
+    },
+    {
+        "id": 202604110800011,
+        "product_id": 202603192100560256,
+        "protocol_code": "mqtt-json",
+        "scenario_code": "phase3-water-surface",
+        "device_family": "WATER_SURFACE",
+        "raw_identifier": "L3_DB_1.temp",
+        "logical_channel_code": "L3_DB_1",
+        "target_normative_identifier": "temp",
+    },
+    {
+        "id": 202604110800012,
+        "product_id": 202603192100560256,
+        "protocol_code": "mqtt-json",
+        "scenario_code": "phase3-water-surface",
+        "device_family": "WATER_SURFACE",
+        "raw_identifier": "L3_DB_1.value",
+        "logical_channel_code": "L3_DB_1",
+        "target_normative_identifier": "value",
+    },
+    {
+        "id": 202604110800021,
+        "product_id": 202603192100560245,
+        "protocol_code": "mqtt-json",
+        "scenario_code": "phase6-radar",
+        "device_family": "RADAR",
+        "raw_identifier": "L4_LD_1.X",
+        "logical_channel_code": "L4_LD_1",
+        "target_normative_identifier": "X",
+    },
+    {
+        "id": 202604110800022,
+        "product_id": 202603192100560245,
+        "protocol_code": "mqtt-json",
+        "scenario_code": "phase6-radar",
+        "device_family": "RADAR",
+        "raw_identifier": "L4_LD_1.Y",
+        "logical_channel_code": "L4_LD_1",
+        "target_normative_identifier": "Y",
+    },
+    {
+        "id": 202604110800023,
+        "product_id": 202603192100560245,
+        "protocol_code": "mqtt-json",
+        "scenario_code": "phase6-radar",
+        "device_family": "RADAR",
+        "raw_identifier": "L4_LD_1.Z",
+        "logical_channel_code": "L4_LD_1",
+        "target_normative_identifier": "Z",
+    },
+    {
+        "id": 202604110800024,
+        "product_id": 202603192100560245,
+        "protocol_code": "mqtt-json",
+        "scenario_code": "phase6-radar",
+        "device_family": "RADAR",
+        "raw_identifier": "L4_LD_1.speed",
+        "logical_channel_code": "L4_LD_1",
+        "target_normative_identifier": "speed",
     },
 )
 
@@ -552,7 +1425,7 @@ def collector_child_device_seeds() -> List[Tuple[int, int, str, str, str, str]]:
     )
     for mappings in LASER_RELATION_MAPPINGS.values():
         for child_code in mappings.values():
-            seeds.append((int(child_code), 202603192100560258, child_code, f"NF-LASER-{child_code}", "shared-dev-laser-child", "laser-child"))
+            seeds.append((int(child_code), 202603192100560258, child_code, f"激光测距-{child_code}", "shared-dev-laser-child", "laser-child"))
     for mappings in DEEP_RELATION_MAPPINGS.values():
         for child_code in mappings.values():
             seeds.append((int(child_code), 202603192100560250, child_code, f"NF-DEEP-{child_code}", "shared-dev-deep-child", "deep-child"))
@@ -629,7 +1502,9 @@ def collector_child_property_seeds() -> List[Tuple[int, str, str, str, str, str]
     return seeds
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = SCRIPT_REPO_ROOT
+SCHEMA_REGISTRY = load_registry(REPO_ROOT / "schema")
+MESSAGE_LOG_SCHEMA_OBJECT = SCHEMA_REGISTRY.mysql["iot_message_log"]
 SCHEMA_SYNC_MANIFEST_PATH = REPO_ROOT / "schema" / "generated" / "mysql-schema-sync.json"
 
 
@@ -722,6 +1597,9 @@ UNIQUE_INDEX_DUPLICATE_GUARDS: Dict[Tuple[str, str], Tuple[str, ...]] = _SCHEMA_
     "uniqueIndexDuplicateGuards"
 ]
 EXPECTED_INDEX_SHAPES: IndexShapeMap = _SCHEMA_SYNC_MANIFEST["expectedIndexShapes"]
+REPAIRABLE_INDEX_UNIQUENESS_DRIFTS = {
+    ("sys_dict", "uk_dict_code_tenant"),
+}
 
 
 BINDING_INDEX_EXPECTED_SHAPES: Dict[Tuple[str, str], Tuple[bool, Tuple[str, ...]]] = {
@@ -763,16 +1641,117 @@ def parse_args() -> argparse.Namespace:
 
 
 def table_exists(cur: pymysql.cursors.Cursor, db: str, table: str) -> bool:
+    return table_type(cur, db, table) is not None
+
+
+def table_type(cur: pymysql.cursors.Cursor, db: str, table: str) -> str | None:
     cur.execute(
         """
-        SELECT 1
+        SELECT TABLE_TYPE
         FROM information_schema.TABLES
         WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s
         LIMIT 1
         """,
         (db, table),
     )
-    return cur.fetchone() is not None
+    row = cur.fetchone()
+    return None if row is None else str(row[0])
+
+
+def table_comment(cur: pymysql.cursors.Cursor, db: str, table: str) -> str:
+    cur.execute(
+        """
+        SELECT TABLE_COMMENT
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s
+        LIMIT 1
+        """,
+        (db, table),
+    )
+    row = cur.fetchone()
+    return "" if row is None else str(row[0] or "")
+
+
+def column_comments(cur: pymysql.cursors.Cursor, db: str, table: str) -> Dict[str, str]:
+    cur.execute(
+        """
+        SELECT COLUMN_NAME, COLUMN_COMMENT
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s
+        """,
+        (db, table),
+    )
+    rows = cur.fetchall() or []
+    comments: Dict[str, str] = {}
+    for row in rows:
+        column_name = ""
+        column_comment = ""
+        if isinstance(row, dict):
+            column_name = str(row.get("COLUMN_NAME") or row.get("column_name") or "")
+            column_comment = str(row.get("COLUMN_COMMENT") or row.get("column_comment") or "")
+        else:
+            column_name = str(row[0] or "")
+            column_comment = str(row[1] or "")
+        comments[column_name] = column_comment
+    return comments
+
+
+def ensure_message_log_physical_table(cur: pymysql.cursors.Cursor, db: str) -> None:
+    legacy_type = table_type(cur, db, "iot_device_message_log")
+    target_type = table_type(cur, db, "iot_message_log")
+    if target_type == "VIEW":
+        cur.execute("DROP VIEW `iot_message_log`")
+        target_type = None
+        print("[message-log] dropped legacy iot_message_log view before physical table migration")
+    if legacy_type == "VIEW":
+        cur.execute("DROP VIEW `iot_device_message_log`")
+        print("[message-log] dropped retired iot_device_message_log view")
+        return
+    if legacy_type == "BASE TABLE" and target_type is None:
+        cur.execute("RENAME TABLE `iot_device_message_log` TO `iot_message_log`")
+        print("[message-log] renamed iot_device_message_log table to iot_message_log")
+        return
+    if legacy_type != "BASE TABLE" or target_type != "BASE TABLE":
+        return
+
+    columns = (
+        "id, tenant_id, device_id, product_id, message_type, topic, payload, report_time, "
+        "trace_id, device_code, product_key, create_time"
+    )
+    cur.execute(
+        f"INSERT IGNORE INTO `iot_message_log` ({columns}) "
+        f"SELECT {columns} FROM `iot_device_message_log`"
+    )
+    cur.execute("DROP TABLE `iot_device_message_log`")
+    print("[message-log] merged legacy iot_device_message_log table into iot_message_log")
+
+
+def _escape_comment(value: str) -> str:
+    return value.replace("'", "''")
+
+
+def ensure_registry_comments(cur: pymysql.cursors.Cursor, db: str, expected_object: RegistryObject) -> int:
+    table = expected_object.name
+    if not table_exists(cur, db, table):
+        return 0
+
+    repairs = 0
+    expected_table_comment = expected_object.table_comment_zh
+    if table_comment(cur, db, table) != expected_table_comment:
+        cur.execute(f"ALTER TABLE `{table}` COMMENT = '{_escape_comment(expected_table_comment)}'")
+        repairs += 1
+
+    actual_column_comments = column_comments(cur, db, table)
+    for field in expected_object.fields:
+        actual_comment = actual_column_comments.get(field.name)
+        if actual_comment is None or actual_comment == field.comment_zh:
+            continue
+        cur.execute(
+            f"ALTER TABLE `{table}` MODIFY COLUMN `{field.name}` "
+            f"{field.data_type} COMMENT '{_escape_comment(field.comment_zh)}'"
+        )
+        repairs += 1
+    return repairs
 
 
 def column_exists(cur: pymysql.cursors.Cursor, db: str, table: str, column: str) -> bool:
@@ -821,7 +1800,13 @@ def load_index_shape(
     return is_unique, columns
 
 
-def ensure_existing_index_shape(cur: pymysql.cursors.Cursor, db: str, table: str, index: str) -> None:
+def ensure_existing_index_shape(
+    cur: pymysql.cursors.Cursor,
+    db: str,
+    table: str,
+    index: str,
+    ddl: str | None = None,
+) -> None:
     expected = EXPECTED_INDEX_SHAPES.get((table, index))
     if expected is None:
         return
@@ -829,6 +1814,8 @@ def ensure_existing_index_shape(cur: pymysql.cursors.Cursor, db: str, table: str
     if actual is None:
         return
     if actual != expected:
+        if ddl and repair_existing_index_shape_if_supported(cur, table, index, expected, actual, ddl):
+            return
         expected_unique, expected_columns = expected
         actual_unique, actual_columns = actual
         expected_kind = "UNIQUE" if expected_unique else "INDEX"
@@ -837,6 +1824,33 @@ def ensure_existing_index_shape(cur: pymysql.cursors.Cursor, db: str, table: str
             f"Existing index {table}.{index} drifts from expected shape: "
             f"expected {expected_kind} {expected_columns}, got {actual_kind} {actual_columns}."
         )
+
+
+def repair_existing_index_shape_if_supported(
+    cur: pymysql.cursors.Cursor,
+    table: str,
+    index: str,
+    expected: Tuple[bool, Tuple[str, ...]],
+    actual: Tuple[bool, Tuple[str, ...]],
+    ddl: str,
+) -> bool:
+    if (table, index) not in REPAIRABLE_INDEX_UNIQUENESS_DRIFTS:
+        return False
+    expected_unique, expected_columns = expected
+    actual_unique, actual_columns = actual
+    if expected_columns != actual_columns or expected_unique == actual_unique:
+        return False
+    if expected_unique:
+        unique_columns = UNIQUE_INDEX_DUPLICATE_GUARDS.get((table, index), expected_columns)
+        if has_duplicate_unique_key_rows(cur, table, unique_columns):
+            raise RuntimeError(
+                f"Cannot repair unique index {table}.{index}: duplicate rows detected; "
+                "duplicate rows must be cleaned before schema sync can continue."
+            )
+    cur.execute(f"ALTER TABLE `{table}` DROP INDEX `{index}`")
+    cur.execute(ddl)
+    print(f"[index] {table}.{index} rebuilt to expected shape")
+    return True
 
 
 def ensure_dict_defaults(cur: pymysql.cursors.Cursor) -> None:
@@ -1914,7 +2928,7 @@ def ensure_indexes(cur: pymysql.cursors.Cursor, db: str) -> None:
                         f"Existing index {table}.{index_name} drifts from expected shape and must be "
                         "corrected before schema sync can continue."
                     )
-                ensure_existing_index_shape(cur, db, table, index_name)
+                ensure_existing_index_shape(cur, db, table, index_name, ddl)
                 continue
             unique_columns = UNIQUE_INDEX_DUPLICATE_GUARDS.get((table, index_name))
             if unique_columns and has_duplicate_unique_key_rows(cur, table, unique_columns):
@@ -2148,6 +3162,7 @@ def ensure_collector_child_dev_baseline(cur: pymysql.cursors.Cursor, db: str) ->
             ),
         )
 
+    validate_normative_metric_seed_conflicts(COLLECTOR_CHILD_BASELINE_NORMATIVE_METRICS)
     for seed in COLLECTOR_CHILD_BASELINE_NORMATIVE_METRICS:
         cur.execute(
             """
@@ -2163,6 +3178,7 @@ def ensure_collector_child_dev_baseline(cur: pymysql.cursors.Cursor, db: str) ->
                 %s, %s, CAST(%s AS JSON)
             )
             ON DUPLICATE KEY UPDATE
+                identifier = VALUES(identifier),
                 display_name = VALUES(display_name),
                 unit = VALUES(unit),
                 precision_digits = VALUES(precision_digits),
@@ -2296,6 +3312,37 @@ def ensure_collector_child_dev_baseline(cur: pymysql.cursors.Cursor, db: str) ->
             ),
         )
 
+    cur.execute(
+        """
+        UPDATE iot_device d
+        JOIN iot_product p ON p.id = d.product_id
+        SET d.device_name = CONCAT('激光测距-', d.device_code),
+            d.update_by = 1,
+            d.update_time = NOW()
+        WHERE d.deleted = 0
+          AND p.deleted = 0
+          AND p.product_key = 'nf-monitor-laser-rangefinder-v1'
+          AND (
+            d.device_name LIKE 'NF-LASER-%'
+            OR d.device_name = '拉杆裂缝计'
+          )
+        """
+    )
+
+    cur.execute(
+        """
+        UPDATE iot_device d
+        JOIN iot_product p ON p.id = d.product_id
+        SET d.device_name = CONCAT('裂缝计-', d.device_code),
+            d.update_by = 1,
+            d.update_time = NOW()
+        WHERE d.deleted = 0
+          AND p.deleted = 0
+          AND p.product_key = 'nf-monitor-crack-meter-v1'
+          AND (d.device_name LIKE 'NF-CRACK-%' OR d.device_name = d.device_code)
+        """
+    )
+
     for (
         relation_id,
         parent_device_code,
@@ -2402,6 +3449,7 @@ def main() -> int:
         try:
             with conn.cursor() as cur:
                 cur.execute(f"USE `{args.db}`")
+                ensure_message_log_physical_table(cur, args.db)
 
                 for table, ddl in CREATE_TABLE_SQL.items():
                     cur.execute(ddl)
@@ -2416,6 +3464,12 @@ def main() -> int:
                             continue
                         cur.execute(f"ALTER TABLE `{table}` ADD COLUMN `{column}` {definition}")
                         print(f"[column] {table}.{column} added")
+
+                message_log_comment_repairs = ensure_registry_comments(cur, args.db, MESSAGE_LOG_SCHEMA_OBJECT)
+                if message_log_comment_repairs:
+                    print(f"[message-log] registry comments aligned ({message_log_comment_repairs} repairs)")
+                else:
+                    print("[message-log] registry comments already aligned")
 
                 if table_exists(cur, args.db, "sys_dict"):
                     if column_exists(cur, args.db, "sys_dict", "dict_value") and column_exists(

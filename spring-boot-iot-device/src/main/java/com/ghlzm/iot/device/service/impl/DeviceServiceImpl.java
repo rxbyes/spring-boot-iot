@@ -77,6 +77,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     private static final int SUB_DEVICE_NODE_TYPE = 3;
     private static final int REGISTERED_STATUS = 1;
     private static final int UNREGISTERED_STATUS = 0;
+    private static final long MAX_EXPORT_ROWS = 5000L;
     private static final String REGISTERED_SOURCE = "registry";
 
     private final ProductService productService;
@@ -308,6 +309,81 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                 deviceStatus,
                 current,
                 size);
+    }
+
+    @Override
+    public List<DevicePageVO> exportDevices(Long currentUserId,
+                                            Long deviceId,
+                                            String keyword,
+                                            String productKey,
+                                            String productName,
+                                            String deviceCode,
+                                            String deviceName,
+                                            Integer onlineStatus,
+                                            Integer activateStatus,
+                                            Integer deviceStatus,
+                                            Integer registrationStatus) {
+        if (Integer.valueOf(UNREGISTERED_STATUS).equals(registrationStatus)) {
+            return exportUnregisteredDevices(currentUserId,
+                    deviceId,
+                    keyword,
+                    productKey,
+                    productName,
+                    deviceCode,
+                    deviceName,
+                    onlineStatus,
+                    activateStatus,
+                    deviceStatus);
+        }
+
+        boolean hasExplicitProductFilter = StringUtils.hasText(productKey) || StringUtils.hasText(productName);
+        List<Long> filteredProductIds = resolveFilteredProductIds(currentUserId, productKey, productName);
+        List<Long> keywordMatchedProductIds = resolveKeywordMatchedProductIds(currentUserId, keyword);
+
+        if (Integer.valueOf(REGISTERED_STATUS).equals(registrationStatus)) {
+            if (hasExplicitProductFilter && CollectionUtils.isEmpty(filteredProductIds)) {
+                return List.of();
+            }
+            return exportRegisteredDevices(currentUserId,
+                    deviceId,
+                    keyword,
+                    filteredProductIds,
+                    keywordMatchedProductIds,
+                    deviceCode,
+                    deviceName,
+                    onlineStatus,
+                    activateStatus,
+                    deviceStatus);
+        }
+
+        List<DevicePageVO> registeredRows = hasExplicitProductFilter && CollectionUtils.isEmpty(filteredProductIds)
+                ? List.of()
+                : exportRegisteredDevices(currentUserId,
+                deviceId,
+                keyword,
+                filteredProductIds,
+                keywordMatchedProductIds,
+                deviceCode,
+                deviceName,
+                onlineStatus,
+                activateStatus,
+                deviceStatus);
+        List<DevicePageVO> unregisteredRows = exportUnregisteredDevices(currentUserId,
+                deviceId,
+                keyword,
+                productKey,
+                productName,
+                deviceCode,
+                deviceName,
+                onlineStatus,
+                activateStatus,
+                deviceStatus);
+
+        List<DevicePageVO> rows = new ArrayList<>(registeredRows.size() + unregisteredRows.size());
+        rows.addAll(registeredRows);
+        rows.addAll(unregisteredRows);
+        assertExportWithinLimit(rows.size());
+        return rows;
     }
 
     @Override
@@ -1166,6 +1242,44 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         return PageResult.of(result.getTotal(), result.getCurrent(), result.getSize(), records);
     }
 
+    private List<DevicePageVO> exportRegisteredDevices(Long currentUserId,
+                                                       Long deviceId,
+                                                       String keyword,
+                                                       List<Long> filteredProductIds,
+                                                       List<Long> keywordMatchedProductIds,
+                                                       String deviceCode,
+                                                       String deviceName,
+                                                       Integer onlineStatus,
+                                                       Integer activateStatus,
+                                                       Integer deviceStatus) {
+        long total = countRegisteredDevices(currentUserId,
+                keyword,
+                filteredProductIds,
+                keywordMatchedProductIds,
+                deviceId,
+                deviceCode,
+                deviceName,
+                onlineStatus,
+                activateStatus,
+                deviceStatus);
+        if (total <= 0L) {
+            return List.of();
+        }
+        assertExportWithinLimit(total);
+        return pageRegisteredDevices(currentUserId,
+                deviceId,
+                keyword,
+                filteredProductIds,
+                keywordMatchedProductIds,
+                deviceCode,
+                deviceName,
+                onlineStatus,
+                activateStatus,
+                deviceStatus,
+                1L,
+                total).getRecords();
+    }
+
     private PageResult<DevicePageVO> pageUnregisteredDevices(Long currentUserId,
                                                              Long deviceId,
                                                              String keyword,
@@ -1221,6 +1335,57 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                 pageSize
         );
         return PageResult.of(total, pageNum, pageSize, records);
+    }
+
+    private List<DevicePageVO> exportUnregisteredDevices(Long currentUserId,
+                                                         Long deviceId,
+                                                         String keyword,
+                                                         String productKey,
+                                                         String productName,
+                                                         String deviceCode,
+                                                         String deviceName,
+                                                         Integer onlineStatus,
+                                                         Integer activateStatus,
+                                                         Integer deviceStatus) {
+        if (hasOrganizationRestrictedScope(currentUserId)
+                || !canMatchUnregisteredDevices(deviceId, deviceName, onlineStatus, activateStatus, deviceStatus)) {
+            return List.of();
+        }
+        Long tenantId = resolveScopedTenantId(currentUserId);
+        long total = tenantId == null
+                ? unregisteredDeviceRosterService.countByFilters(
+                normalizeOptionalText(keyword),
+                normalizeOptionalText(productKey),
+                normalizeOptionalText(productName),
+                normalizeOptionalText(deviceCode))
+                : unregisteredDeviceRosterService.countByFilters(
+                tenantId,
+                normalizeOptionalText(keyword),
+                normalizeOptionalText(productKey),
+                normalizeOptionalText(productName),
+                normalizeOptionalText(deviceCode));
+        if (total <= 0L) {
+            return List.of();
+        }
+        assertExportWithinLimit(total);
+        return tenantId == null
+                ? unregisteredDeviceRosterService.listByFilters(
+                normalizeOptionalText(keyword),
+                normalizeOptionalText(productKey),
+                normalizeOptionalText(productName),
+                normalizeOptionalText(deviceCode),
+                0L,
+                total
+        )
+                : unregisteredDeviceRosterService.listByFilters(
+                tenantId,
+                normalizeOptionalText(keyword),
+                normalizeOptionalText(productKey),
+                normalizeOptionalText(productName),
+                normalizeOptionalText(deviceCode),
+                0L,
+                total
+        );
     }
 
     private PageResult<DevicePageVO> pageCombinedDevices(Long currentUserId,
@@ -1336,6 +1501,13 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                 activateStatus,
                 deviceStatus
         ));
+    }
+
+    private void assertExportWithinLimit(long total) {
+        if (total > MAX_EXPORT_ROWS) {
+            throw new BizException("当前筛选命中 " + total + " 台设备，超过单次导出上限 "
+                    + MAX_EXPORT_ROWS + "，请继续缩小筛选范围后重试");
+        }
     }
 
     private boolean canMatchUnregisteredDevices(Long deviceId,

@@ -170,7 +170,7 @@ class DeviceOnboardingAcceptanceServiceImplTest {
         assertThat(progress.status()).isEqualTo("FAILED");
         assertThat(progress.runId()).isNotBlank();
         assertThat(progress.failedLayers()).contains("读侧层");
-        assertThat(progress.jumpPath()).isEqualTo("/automation-results?runId=" + progress.runId());
+        assertThat(progress.jumpPath()).isEqualTo("/automation-governance?tab=evidence&runId=" + progress.runId());
         assertThat(Files.readString(tempDir.resolve("logs").resolve("acceptance").resolve("registry-run-" + progress.runId() + ".json")))
                 .contains("device-onboarding.read-side")
                 .contains("\"status\" : \"failed\"");

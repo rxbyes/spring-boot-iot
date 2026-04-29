@@ -194,10 +194,16 @@
 .el-table {
   --el-table-bg-color: var(--bg-card);
   --el-table-tr-bg-color: var(--bg-card);
-  --el-table-header-bg-color: var(--surface-muted);
+  --el-table-header-bg-color: var(--workbench-table-header-bg);
   --el-table-border-color: color-mix(in srgb, var(--text-primary) 12%, white);
   --el-table-text-color: var(--text-secondary);
   --el-table-header-text-color: var(--text-tertiary);
+}
+
+.ops-workbench .el-table__body tr:hover > td.el-table__cell,
+.standard-list-view .el-table__body tr:hover > td.el-table__cell,
+.sys-mgmt-view .el-table__body tr:hover > td.el-table__cell {
+  background: var(--workbench-table-row-hover-bg);
 }
 
 .el-form-item__label,
@@ -229,7 +235,8 @@
 }
 
 .el-tag {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
+  box-shadow: none;
 }
 
 .standard-pagination {
@@ -238,8 +245,8 @@
 }
 
 .standard-pagination .el-pager li.is-active {
-  color: var(--ink-strong);
+  color: var(--brand);
   border-color: transparent;
-  background: linear-gradient(120deg, var(--brand), var(--brand-bright));
-  box-shadow: var(--shadow-brand);
+  background: var(--workbench-pagination-active-bg);
+  box-shadow: none;
 }

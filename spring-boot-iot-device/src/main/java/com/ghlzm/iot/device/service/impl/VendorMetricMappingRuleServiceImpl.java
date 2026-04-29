@@ -84,6 +84,14 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
         this(mapper, snapshotMapper, protocolSecurityDefinitionProvider, null, null, null, null);
     }
 
+    public VendorMetricMappingRuleServiceImpl(VendorMetricMappingRuleMapper mapper,
+                                              VendorMetricMappingRuleSnapshotMapper snapshotMapper,
+                                              ProtocolSecurityDefinitionProvider protocolSecurityDefinitionProvider,
+                                              ProductMapper productMapper,
+                                              VendorMetricMappingRuntimeServiceImpl runtimeService) {
+        this(mapper, snapshotMapper, protocolSecurityDefinitionProvider, productMapper, runtimeService, null, null);
+    }
+
     @Autowired
     public VendorMetricMappingRuleServiceImpl(VendorMetricMappingRuleMapper mapper,
                                               VendorMetricMappingRuleSnapshotMapper snapshotMapper,
@@ -354,6 +362,59 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
                 .distinct()
                 .forEach(productId -> mergeLatestSnapshots(latestSnapshots, snapshotMapper.selectPublishedByProductId(productId)));
         return latestSnapshots;
+    }
+
+    private Map<String, Boolean> batchCheckCoverage(Long productId, List<VendorMetricMappingRule> rules) {
+        if (normativeMapper == null || snapshotService == null || rules == null || rules.isEmpty()) {
+            return Map.of();
+        }
+        Set<String> targetIdentifiers = rules.stream()
+                .map(VendorMetricMappingRule::getTargetNormativeIdentifier)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toSet());
+        if (targetIdentifiers.isEmpty()) {
+            return Map.of();
+        }
+
+        Set<String> normativeIdentifiers = new LinkedHashSet<>();
+        try {
+            List<NormativeMetricDefinition> normativeDefs = normativeMapper.selectList(
+                    new LambdaQueryWrapper<NormativeMetricDefinition>()
+                            .in(NormativeMetricDefinition::getIdentifier, targetIdentifiers)
+                            .eq(NormativeMetricDefinition::getDeleted, 0)
+            );
+            if (normativeDefs != null) {
+                normativeDefs.stream()
+                        .map(NormativeMetricDefinition::getIdentifier)
+                        .filter(StringUtils::hasText)
+                        .map(identifier -> identifier.toLowerCase(Locale.ROOT))
+                        .forEach(normativeIdentifiers::add);
+            }
+        } catch (Exception ignored) {
+            // 规范字段覆盖检查失败时保持最佳努力，不阻断台账读取
+        }
+
+        Set<String> publishedIdentifiers = new LinkedHashSet<>();
+        try {
+            PublishedProductContractSnapshot snapshot = snapshotService.getRequiredSnapshot(productId);
+            if (snapshot != null) {
+                for (String identifier : targetIdentifiers) {
+                    if (snapshot.containsPublishedIdentifier(identifier)) {
+                        publishedIdentifiers.add(identifier.toLowerCase(Locale.ROOT));
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // 正式快照覆盖检查失败时保持最佳努力，不阻断台账读取
+        }
+
+        Map<String, Boolean> result = new HashMap<>();
+        for (String identifier : targetIdentifiers) {
+            String lower = identifier.toLowerCase(Locale.ROOT);
+            result.put(identifier,
+                    normativeIdentifiers.contains(lower) || publishedIdentifiers.contains(lower));
+        }
+        return result;
     }
 
     private void mergeLatestSnapshots(Map<Long, VendorMetricMappingRuleSnapshot> target,

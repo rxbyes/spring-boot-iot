@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { computed, defineComponent, inject, provide } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -5,6 +7,11 @@ import { ElMessage } from 'element-plus'
 
 import { createRequestError } from '@/api/request'
 import GovernanceApprovalView from '@/views/GovernanceApprovalView.vue'
+
+const approvalViewSource = readFileSync(
+  resolve(import.meta.dirname, '../../views/GovernanceApprovalView.vue'),
+  'utf8'
+)
 
 const {
   mockPageOrders,
@@ -734,5 +741,10 @@ describe('GovernanceApprovalView', () => {
       approverUserId: 3003,
       comment: '重新指定复核人后提交'
     })
+  })
+
+  it('keeps the order list on the shared stacked first-column grammar', () => {
+    expect(approvalViewSource).toContain('secondary-prop="actionCode"')
+    expect(approvalViewSource).not.toContain('<StandardTableTextColumn prop="actionCode" label="动作编码"')
   })
 })

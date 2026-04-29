@@ -79,6 +79,25 @@
           />
         </template>
 
+        <template v-if="traceInboundNotice" #notices>
+          <section class="message-trace-inbound-notice" data-testid="message-trace-inbound-notice">
+            <div class="message-trace-inbound-notice__copy">
+              <span class="message-trace-inbound-notice__eyebrow">{{ traceInboundNotice.eyebrow }}</span>
+              <strong>{{ traceInboundNotice.title }}</strong>
+              <p>{{ traceInboundNotice.description }}</p>
+            </div>
+            <div class="message-trace-inbound-notice__meta">
+              <span
+                v-for="pill in traceInboundNotice.pills"
+                :key="pill"
+                class="message-trace-inbound-notice__pill"
+              >
+                {{ pill }}
+              </span>
+            </div>
+          </section>
+        </template>
+
         <template v-if="showTraceInlineState" #inline-state>
           <StandardInlineState :message="traceInlineMessage" tone="info" />
         </template>
@@ -171,8 +190,12 @@
             stripe
             style="width: 100%"
           >
-            <StandardTableTextColumn prop="traceId" label="TraceId" :min-width="200" />
-            <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
+            <StandardTableTextColumn
+              prop="traceId"
+              label="Trace / 设备"
+              :min-width="220"
+              secondary-prop="deviceCode"
+            />
             <StandardTableTextColumn prop="productKey" label="产品标识" :min-width="140" />
             <StandardTableTextColumn label="消息类型" :width="120">
               <template #default="{ row }">
@@ -245,6 +268,10 @@
         :timeline-lookup-error="detailTimelineLookupError"
         :timeline-empty-title="detailTimelineEmptyTitle"
         :timeline-empty-description="detailTimelineEmptyDescription"
+        :inbound-context="detailInboundContext"
+        :can-return-to-insight="canReturnToInsightFromDetail"
+        @return-to-insight="handleReturnToInsightFromDetail"
+        @copy-trace-clues="handleCopyDetailTraceClues"
       />
     </StandardDetailDrawer>
   </StandardPageShell>
@@ -252,7 +279,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 
 import { messageApi, type MessageTraceQueryParams } from '@/api/message';
@@ -290,6 +317,7 @@ import { resolveMessageTracePayloadComparison } from '@/utils/messageTracePayloa
 type ObservabilityViewMode = 'message-trace' | 'access-error';
 
 const route = useRoute();
+const router = useRouter();
 const messageTraceActionColumnWidth = resolveWorkbenchActionColumnWidth({
   directItems: [{ command: 'detail', label: '详情' }]
 });
@@ -401,6 +429,18 @@ const detailTags = computed(() => {
   }
   return [];
 });
+const detailInboundContext = computed(() => {
+  const context = restoredDiagnosticContext.value;
+  if (!detailVisible.value || !context || context.sourcePage !== 'insight' || context.reportStatus !== 'timeline-missing') {
+    return null;
+  }
+  return context;
+});
+const detailReturnInsightDeviceCode = computed(() => {
+  const value = detailData.value.deviceCode ?? detailInboundContext.value?.deviceCode;
+  return typeof value === 'string' ? value.trim() : value == null ? '' : String(value).trim();
+});
+const canReturnToInsightFromDetail = computed(() => Boolean(detailReturnInsightDeviceCode.value));
 const {
   tags: activeFilterTags,
   hasAppliedFilters: hasAppliedFilterTags,
@@ -447,6 +487,93 @@ const traceInlineMessage = computed(() => {
   return [contextSource, '当前节点：主链路复盘', traceRuleSummary.value].filter(Boolean).join(' · ');
 });
 const showTraceInlineState = computed(() => Boolean(traceInlineMessage.value));
+const traceInboundNotice = computed(() => {
+  const context = restoredDiagnosticContext.value;
+  if (!context || context.sourcePage !== 'insight' || context.reportStatus !== 'timeline-missing') {
+    return null;
+  }
+  const pills = [
+    context.deviceCode ? `设备 ${context.deviceCode}` : '',
+    context.traceId ? `Trace ${context.traceId}` : '',
+    context.topic ? '带 Topic 回看' : ''
+  ].filter(Boolean);
+  return {
+    eyebrow: `来自${describeDiagnosticSource(context.sourcePage)}`,
+    title: '当前正在补 latest 链路',
+    description: '沿着 deviceCode、traceId 和 Topic 回到主链路复盘，先确认上报是否落到 message-flow 和 latest 写入链路，再决定是否回到对象洞察继续排查。',
+    pills
+  };
+});
+
+function buildDetailTraceCluePayload() {
+  const clues = {
+    source: detailInboundContext.value?.sourcePage === 'insight' ? '对象洞察台' : '链路追踪台',
+    deviceCode: typeof (detailData.value.deviceCode ?? detailInboundContext.value?.deviceCode) === 'string'
+      ? String(detailData.value.deviceCode ?? detailInboundContext.value?.deviceCode).trim()
+      : undefined,
+    traceId: typeof (detailData.value.traceId ?? detailInboundContext.value?.traceId) === 'string'
+      ? String(detailData.value.traceId ?? detailInboundContext.value?.traceId).trim()
+      : undefined,
+    topic: typeof (detailData.value.topic ?? detailInboundContext.value?.topic) === 'string'
+      ? String(detailData.value.topic ?? detailInboundContext.value?.topic).trim()
+      : undefined
+  };
+  return JSON.stringify(clues, null, 2);
+}
+
+function copyWithExecCommand(content: string) {
+  if (typeof document === 'undefined' || typeof document.execCommand !== 'function' || !document.body) {
+    return false;
+  }
+  const textArea = document.createElement('textarea');
+  textArea.value = content;
+  textArea.setAttribute('readonly', 'true');
+  textArea.style.position = 'fixed';
+  textArea.style.top = '-9999px';
+  textArea.style.opacity = '0';
+  document.body.appendChild(textArea);
+  try {
+    textArea.focus();
+    textArea.select();
+    textArea.setSelectionRange(0, textArea.value.length);
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    textArea.remove();
+  }
+}
+
+async function handleCopyDetailTraceClues() {
+  const content = buildDetailTraceCluePayload();
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(content);
+    } else if (!copyWithExecCommand(content)) {
+      ElMessage.warning('当前环境暂不支持复制');
+      return;
+    }
+    ElMessage.success('链路线索已复制');
+  } catch {
+    if (copyWithExecCommand(content)) {
+      ElMessage.success('链路线索已复制');
+      return;
+    }
+    ElMessage.warning('复制失败，请稍后重试');
+  }
+}
+
+function handleReturnToInsightFromDetail() {
+  if (!detailReturnInsightDeviceCode.value) {
+    return;
+  }
+  void router.push({
+    path: '/insight',
+    query: {
+      deviceCode: detailReturnInsightDeviceCode.value
+    }
+  });
+}
 
 function syncQuickSearchKeywordFromFilters() {
   quickSearchKeyword.value = searchForm.keyword;
@@ -824,6 +951,60 @@ onMounted(() => {
 
 .message-trace-quick-search-tag__chip {
   margin: 0;
+}
+
+.message-trace-inbound-notice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
+  padding: 0.9rem 1rem;
+  border-radius: calc(var(--radius-lg) - 0.24rem);
+  border: 1px solid color-mix(in srgb, var(--warning) 18%, var(--panel-border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--warning) 8%, white), rgba(255, 255, 255, 0.96));
+}
+
+.message-trace-inbound-notice__copy {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.message-trace-inbound-notice__eyebrow {
+  color: color-mix(in srgb, var(--warning) 72%, var(--text-secondary));
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.message-trace-inbound-notice__copy strong {
+  color: var(--text-heading);
+}
+
+.message-trace-inbound-notice__copy p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.58;
+}
+
+.message-trace-inbound-notice__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.message-trace-inbound-notice__pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warning) 12%, white);
+  color: color-mix(in srgb, var(--warning) 78%, var(--text-primary));
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .message-trace-table-wrap {

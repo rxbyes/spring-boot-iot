@@ -1,8 +1,9 @@
 package com.ghlzm.iot.alarm.controller;
 
 import com.ghlzm.iot.alarm.dto.RiskPointBindingReplaceRequest;
+import com.ghlzm.iot.alarm.dto.RiskPointBatchBindDeviceRequest;
+import com.ghlzm.iot.alarm.dto.RiskPointBindMetricDTO;
 import com.ghlzm.iot.alarm.dto.RiskPointDeviceCapabilityBindingRequest;
-import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.service.RiskPointBindingMaintenanceService;
 import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingDeviceGroupVO;
@@ -31,11 +32,10 @@ class RiskPointControllerTest {
         RiskPointService riskPointService = mock(RiskPointService.class);
         RiskPointBindingMaintenanceService maintenanceService = mock(RiskPointBindingMaintenanceService.class);
         RiskPointController controller = new RiskPointController(riskPointService, maintenanceService);
-        RiskPointDevice request = new RiskPointDevice();
+        RiskPointBatchBindDeviceRequest request = new RiskPointBatchBindDeviceRequest();
         request.setRiskPointId(7001L);
         request.setDeviceId(3001L);
-        request.setMetricIdentifier("dispsX");
-        request.setMetricName("X轴位移");
+        request.setMetrics(List.of(metric(6101L, "dispsX", "X轴位移")));
         GovernanceSubmissionResultVO result = new GovernanceSubmissionResultVO();
         result.setWorkItemId(8801L);
         result.setExecutionStatus("DIRECT_APPLIED");
@@ -200,5 +200,13 @@ class RiskPointControllerTest {
     private Authentication authentication(Long userId) {
         JwtUserPrincipal principal = new JwtUserPrincipal(userId, "demo");
         return new UsernamePasswordAuthenticationToken(principal, null, List.of());
+    }
+
+    private RiskPointBindMetricDTO metric(Long riskMetricId, String metricIdentifier, String metricName) {
+        RiskPointBindMetricDTO value = new RiskPointBindMetricDTO();
+        value.setRiskMetricId(riskMetricId);
+        value.setMetricIdentifier(metricIdentifier);
+        value.setMetricName(metricName);
+        return value;
     }
 }

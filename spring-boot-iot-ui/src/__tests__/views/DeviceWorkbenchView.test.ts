@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+﻿import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineComponent, nextTick } from 'vue'
 import { shallowMount } from '@vue/test-utils'
@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRequestError } from '@/api/request'
 import DeviceWorkbenchView from '@/views/DeviceWorkbenchView.vue'
 
-const { mockRoute, mockRouter, mockPageDevices, mockPermissions } = vi.hoisted(() => ({
+const { mockRoute, mockRouter, mockPageDevices, mockExportDevices, mockGetDeviceThresholds, mockPermissions, mockDownloadRowsAsCsv } = vi.hoisted(() => ({
   mockRoute: {
     path: '/devices',
     query: {} as Record<string, unknown>
@@ -18,13 +18,16 @@ const { mockRoute, mockRouter, mockPageDevices, mockPermissions } = vi.hoisted((
     push: vi.fn()
   },
   mockPageDevices: vi.fn(),
+  mockExportDevices: vi.fn(),
+  mockGetDeviceThresholds: vi.fn(),
   mockPermissions: new Set<string>([
     'iot:devices:add',
     'iot:devices:update',
     'iot:devices:delete',
     'iot:devices:export',
     'iot:devices:replace'
-  ])
+  ]),
+  mockDownloadRowsAsCsv: vi.fn()
 }))
 
 function setMockPermissions(...permissions: string[]) {
@@ -40,8 +43,13 @@ vi.mock('vue-router', () => ({
 vi.mock('@/api/device', () => ({
   deviceApi: {
     pageDevices: mockPageDevices,
+    exportDevices: mockExportDevices,
+    getDeviceThresholds: mockGetDeviceThresholds,
     listDeviceOptions: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: [] }),
     getDeviceById: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
+    getDeviceCapabilities: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
+    executeDeviceCapability: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
+    pageDeviceCommands: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: { total: 0, pageNum: 1, pageSize: 10, records: [] } }),
     getDeviceOnboardingSuggestion: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
     batchActivateOnboardingSuggestions: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
     deleteDevice: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
@@ -51,6 +59,10 @@ vi.mock('@/api/device', () => ({
     updateDevice: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
     addDevice: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null })
   }
+}))
+
+vi.mock('@/utils/csv', () => ({
+  downloadRowsAsCsv: mockDownloadRowsAsCsv
 }))
 
 vi.mock('@/api/accessError', () => ({
@@ -93,7 +105,7 @@ const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
   props: ['eyebrow', 'title', 'description'],
   template: `
-    <section class="device-workbench-panel-stub">
+    <section class="device-workbench-panel-stub standard-workbench-panel--workbench-foundation">
       <p class="device-workbench-panel-stub__eyebrow">{{ eyebrow }}</p>
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
@@ -111,7 +123,7 @@ const StandardPageShellStub = defineComponent({
   name: 'StandardPageShell',
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
-    <section class="standard-page-shell-stub">
+    <section class="standard-page-shell-stub standard-page-shell--workbench-foundation">
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -121,7 +133,7 @@ const StandardPageShellStub = defineComponent({
 const StandardListFilterHeaderStub = defineComponent({
   name: 'StandardListFilterHeader',
   template: `
-    <section class="device-list-filter-header-stub">
+    <section class="device-list-filter-header-stub standard-list-filter-header--workbench-foundation">
       <div class="device-list-filter-header-stub__primary"><slot name="primary" /></div>
       <div class="device-list-filter-header-stub__advanced"><slot name="advanced" /></div>
       <div class="device-list-filter-header-stub__actions"><slot name="actions" /></div>
@@ -144,7 +156,7 @@ const StandardWorkbenchRowActionsStub = defineComponent({
   props: ['variant', 'gap', 'distribution', 'directItems', 'menuItems'],
   template: `
     <div
-      class="device-workbench-row-actions-stub"
+      class="device-workbench-row-actions-stub standard-workbench-row-actions--quiet"
       :data-variant="variant"
       :data-distribution="distribution"
     >
@@ -208,12 +220,13 @@ const StandardButtonStub = defineComponent({
 const StandardActionMenuStub = defineComponent({
   name: 'StandardActionMenu',
   props: ['label', 'items'],
-  template: '<button class="standard-action-menu-stub" type="button">{{ label || \'更多\' }}</button>'
+  template: '<button class="standard-action-menu-stub" type="button">{{ label || \'鏇村\' }}</button>'
 })
 
 const StandardDetailDrawerStub = defineComponent({
   name: 'StandardDetailDrawer',
   props: {
+    modelValue: Boolean,
     eyebrow: String,
     title: String,
     subtitle: String,
@@ -222,7 +235,7 @@ const StandardDetailDrawerStub = defineComponent({
     hideHeader: Boolean
   },
   template: `
-    <section class="device-detail-drawer-stub">
+    <section class="device-detail-drawer-stub" :data-visible="String(modelValue)">
       <div v-if="!hideHeader" class="device-detail-drawer-stub__header">
         <p v-if="eyebrow">{{ eyebrow }}</p>
         <h3>{{ title }}</h3>
@@ -239,6 +252,21 @@ const StandardDetailDrawerStub = defineComponent({
       </div>
       <slot />
       <slot name="footer" />
+    </section>
+  `
+})
+
+const DeviceCapabilityWorkbenchDrawerStub = defineComponent({
+  name: 'DeviceCapabilityWorkbenchDrawer',
+  props: ['modelValue', 'device', 'overview', 'commands', 'capabilityLoading', 'commandLoading'],
+  emits: ['update:modelValue', 'executeCapability', 'refreshCommands'],
+  template: `
+    <section class="device-capability-workbench-drawer-stub" :data-visible="String(modelValue)">
+      <p class="device-capability-workbench-drawer-stub__code">{{ device?.deviceCode }}</p>
+      <p class="device-capability-workbench-drawer-stub__name">{{ device?.deviceName }}</p>
+      <p class="device-capability-workbench-drawer-stub__product">{{ device?.productName }}</p>
+      <p class="device-capability-workbench-drawer-stub__capability">{{ overview?.productCapabilityType }}</p>
+      <slot />
     </section>
   `
 })
@@ -269,6 +297,12 @@ const DeviceOnboardingSuggestionDrawerStub = defineComponent({
       <p>{{ (suggestion?.ruleGaps || []).join(' / ') }}</p>
     </section>
   `
+})
+
+const DeviceThresholdDrawerStub = defineComponent({
+  name: 'DeviceThresholdDrawer',
+  props: ['modelValue', 'loading', 'errorMessage', 'overview'],
+  template: '<section class="device-threshold-drawer-stub" />'
 })
 
 const ElTableStub = defineComponent({
@@ -332,6 +366,8 @@ function mountView() {
         StandardActionMenu: StandardActionMenuStub,
         StandardTableToolbar: StandardTableToolbarStub,
         StandardDetailDrawer: StandardDetailDrawerStub,
+        DeviceCapabilityWorkbenchDrawer: DeviceCapabilityWorkbenchDrawerStub,
+        DeviceThresholdDrawer: DeviceThresholdDrawerStub,
         DeviceOnboardingSuggestionDrawer: DeviceOnboardingSuggestionDrawerStub,
         StandardFormDrawer: StandardFormDrawerStub,
         ElTable: ElTableStub,
@@ -357,6 +393,9 @@ describe('DeviceWorkbenchView', () => {
     mockRouter.replace.mockResolvedValue(undefined)
     mockRouter.push.mockResolvedValue(undefined)
     mockPageDevices.mockReset()
+    mockExportDevices.mockReset()
+    mockGetDeviceThresholds.mockReset()
+    mockDownloadRowsAsCsv.mockReset()
     mockPageDevices.mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -365,6 +404,25 @@ describe('DeviceWorkbenchView', () => {
         pageNum: 1,
         pageSize: 10,
         records: []
+      }
+    })
+    mockExportDevices.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: []
+    })
+    mockGetDeviceThresholds.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceId: '0',
+        deviceCode: '',
+        deviceName: '',
+        productId: '',
+        productName: '',
+        matchedMetricCount: 0,
+        missingMetricCount: 0,
+        items: []
       }
     })
     installSessionStorageMock()
@@ -406,7 +464,9 @@ describe('DeviceWorkbenchView', () => {
     const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub)
     const formDrawer = wrapper.findComponent(StandardFormDrawerStub)
 
-    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true)
+    expect(wrapper.find('.standard-page-shell--workbench-foundation').exists()).toBe(true)
+    expect(wrapper.find('.standard-workbench-panel--workbench-foundation').exists()).toBe(true)
+    expect(wrapper.find('.standard-list-filter-header--workbench-foundation').exists()).toBe(true)
     expect(detailDrawer.props('eyebrow')).toBeUndefined()
     expect(formDrawer.props('eyebrow')).toBeUndefined()
     expect(wrapper.text()).toContain('设备资产中心')
@@ -570,6 +630,82 @@ describe('DeviceWorkbenchView', () => {
     ])
   })
 
+  it('opens the lightweight capability drawer from device operation without reusing the detail drawer', async () => {
+    const { deviceApi } = await import('@/api/device')
+    vi.mocked(deviceApi.getDeviceCapabilities).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceCode: '6260370286',
+        productId: '202603192100560271',
+        productKey: 'zhd-warning-sound-light-alarm-v1',
+        productCapabilityType: 'WARNING',
+        subType: 'BROADCAST',
+        onlineExecutable: true,
+        capabilities: [
+          {
+            code: 'broadcast_play',
+            name: '播放内容',
+            group: '广播预警',
+            enabled: true,
+            requiresOnline: true,
+            paramsSchema: {}
+          }
+        ]
+      }
+    })
+    vi.mocked(deviceApi.pageDeviceCommands).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 1,
+            commandId: 'CMD-001',
+            serviceIdentifier: 'broadcast_play',
+            status: 'SENT',
+            sendTime: '2026-04-24T10:50:00',
+            topic: '/iot/broadcast/6260370286'
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        id: 2001,
+        productKey: 'zhd-warning-sound-light-alarm-v1',
+        productName: '中海达预警塔声光报警器',
+        deviceCode: '6260370286',
+        deviceName: '中海达声光报警器-1',
+        registrationStatus: 1,
+        onlineStatus: 1,
+        activateStatus: 1,
+        deviceStatus: 1
+      }
+    ]
+    await nextTick()
+
+    await (wrapper.vm as any).handleRowAction('capability', (wrapper.vm as any).tableData[0])
+    await flushPromises()
+    await nextTick()
+
+    const capabilityDrawer = wrapper.findComponent(DeviceCapabilityWorkbenchDrawerStub)
+    const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub)
+    expect(capabilityDrawer.props('modelValue')).toBe(true)
+    expect(detailDrawer.props('modelValue')).toBe(false)
+    expect((capabilityDrawer.props('device') as Record<string, unknown>).deviceCode).toBe('6260370286')
+    expect((capabilityDrawer.props('device') as Record<string, unknown>).deviceName).toBe('中海达声光报警器-1')
+    expect((capabilityDrawer.props('overview') as Record<string, unknown>).productCapabilityType).toBe('WARNING')
+  })
+
   it('shows onboarding suggestion for unregistered rows and loads the drawer payload', async () => {
     const { deviceApi } = await import('@/api/device')
     vi.mocked(deviceApi.getDeviceOnboardingSuggestion).mockResolvedValueOnce({
@@ -704,7 +840,7 @@ describe('DeviceWorkbenchView', () => {
       data: {
         id: 8101,
         productKey: 'shadow-product',
-        productName: '正式产品',
+        productName: '姝ｅ紡浜у搧',
         deviceCode: 'shadow-device-01',
         deviceName: '北坡正式设备',
         registrationStatus: 1,
@@ -754,9 +890,9 @@ describe('DeviceWorkbenchView', () => {
     const createdRow = {
       id: 8102,
       productKey: 'shadow-product',
-      productName: '正式产品',
+      productName: '姝ｅ紡浜у搧',
       deviceCode: 'shadow-device-01',
-      deviceName: '北坡正式设备',
+        deviceName: '北坡正式设备',
       registrationStatus: 1,
       activateStatus: 1,
       deviceStatus: 1
@@ -842,6 +978,8 @@ describe('DeviceWorkbenchView', () => {
 
     expect(cardRowActions?.exists()).toBe(true)
     expect(tableRowActions?.exists()).toBe(true)
+    expect(cardRowActions?.classes()).toContain('standard-workbench-row-actions--quiet')
+    expect(tableRowActions?.classes()).toContain('standard-workbench-row-actions--quiet')
     expect(cardRowActions?.props('gap')).toBeUndefined()
     expect(tableRowActions?.props('gap')).toBeUndefined()
     expect(tableRowActions?.props('distribution')).toBeUndefined()
@@ -849,13 +987,146 @@ describe('DeviceWorkbenchView', () => {
         '详情',
         '编辑'
       ])
-    expect(((cardRowActions?.props('menuItems') as Array<unknown>) || []).length).toBe(3)
+    expect(((cardRowActions?.props('menuItems') as Array<{ label: string }>) || []).map((item) => item.label)).toEqual([
+      '查看设备阈值',
+      '更换',
+      '洞察',
+      '删除'
+    ])
 
     const actionColumn = wrapper
       .findAllComponents(ElTableColumnStub)
       .find((component) => component.props('label') === '操作')
 
-    expect(String(actionColumn?.props('width'))).toBe('160')
+    expect(Number(actionColumn?.props('width'))).toBeGreaterThanOrEqual(160)
+  })
+
+  it('adds device operation actions for registered devices when capability view permission exists', async () => {
+    setMockPermissions('iot:devices:add', 'iot:device-capability:view')
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        id: 2002,
+        productKey: 'demo-product',
+        productName: '演示产品',
+        deviceCode: 'demo-device-02',
+        deviceName: '演示设备 02',
+        registrationStatus: 1,
+        onlineStatus: 1,
+        activateStatus: 1,
+        deviceStatus: 1,
+        nodeType: 1,
+        protocolCode: 'mqtt-json',
+        createTime: '2026-03-24T09:00:00',
+        lastReportTime: '2026-03-24T09:00:00'
+      }
+    ]
+    await nextTick()
+
+    const rowActions = wrapper.findAllComponents(StandardWorkbenchRowActionsStub)
+    const cardRowActions = rowActions.find((component) => component.props('variant') === 'card')
+
+    expect(((cardRowActions?.props('menuItems') as Array<{ label: string }>) || []).map((item) => item.label)).toContain(
+      '设备操作'
+    )
+  })
+
+  it('shows threshold action for registered rows and opens the drawer with backend data', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        id: '8001',
+        deviceCode: 'crack-device-01',
+        deviceName: '北坡裂缝设备 01',
+        productName: '裂缝监测产品',
+        registrationStatus: 1,
+        onlineStatus: 1,
+        activateStatus: 1,
+        deviceStatus: 1,
+        nodeType: 1
+      }
+    ]
+    mockGetDeviceThresholds.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceId: '8001',
+        deviceCode: 'crack-device-01',
+        deviceName: '北坡裂缝设备 01',
+        productId: '1001',
+        productName: '裂缝监测产品',
+        matchedMetricCount: 1,
+        missingMetricCount: 0,
+        items: []
+      }
+    })
+    await nextTick()
+
+    const rowActions = wrapper.findAllComponents(StandardWorkbenchRowActionsStub)
+    const cardRowActions = rowActions.find((component) => component.props('variant') === 'card')
+    expect(((cardRowActions?.props('menuItems') as Array<{ label: string }>) || []).map((item) => item.label)).toContain(
+      '查看设备阈值'
+    )
+
+    await (wrapper.vm as any).handleRowAction('threshold', (wrapper.vm as any).tableData[0])
+    await flushPromises()
+    await nextTick()
+
+    expect(mockGetDeviceThresholds).toHaveBeenCalledWith('8001')
+    const thresholdDrawer = wrapper.findComponent(DeviceThresholdDrawerStub)
+    expect(thresholdDrawer.props('modelValue')).toBe(true)
+    expect((thresholdDrawer.props('overview') as Record<string, unknown>).deviceCode).toBe('crack-device-01')
+  })
+
+  it('exports the applied search result set through the backend endpoint instead of tableData', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).pagination.total = 2
+    ;(wrapper.vm as any).tableData = []
+    ;(wrapper.vm as any).appliedFilters.keyword = 'north-slope'
+    ;(wrapper.vm as any).appliedFilters.registrationStatus = 1
+    mockExportDevices.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: [
+        { id: '1', deviceCode: 'north-01', deviceName: '北坡 01', registrationStatus: 1 },
+        { id: '2', deviceCode: 'north-02', deviceName: '北坡 02', registrationStatus: 1 }
+      ]
+    })
+
+    await (wrapper.vm as any).handleToolbarAction('export-search')
+    await flushPromises()
+
+    const exportAction = ((wrapper.vm as any).deviceToolbarActions as Array<{ command: string; disabled?: boolean }>).find(
+      (item) => item.command === 'export-search'
+    )
+
+    expect(exportAction?.disabled).toBe(false)
+    expect(mockExportDevices).toHaveBeenCalledWith({
+      deviceId: undefined,
+      keyword: 'north-slope',
+      productKey: undefined,
+      productName: undefined,
+      deviceCode: undefined,
+      deviceName: undefined,
+      onlineStatus: undefined,
+      activateStatus: undefined,
+      deviceStatus: undefined,
+      registrationStatus: 1
+    })
+    expect(mockDownloadRowsAsCsv).toHaveBeenCalledWith(
+      '设备资产中心-搜索结果.csv',
+      expect.arrayContaining([expect.objectContaining({ deviceCode: 'north-01' }), expect.objectContaining({ deviceCode: 'north-02' })]),
+      expect.any(Array)
+    )
   })
 
   it('shows the organization ledger in both the list source and rendered device cards', async () => {
@@ -885,7 +1156,7 @@ describe('DeviceWorkbenchView', () => {
     await nextTick()
 
     expect(wrapper.text()).toContain('所属机构')
-    expect(wrapper.text()).toContain('平台运维中心')
+    expect(((wrapper.vm as any).tableData[0] as Record<string, unknown>).orgName).toBe('平台运维中心')
 
     const source = readFileSync(resolve(import.meta.dirname, '../../views/DeviceWorkbenchView.vue'), 'utf8')
     expect(source).toContain('label="所属机构"')
@@ -897,6 +1168,11 @@ describe('DeviceWorkbenchView', () => {
 
     expect(source).toContain('standard-list-surface')
     expect(source).toContain('standard-mobile-record-grid')
+    expect(source).toContain('label="设备名称"')
+    expect(source).toContain('label="设备编号"')
+    expect(source).not.toContain('secondary-prop="deviceCode"')
+    expect(source).not.toContain('label="接入协议" :width="120"')
+    expect(source).not.toContain('standard-mobile-record-card__field-label">接入协议')
     expect(source).not.toContain('gap="compact"')
     expect(source).not.toContain("gap: 'compact'")
     expect(source).toContain('已登记 ${registeredCount} 台')
@@ -907,17 +1183,23 @@ describe('DeviceWorkbenchView', () => {
     const source = readFileSync(resolve(import.meta.dirname, '../../views/DeviceWorkbenchView.vue'), 'utf8')
 
     expect(source).toContain("from '@/components/device/DeviceDetailWorkbench.vue'")
-    expect(source).toContain('<DeviceDetailWorkbench :device="detailData" />')
+    expect(source).toContain("from '@/components/device/DeviceCapabilityWorkbenchDrawer.vue'")
+    expect(source).toContain("from '@/components/device/DeviceThresholdDrawer.vue'")
+    expect(source).toContain('<DeviceDetailWorkbench')
+    expect(source).toContain('<DeviceCapabilityWorkbenchDrawer')
+    expect(source).toContain('<DeviceThresholdDrawer')
+    expect(source).toContain(':device="detailData"')
+    expect(source).toContain(':device="capabilityDevice"')
     expect(source).toContain('formatDeviceReportTime')
     expect(source).not.toContain('tag-layout="title-inline"')
     expect(source).not.toContain(':tags="detailTags"')
-    expect(source).not.toContain('<h3>资产概览</h3>')
-    expect(source).not.toContain('<h3>资产档案</h3>')
-    expect(source).not.toContain('<h3>拓扑关系</h3>')
-    expect(source).not.toContain('<h3>运维信息</h3>')
+    expect(source).not.toContain('<h3>璧勪骇姒傝</h3>')
+    expect(source).not.toContain('<h3>璧勪骇妗ｆ</h3>')
+    expect(source).not.toContain('<h3>鎷撴墤鍏崇郴</h3>')
+    expect(source).not.toContain('<h3>杩愮淮淇℃伅</h3>')
     expect(source).not.toContain('<h3>认证信息</h3>')
     expect(source).not.toContain('<h3>上报档案</h3>')
-    expect(source).not.toContain('已先展示列表摘要，正在补充完整详情。')
+    expect(source).not.toContain('已先展示列表摘要，正在补全完整详情。')
     expect(source).not.toContain('已先填入当前摘要，正在补全最新设备档案。')
   })
 })

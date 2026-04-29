@@ -34,7 +34,7 @@ class SchemaRegistryBaselineTest(unittest.TestCase):
         registry = schema_registry_loader.load_registry(REPO_ROOT / "schema")
 
         # Task 1 baseline contract
-        self.assertEqual(len(registry.mysql_objects), 56)
+        self.assertEqual(len(registry.mysql_objects), 68)
         self.assertEqual(registry.mysql["risk_point_highway_detail"].lifecycle, "archived")
         self.assertFalse(registry.mysql["risk_point_highway_detail"].included_in_init)
         self.assertFalse(registry.mysql["risk_point_highway_detail"].included_in_schema_sync)
@@ -42,6 +42,14 @@ class SchemaRegistryBaselineTest(unittest.TestCase):
         self.assertEqual(
             registry.mysql["risk_point_device_capability_binding"].lifecycle,
             "active",
+        )
+        self.assertEqual(
+            registry.mysql["sys_business_event_log"].lineage_role,
+            "business_event_evidence",
+        )
+        self.assertEqual(
+            registry.mysql["sys_observability_span_log"].lineage_role,
+            "observability_span_evidence",
         )
         self.assertEqual(
             sorted(registry.tdengine.keys()),
@@ -65,7 +73,7 @@ class SchemaRegistryBaselineTest(unittest.TestCase):
 
     def test_representative_mysql_object_has_rich_metadata(self):
         registry = schema_registry_loader.load_registry(REPO_ROOT / "schema")
-        message_log = registry.mysql["iot_device_message_log"]
+        message_log = registry.mysql["iot_message_log"]
 
         self.assertEqual(message_log.storage_type, "mysql_table")
         self.assertEqual(message_log.owner_module, "spring-boot-iot-device")
@@ -107,22 +115,9 @@ class SchemaRegistryBaselineTest(unittest.TestCase):
             any(field.is_tag for field in registry.tdengine["iot_raw_measure_point"].fields)
         )
 
-    def test_mysql_compatibility_view_has_definition_metadata(self):
+    def test_mysql_compatibility_views_are_retired(self):
         registry = schema_registry_loader.load_registry(REPO_ROOT / "schema")
-        view_obj = registry.mysql_views["iot_message_log"]
-
-        self.assertEqual(view_obj.storage_type, "mysql_view")
-        self.assertEqual(view_obj.owner_module, "spring-boot-iot-device")
-        self.assertEqual(len(view_obj.fields), 12)
-        self.assertEqual(view_obj.source_tables, ("iot_device_message_log",))
-        self.assertIn("SELECT", view_obj.definition_sql.upper())
-        self.assertIn("FROM IOT_DEVICE_MESSAGE_LOG", view_obj.definition_sql.upper())
-        self.assertGreaterEqual(len(view_obj.relations), 1)
-        self._assert_no_placeholder_text(view_obj.table_comment_zh)
-        self._assert_no_placeholder_text(view_obj.comment_zh)
-        self._assert_no_placeholder_text(view_obj.business_boundary)
-        for field in view_obj.fields:
-            self._assert_no_placeholder_text(field.comment_zh)
+        self.assertEqual(registry.mysql_views, {})
 
     def test_load_registry_should_fail_on_duplicate_object_names(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

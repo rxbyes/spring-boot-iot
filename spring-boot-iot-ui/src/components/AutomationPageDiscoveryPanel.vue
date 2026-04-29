@@ -5,11 +5,11 @@
   >
     <template #actions>
       <StandardActionGroup gap="sm">
-        <StandardButton action="refresh" @click="$emit('refresh')">刷新盘点</StandardButton>
-        <StandardButton action="batch" plain @click="$emit('select-uncovered')">勾选未覆盖</StandardButton>
-        <StandardButton action="confirm" @click="$emit('generate-selected')">生成勾选场景</StandardButton>
-        <StandardButton action="batch" @click="$emit('generate-uncovered')">一键生成全部未覆盖</StandardButton>
-        <StandardButton action="add" @click="$emit('open-manual-page')">新增自定义页面</StandardButton>
+        <StandardButton v-permission="'system:automation-governance:assets:inventory-refresh'" action="refresh" @click="$emit('refresh')">刷新盘点</StandardButton>
+        <StandardButton v-permission="'system:automation-governance:assets:inventory-select-uncovered'" action="batch" plain @click="$emit('select-uncovered')">勾选未覆盖</StandardButton>
+        <StandardButton v-permission="'system:automation-governance:assets:inventory-generate-scaffold'" action="confirm" @click="$emit('generate-selected')">生成勾选场景</StandardButton>
+        <StandardButton v-permission="'system:automation-governance:assets:inventory-generate-scaffold'" action="batch" @click="$emit('generate-uncovered')">一键生成全部未覆盖</StandardButton>
+        <StandardButton v-permission="'system:automation-governance:assets:inventory-manual-page'" action="add" @click="$emit('open-manual-page')">新增自定义页面</StandardButton>
       </StandardActionGroup>
     </template>
 
@@ -46,8 +46,12 @@
       @selection-change="$emit('selection-change', $event)"
     >
       <el-table-column type="selection" width="52" reserve-selection />
-      <StandardTableTextColumn prop="title" label="页面" :min-width="170" />
-      <StandardTableTextColumn prop="route" label="路由" :min-width="170" />
+      <StandardTableTextColumn
+        prop="title"
+        label="页面"
+        secondary-prop="route"
+        :min-width="220"
+      />
       <el-table-column label="来源" width="100">
         <template #default="{ row }">
           <el-tag :type="row.source === 'manual' ? 'warning' : row.source === 'menu' ? 'success' : 'info'">
@@ -88,6 +92,7 @@
         <template #default="{ row }">
           <StandardWorkbenchRowActions
             v-if="row.source === 'manual'"
+            v-permission="'system:automation-governance:assets:inventory-manual-page'"
             variant="table"
             :direct-items="manualPageRowActions"
             @command="() => $emit('remove-manual-page', row.id)"

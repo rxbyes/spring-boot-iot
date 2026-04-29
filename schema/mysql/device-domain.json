@@ -2374,7 +2374,7 @@
       "businessBoundary": "用于时序最新值投影表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
-      "name": "iot_device_message_log",
+      "name": "iot_message_log",
       "storageType": "mysql_table",
       "ownerModule": "spring-boot-iot-device",
       "lifecycle": "active",
@@ -2502,7 +2502,284 @@
         }
       ],
       "lineageRole": "operation_log",
-      "businessBoundary": "用于设备消息日志表的数据持久化与查询，归属设备域并服务真实环境基线。"
+      "businessBoundary": "用于统一消息日志的数据持久化与查询，归属设备域并作为链路追踪、验收证据和治理回放的物理真相源。"
+    },
+    {
+      "name": "iot_message_log_archive",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "设备消息日志冷归档表",
+      "commentZh": "设备消息日志冷归档表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "original_log_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "原热表日志ID"
+        },
+        {
+          "name": "archive_batch_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "归档批次ID"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "设备ID"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "产品ID"
+        },
+        {
+          "name": "message_type",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "消息类型（遥测/事件/属性/应答）"
+        },
+        {
+          "name": "topic",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "主题"
+        },
+        {
+          "name": "payload",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "原始消息"
+        },
+        {
+          "name": "report_time",
+          "type": "DATETIME NOT NULL",
+          "commentZh": "上报时间"
+        },
+        {
+          "name": "trace_id",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "链路追踪ID"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "设备编码"
+        },
+        {
+          "name": "product_key",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "产品标识"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL",
+          "commentZh": "原日志创建时间"
+        },
+        {
+          "name": "archived_at",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "归档时间"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_original_log_id",
+          "kind": "UNIQUE",
+          "columns": [
+            "original_log_id"
+          ]
+        },
+        {
+          "name": "idx_archive_batch_id",
+          "kind": "INDEX",
+          "columns": [
+            "archive_batch_id"
+          ]
+        },
+        {
+          "name": "idx_trace_id_report_time",
+          "kind": "INDEX",
+          "columns": [
+            "trace_id",
+            "report_time"
+          ]
+        },
+        {
+          "name": "idx_device_code_report_time",
+          "kind": "INDEX",
+          "columns": [
+            "device_code",
+            "report_time"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_message_log_archive_batch",
+          "viaField": "archive_batch_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "operation_log_archive",
+      "businessBoundary": "用于保存超过热表保留期的设备消息原始证据，归属设备域并服务冷归档治理、审计核查和后续人工导出。"
+    },
+    {
+      "name": "iot_message_log_archive_batch",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "设备消息日志冷归档批次表",
+      "commentZh": "设备消息日志冷归档批次表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "batch_no",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "批次号"
+        },
+        {
+          "name": "source_table",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "来源热表"
+        },
+        {
+          "name": "governance_mode",
+          "type": "VARCHAR(16) NOT NULL",
+          "commentZh": "治理模式"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "批次状态"
+        },
+        {
+          "name": "retention_days",
+          "type": "INT NOT NULL",
+          "commentZh": "保留天数"
+        },
+        {
+          "name": "cutoff_at",
+          "type": "DATETIME NOT NULL",
+          "commentZh": "过期阈值时间"
+        },
+        {
+          "name": "confirm_report_path",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "确认报告路径"
+        },
+        {
+          "name": "confirm_report_generated_at",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "确认报告生成时间"
+        },
+        {
+          "name": "confirmed_expired_rows",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "确认过期行数"
+        },
+        {
+          "name": "candidate_rows",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "候选过期行数"
+        },
+        {
+          "name": "archived_rows",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "已归档行数"
+        },
+        {
+          "name": "deleted_rows",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "已删除行数"
+        },
+        {
+          "name": "failed_reason",
+          "type": "VARCHAR(1000) DEFAULT NULL",
+          "commentZh": "失败原因"
+        },
+        {
+          "name": "artifacts_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "批次附加证据"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "更新时间"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_batch_no",
+          "kind": "UNIQUE",
+          "columns": [
+            "batch_no"
+          ]
+        },
+        {
+          "name": "idx_source_status_time",
+          "kind": "INDEX",
+          "columns": [
+            "source_table",
+            "status",
+            "create_time"
+          ]
+        }
+      ],
+      "relations": [],
+      "lineageRole": "governance_batch_log",
+      "businessBoundary": "用于记录设备消息日志冷归档治理批次的确认信息、归档结果、删除结果和失败证据，归属设备域治理运行真相。"
     },
     {
       "name": "iot_device_access_error_log",

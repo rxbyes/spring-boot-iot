@@ -1,5 +1,7 @@
 package com.ghlzm.iot.report.service.impl;
 
+import com.ghlzm.iot.framework.observability.evidence.BusinessEventLogRecord;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceRecorder;
 import com.ghlzm.iot.report.vo.BusinessAcceptancePackageVO;
 import com.ghlzm.iot.report.vo.BusinessAcceptanceResultVO;
 import com.ghlzm.iot.report.vo.BusinessAcceptanceRunLaunchVO;
@@ -10,11 +12,22 @@ import tools.jackson.databind.json.JsonMapper;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class BusinessAcceptanceServiceImplTest {
+
+    private static final class RecordingEvidenceRecorder implements ObservabilityEvidenceRecorder {
+        private final AtomicReference<BusinessEventLogRecord> lastEvent = new AtomicReference<>();
+
+        @Override
+        public void recordBusinessEvent(BusinessEventLogRecord event) {
+            lastEvent.set(event);
+        }
+    }
 
     @TempDir
     Path tempDir;
@@ -149,6 +162,27 @@ class BusinessAcceptanceServiceImplTest {
     }
 
     @Test
+    void shouldResolveAcceptanceConfigFromRepositoryRootWhenStartedInsideAdminModule() throws Exception {
+        Path repoRoot = Files.createDirectories(tempDir.resolve("repo"));
+        Path automationDir = Files.createDirectories(repoRoot.resolve("config").resolve("automation"));
+        Files.createDirectories(repoRoot.resolve("logs").resolve("acceptance"));
+        Path adminModuleDir = Files.createDirectories(repoRoot.resolve("spring-boot-iot-admin"));
+        writeRegistryConfig(automationDir);
+        writePackageConfig(automationDir);
+
+        BusinessAcceptanceServiceImpl service = new BusinessAcceptanceServiceImpl(
+                adminModuleDir,
+                Paths.get("config/automation/business-acceptance-packages.json"),
+                Paths.get("config/automation/acceptance-registry.json"),
+                Paths.get("logs/acceptance"),
+                JsonMapper.builder().findAndAddModules().build()
+        );
+
+        assertThat(service.listPackages()).hasSize(1);
+        assertThat(service.listAccountTemplates()).hasSize(1);
+    }
+
+    @Test
     void shouldLaunchBusinessAcceptanceRunAndKeepRunningStatusBeforeWorkerCallback() throws Exception {
         Path automationDir = Files.createDirectories(tempDir.resolve("config").resolve("automation"));
         Path logsDir = Files.createDirectories(tempDir.resolve("logs").resolve("acceptance"));
@@ -161,6 +195,8 @@ class BusinessAcceptanceServiceImplTest {
                 automationDir.resolve("acceptance-registry.json"),
                 logsDir
         );
+        RecordingEvidenceRecorder evidenceRecorder = new RecordingEvidenceRecorder();
+        service.setObservabilityEvidenceRecorder(evidenceRecorder);
 
         var request = new com.ghlzm.iot.report.vo.BusinessAcceptanceRunRequest();
         request.setPackageCode("product-device");
@@ -180,6 +216,13 @@ class BusinessAcceptanceServiceImplTest {
         assertThat(service.capturedCommand).anyMatch(item -> item.contains("--selected-modules=product-create"));
         assertThat(service.capturedRegistryPath).isNotNull();
         assertThat(Files.readString(service.capturedRegistryPath, StandardCharsets.UTF_8)).contains("auth.browser-smoke");
+
+        BusinessEventLogRecord event = evidenceRecorder.lastEvent.get();
+        assertThat(event).isNotNull();
+        assertThat(event.getEventCode()).isEqualTo("acceptance.business_run.launched");
+        assertThat(event.getEvidenceId()).isEqualTo(launch.getJobId());
+        assertThat(event.getMetadata().get("packageCode")).isEqualTo("product-device");
+        assertThat(event.getMetadata().get("environmentCode")).isEqualTo("dev");
     }
 
     @Test
@@ -211,7 +254,12 @@ class BusinessAcceptanceServiceImplTest {
                               "runnerType": "browserPlan",
                               "status": "failed",
                               "blocking": "blocker",
-                              "summary": "browser smoke failed",
+                              "summary": "接口响应异常 500",
+                              "details": {
+                                "stepLabel": "提交产品新增表单",
+                                "apiRef": "POST /device/product/add",
+                                "pageAction": "点击新增产品并提交"
+                              },
                               "evidenceFiles": []
                             },
                             {
@@ -241,15 +289,183 @@ class BusinessAcceptanceServiceImplTest {
         assertThat(result.getStatus()).isEqualTo("failed");
         assertThat(result.getPassedModuleCount()).isEqualTo(1);
         assertThat(result.getFailedModuleNames()).containsExactly("产品新增");
-        assertThat(result.getJumpToAutomationResultsPath()).isEqualTo("/automation-results?runId=20260404153000");
+        assertThat(result.getJumpToAutomationResultsPath()).isEqualTo("/automation-governance?tab=evidence&runId=20260404153000");
         var failedModule = result.getModules().stream()
                 .filter(item -> "product-create".equals(item.getModuleCode()))
                 .findFirst()
                 .orElseThrow();
+        assertThat(failedModule.getDiagnosis()).isNotNull();
+        assertThat(failedModule.getDiagnosis().getCategory()).isEqualTo("接口");
+        assertThat(failedModule.getDiagnosis().getReason()).contains("接口问题");
+        assertThat(failedModule.getDiagnosis().getEvidenceSummary()).contains("接口响应异常 500");
         assertThat(failedModule.getFailureDetails()).hasSize(1);
         assertThat(failedModule.getFailureDetails().get(0).getStepLabel()).isEqualTo("提交产品新增表单");
         assertThat(failedModule.getFailureDetails().get(0).getApiRef()).isEqualTo("POST /device/product/add");
         assertThat(failedModule.getFailureDetails().get(0).getPageAction()).isEqualTo("点击新增产品并提交");
+    }
+
+    @Test
+    void shouldAggregatePlatformP0FullFlowPackageWithBlockedQualityFactoryModule() throws Exception {
+        Path automationDir = Files.createDirectories(tempDir.resolve("config").resolve("automation"));
+        Path logsDir = Files.createDirectories(tempDir.resolve("logs").resolve("acceptance"));
+
+        Files.writeString(
+                automationDir.resolve("acceptance-registry.json"),
+                """
+                        {
+                          "version": "1.0.0",
+                          "scenarios": [
+                            {
+                              "id": "auth.browser-smoke",
+                              "title": "登录认证浏览器冒烟",
+                              "module": "auth",
+                              "runnerType": "browserPlan",
+                              "scope": "delivery",
+                              "blocking": "blocker",
+                              "dependsOn": [],
+                              "runner": {}
+                            },
+                            {
+                              "id": "quality-factory.business-acceptance.browser-smoke",
+                              "title": "质量工场业务验收台浏览器冒烟",
+                              "module": "quality-factory",
+                              "runnerType": "browserPlan",
+                              "scope": "delivery",
+                              "blocking": "blocker",
+                              "dependsOn": [],
+                              "runner": {}
+                            }
+                          ]
+                        }
+                        """,
+                StandardCharsets.UTF_8
+        );
+
+        Files.writeString(
+                automationDir.resolve("business-acceptance-packages.json"),
+                """
+                        {
+                          "version": "1.0.0",
+                          "packages": [
+                            {
+                              "packageCode": "platform-p0-full-flow",
+                              "packageName": "平台 P0 全链路",
+                              "description": "覆盖平台 P0 主链路与质量工场自验。",
+                              "targetRoles": ["acceptance", "product", "manager"],
+                              "supportedEnvironments": ["dev", "test"],
+                              "defaultAccountTemplate": "acceptance-default",
+                              "modules": [
+                                {
+                                  "moduleCode": "login-auth",
+                                  "moduleName": "登录认证",
+                                  "scenarioRefs": ["auth.browser-smoke"],
+                                  "suggestedDirection": "needsReview",
+                                  "fallbackFailure": {
+                                    "stepLabel": "登录页提交",
+                                    "apiRef": "POST /login",
+                                    "pageAction": "输入账号密码并登录",
+                                    "summary": "登录认证链路需要复核。"
+                                  }
+                                },
+                                {
+                                  "moduleCode": "quality-factory-self-check",
+                                  "moduleName": "质量工场自验",
+                                  "scenarioRefs": ["quality-factory.business-acceptance.browser-smoke"],
+                                  "suggestedDirection": "needsReview",
+                                  "fallbackFailure": {
+                                    "stepLabel": "打开质量工场兜底步骤",
+                                    "apiRef": "GET /api/report/fallback",
+                                    "pageAction": "进入质量工场兜底页面动作",
+                                    "summary": "质量工场自验链路需要复核。"
+                                  }
+                                }
+                              ]
+                            }
+                          ],
+                          "accountTemplates": [
+                            {
+                              "templateCode": "acceptance-default",
+                              "templateName": "验收账号模板",
+                              "username": "biz_demo",
+                              "roleHint": "业务验收",
+                              "supportedEnvironments": ["dev", "test"]
+                            }
+                          ]
+                        }
+                        """,
+                StandardCharsets.UTF_8
+        );
+
+        Files.writeString(
+                logsDir.resolve("registry-run-20260425101010.json"),
+                """
+                        {
+                          "runId": "20260425101010",
+                          "options": {
+                            "packageCode": "platform-p0-full-flow",
+                            "environmentCode": "dev",
+                            "accountTemplate": "acceptance-default",
+                            "selectedModules": "login-auth,quality-factory-self-check"
+                          },
+                          "summary": {
+                            "total": 2,
+                            "passed": 1,
+                            "failed": 1
+                          },
+                          "results": [
+                            {
+                              "scenarioId": "auth.browser-smoke",
+                              "runnerType": "browserPlan",
+                              "status": "passed",
+                              "blocking": "blocker",
+                              "summary": "auth smoke passed",
+                              "evidenceFiles": []
+                            },
+                            {
+                              "scenarioId": "quality-factory.business-acceptance.browser-smoke",
+                              "runnerType": "browserPlan",
+                              "status": "failed",
+                              "blocking": "blocker",
+                              "summary": "quality factory smoke failed",
+                              "details": {
+                                "stepLabel": "业务验收包接口预检",
+                                "apiRef": "GET /api/report/business-acceptance/packages",
+                                "pageAction": "进入业务验收台",
+                                "stdout": "health unavailable"
+                              },
+                              "evidenceFiles": []
+                            }
+                          ]
+                        }
+                        """,
+                StandardCharsets.UTF_8
+        );
+
+        BusinessAcceptanceServiceImpl service = new BusinessAcceptanceServiceImpl(
+                tempDir,
+                automationDir.resolve("business-acceptance-packages.json"),
+                automationDir.resolve("acceptance-registry.json"),
+                logsDir,
+                JsonMapper.builder().findAndAddModules().build()
+        );
+
+        BusinessAcceptanceResultVO result = service.getRunResult("platform-p0-full-flow", "20260425101010");
+
+        assertThat(result.getStatus()).isEqualTo("blocked");
+        assertThat(result.getPassedModuleCount()).isEqualTo(1);
+        assertThat(result.getFailedModuleCount()).isEqualTo(1);
+        assertThat(result.getFailedModuleNames()).containsExactly("质量工场自验");
+
+        var blockedModule = result.getModules().stream()
+                .filter(item -> "quality-factory-self-check".equals(item.getModuleCode()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(blockedModule.getStatus()).isEqualTo("blocked");
+        assertThat(blockedModule.getSuggestedDirection()).isEqualTo("environment");
+        assertThat(blockedModule.getFailureDetails()).hasSize(1);
+        assertThat(blockedModule.getFailureDetails().get(0).getStepLabel()).isEqualTo("业务验收包接口预检");
+        assertThat(blockedModule.getFailureDetails().get(0).getApiRef()).isEqualTo("GET /api/report/business-acceptance/packages");
+        assertThat(blockedModule.getFailureDetails().get(0).getPageAction()).isEqualTo("进入业务验收台");
     }
 
     private void writeRegistryConfig(Path automationDir) throws Exception {

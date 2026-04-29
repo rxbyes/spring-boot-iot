@@ -178,6 +178,42 @@ describe('StandardButton', () => {
     expect(button.attributes('data-link')).toBe('true')
     expect(button.attributes('class')).toContain('standard-button--tone-link')
   })
+
+  it('supports view actions used by observability workbenches without throwing', () => {
+    const wrapper = mount(StandardButton, {
+      props: { action: 'view', link: true },
+      slots: { default: '证据' },
+      global: {
+        stubs: {
+          ElButton: ElButtonStub
+        }
+      }
+    })
+
+    const button = wrapper.get('button')
+    expect(button.attributes('data-type')).toBe('')
+    expect(button.attributes('data-link')).toBe('true')
+    expect(button.attributes('class')).toContain('standard-button--view')
+    expect(button.attributes('class')).toContain('standard-button--tone-link')
+  })
+
+  it('falls back to default button semantics when action is temporarily unknown', () => {
+    const wrapper = mount(StandardButton, {
+      props: { action: 'temporary-unknown-action' as never },
+      slots: { default: '未知动作' },
+      global: {
+        stubs: {
+          ElButton: ElButtonStub
+        }
+      }
+    })
+
+    const button = wrapper.get('button')
+    expect(button.attributes('data-type')).toBe('')
+    expect(button.attributes('data-link')).toBe('false')
+    expect(button.attributes('class')).toContain('standard-button--temporary-unknown-action')
+    expect(button.attributes('class')).toContain('standard-button--tone-secondary')
+  })
 })
 
 describe('StandardActionLink', () => {

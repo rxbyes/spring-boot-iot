@@ -171,7 +171,69 @@ describe('useBusinessAcceptanceWorkbench', () => {
     });
   });
 
-  it('loads result details from route context and keeps automation results deep link', async () => {
+  it('selects the platform P0 package defaults and preserves blocked result deep links', async () => {
+    listBusinessAcceptancePackagesMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          packageCode: 'platform-p0-full-flow',
+          packageName: 'P0 全流程业务验收',
+          description: '覆盖 P0 主业务链路。',
+          targetRoles: ['acceptance', 'product', 'manager'],
+          supportedEnvironments: ['dev', 'test'],
+          defaultAccountTemplate: 'manager-default',
+          latestResult: {
+            runId: '20260425101010',
+            status: 'blocked',
+            updatedAt: '2026-04-25T10:10:10+08:00',
+            passedModuleCount: 5,
+            failedModuleCount: 1,
+            failedModuleNames: ['质量工场自验']
+          },
+          modules: [
+            {
+              moduleCode: 'login-auth',
+              moduleName: '登录与权限上下文',
+              suggestedDirection: 'needsReview',
+              scenarioRefs: ['auth.browser-smoke']
+            },
+            {
+              moduleCode: 'quality-factory-self-check',
+              moduleName: '质量工场自验',
+              suggestedDirection: 'environment',
+              scenarioRefs: ['quality-factory.business-acceptance.browser-smoke']
+            }
+          ]
+        }
+      ]
+    });
+    listBusinessAcceptanceAccountTemplatesMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: createAccountTemplates()
+    });
+
+    const workbench = useBusinessAcceptanceWorkbench();
+
+    await workbench.loadInitialData();
+
+    expect(workbench.selectedPackageCode.value).toBe('platform-p0-full-flow');
+    expect(workbench.selectedPackage.value?.packageCode).toBe('platform-p0-full-flow');
+    expect(workbench.selectedEnvironment.value).toBe('dev');
+    expect(workbench.selectedAccountTemplate.value).toBe('manager-default');
+    expect(workbench.selectedModuleCodes.value).toEqual(['login-auth', 'quality-factory-self-check']);
+    expect(workbench.selectedLatestResult.value?.status).toBe('blocked');
+    expect(workbench.selectedLatestResult.value?.failedModuleNames).toEqual(['质量工场自验']);
+
+    await workbench.goToAutomationEvidence('20260425101010');
+
+    expect(mockRouter.push).toHaveBeenCalledWith(
+      '/automation-governance?tab=evidence&runId=20260425101010'
+    );
+  });
+
+  it('loads result details from route context and keeps automation evidence deep link', async () => {
     mockRoute.params = {
       runId: '20260404153000'
     };
@@ -188,7 +250,7 @@ describe('useBusinessAcceptanceWorkbench', () => {
         failedModuleCount: 1,
         failedModuleNames: ['产品新增'],
         durationText: '2m 0s',
-        jumpToAutomationResultsPath: '/automation-results?runId=20260404153000',
+        jumpToAutomationResultsPath: '/automation-governance?tab=evidence&runId=20260404153000',
         modules: [
           {
             moduleCode: 'product-create',
@@ -197,6 +259,11 @@ describe('useBusinessAcceptanceWorkbench', () => {
             failedScenarioCount: 1,
             failedScenarioTitles: ['登录与产品设备浏览器冒烟'],
             suggestedDirection: 'needsReview',
+            diagnosis: {
+              category: '接口',
+              reason: '1 个失败场景中 1 个命中接口问题',
+              evidenceSummary: '接口响应异常 500'
+            },
             failureDetails: [
               {
                 scenarioId: 'auth.browser-smoke',
@@ -228,14 +295,12 @@ describe('useBusinessAcceptanceWorkbench', () => {
     expect(getBusinessAcceptanceResultMock).toHaveBeenCalledWith('20260404153000', 'product-device');
     expect(workbench.result.value?.status).toBe('failed');
     expect(workbench.activeModuleCode.value).toBe('product-create');
+    expect(workbench.result.value?.modules[0]?.diagnosis?.category).toBe('接口');
 
-    await workbench.goToAutomationResults('20260404153000');
+    await workbench.goToAutomationEvidence('20260404153000');
 
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      path: '/automation-results',
-      query: {
-        runId: '20260404153000'
-      }
-    });
+    expect(mockRouter.push).toHaveBeenCalledWith(
+      '/automation-governance?tab=evidence&runId=20260404153000'
+    );
   });
 });

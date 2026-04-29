@@ -16,12 +16,38 @@ export interface RiskGovernanceGapItem {
   deviceId?: IdType | null;
   deviceCode?: string | null;
   deviceName?: string | null;
+  productId?: IdType | null;
+  productKey?: string | null;
+  productName?: string | null;
   riskPointId?: IdType | null;
   riskPointName?: string | null;
   riskMetricId?: IdType | null;
   metricIdentifier?: string | null;
   metricName?: string | null;
   lastReportTime?: string | null;
+}
+
+export interface RiskGovernanceMissingPolicyProductMetricSummary {
+  productId?: IdType | null;
+  productKey?: string | null;
+  productName?: string | null;
+  riskMetricId?: IdType | null;
+  metricIdentifier?: string | null;
+  metricName?: string | null;
+  bindingCount?: number | null;
+  riskPointCount?: number | null;
+  deviceCount?: number | null;
+  recommendationWindowDays?: number | null;
+  recommendationSampleCount?: number | null;
+  recommendationMinValue?: number | string | null;
+  recommendationMaxValue?: number | string | null;
+  recommendationAvgValue?: number | string | null;
+  recommendedExpression?: string | null;
+  recommendedLowerExpression?: string | null;
+  recommendedUpperExpression?: string | null;
+  recommendationStatus?: string | null;
+  recommendationDirection?: string | null;
+  recommendationReason?: string | null;
 }
 
 export interface RiskMetricCatalogItem {
@@ -226,6 +252,16 @@ export function listMissingPolicies(
     ? `/api/risk-governance/missing-policies?${queryString}`
     : '/api/risk-governance/missing-policies';
   return request<PageResult<RiskGovernanceGapItem>>(path, { method: 'GET' });
+}
+
+export function pageMissingPolicyProductMetricSummaries(
+  params: RiskGovernanceGapQuery = {}
+): Promise<ApiEnvelope<PageResult<RiskGovernanceMissingPolicyProductMetricSummary>>> {
+  const queryString = buildQueryString(params);
+  const path = queryString
+    ? `/api/risk-governance/missing-policies/product-metric-summaries?${queryString}`
+    : '/api/risk-governance/missing-policies/product-metric-summaries';
+  return request<PageResult<RiskGovernanceMissingPolicyProductMetricSummary>>(path, { method: 'GET' });
 }
 
 export function pageRiskMetricCatalogs(

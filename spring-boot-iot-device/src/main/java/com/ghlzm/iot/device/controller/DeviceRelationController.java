@@ -6,8 +6,11 @@ import com.ghlzm.iot.device.dto.DeviceRelationUpsertDTO;
 import com.ghlzm.iot.device.service.DeviceRelationService;
 import com.ghlzm.iot.device.vo.DeviceRelationVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,9 +28,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class DeviceRelationController {
 
     private final DeviceRelationService deviceRelationService;
+    private final GovernancePermissionGuard permissionGuard;
 
     public DeviceRelationController(DeviceRelationService deviceRelationService) {
+        this(deviceRelationService, null);
+    }
+
+    @Autowired
+    public DeviceRelationController(DeviceRelationService deviceRelationService,
+                                    GovernancePermissionGuard permissionGuard) {
         this.deviceRelationService = deviceRelationService;
+        this.permissionGuard = permissionGuard;
     }
 
     @GetMapping("/api/device/relations")
@@ -37,19 +48,25 @@ public class DeviceRelationController {
 
     @PostMapping("/api/device/relations")
     public R<DeviceRelationVO> add(@RequestBody @Valid DeviceRelationUpsertDTO dto, Authentication authentication) {
-        return R.ok(deviceRelationService.createRelation(requireCurrentUserId(authentication), dto));
+        Long currentUserId = requireCurrentUserId(authentication);
+        requirePermission(currentUserId, "新增设备关系");
+        return R.ok(deviceRelationService.createRelation(currentUserId, dto));
     }
 
     @PutMapping("/api/device/relations/{relationId}")
     public R<DeviceRelationVO> update(@PathVariable Long relationId,
                                       @RequestBody @Valid DeviceRelationUpsertDTO dto,
                                       Authentication authentication) {
-        return R.ok(deviceRelationService.updateRelation(requireCurrentUserId(authentication), relationId, dto));
+        Long currentUserId = requireCurrentUserId(authentication);
+        requirePermission(currentUserId, "编辑设备关系");
+        return R.ok(deviceRelationService.updateRelation(currentUserId, relationId, dto));
     }
 
     @DeleteMapping("/api/device/relations/{relationId}")
     public R<Void> delete(@PathVariable Long relationId, Authentication authentication) {
-        deviceRelationService.deleteRelation(requireCurrentUserId(authentication), relationId);
+        Long currentUserId = requireCurrentUserId(authentication);
+        requirePermission(currentUserId, "删除设备关系");
+        deviceRelationService.deleteRelation(currentUserId, relationId);
         return R.ok();
     }
 
@@ -58,5 +75,11 @@ public class DeviceRelationController {
             throw new BizException(401, "未认证，请先登录");
         }
         return principal.userId();
+    }
+
+    private void requirePermission(Long currentUserId, String actionName) {
+        if (permissionGuard != null) {
+            permissionGuard.requireAnyPermission(currentUserId, actionName, GovernancePermissionCodes.DEVICE_UPDATE);
+        }
     }
 }

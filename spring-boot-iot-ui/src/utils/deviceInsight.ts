@@ -1,5 +1,6 @@
 import type { RiskMonitoringDetail, RiskMonitoringListItem } from '@/api/riskMonitoring';
 import type { Device, DeviceMessageLog, DeviceProperty } from '@/types/api';
+import { compareIdDesc } from '@/utils/id';
 import { getRiskLevelText, getRiskLevelWeight } from '@/utils/riskLevel';
 
 export type InsightObjectType = 'detect' | 'warning' | 'collect' | 'generic';
@@ -40,7 +41,7 @@ export function pickPrimaryBinding(items: RiskMonitoringListItem[]) {
       return levelDiff;
     }
 
-    return Number(right.bindingId) - Number(left.bindingId);
+    return compareIdDesc(left.bindingId, right.bindingId);
   })[0];
 }
 

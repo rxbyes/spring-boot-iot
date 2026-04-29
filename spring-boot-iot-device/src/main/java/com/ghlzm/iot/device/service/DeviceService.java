@@ -106,6 +106,21 @@ public interface DeviceService extends IService<Device> {
                                          Long pageSize);
 
     /**
+     * 按当前登录用户上下文导出当前筛选命中的全部设备。
+     */
+    List<DevicePageVO> exportDevices(Long currentUserId,
+                                     Long deviceId,
+                                     String keyword,
+                                     String productKey,
+                                     String productName,
+                                     String deviceCode,
+                                     String deviceName,
+                                     Integer onlineStatus,
+                                     Integer activateStatus,
+                                     Integer deviceStatus,
+                                     Integer registrationStatus);
+
+    /**
      * 更新设备主数据。
      */
     DeviceDetailVO updateDevice(Long id, DeviceAddDTO dto);

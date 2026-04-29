@@ -20,6 +20,14 @@ public class ProductModelGovernanceCompareRowVO {
 
     private Boolean riskReady;
 
+    private String normativeMatchStatus;
+
+    private String normativeMatchSource;
+
+    private String normativeMatchReason;
+
+    private List<String> normativeCandidates = new ArrayList<>();
+
     private List<String> rawIdentifiers = new ArrayList<>();
 
     private ProductModelGovernanceEvidenceVO manualCandidate;

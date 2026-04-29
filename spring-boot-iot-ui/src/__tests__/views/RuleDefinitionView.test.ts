@@ -1,23 +1,37 @@
 import { defineComponent, nextTick } from 'vue';
 import { shallowMount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import RuleDefinitionView from '@/views/RuleDefinitionView.vue';
+
+function readRuleDefinitionViewSource() {
+  return readFileSync(resolve(import.meta.dirname, '../../views/RuleDefinitionView.vue'), 'utf8');
+}
 
 const {
   mockPageRuleList,
   mockAddRule,
+  mockAddRuleBatch,
   mockUpdateRule,
   mockDeleteRule,
+  mockPreviewEffectiveRule,
   mockListMissingPolicies,
+  mockPageMissingPolicyProductMetricSummaries,
+  mockGetAllProducts,
   mockFetchAlarmLevelOptions,
   mockRoute
 } = vi.hoisted(() => ({
   mockPageRuleList: vi.fn(),
   mockAddRule: vi.fn(),
+  mockAddRuleBatch: vi.fn(),
   mockUpdateRule: vi.fn(),
   mockDeleteRule: vi.fn(),
+  mockPreviewEffectiveRule: vi.fn(),
   mockListMissingPolicies: vi.fn(),
+  mockPageMissingPolicyProductMetricSummaries: vi.fn(),
+  mockGetAllProducts: vi.fn(),
   mockFetchAlarmLevelOptions: vi.fn(),
   mockRoute: {
     query: {}
@@ -27,12 +41,21 @@ const {
 vi.mock('@/api/ruleDefinition', () => ({
   pageRuleList: mockPageRuleList,
   addRule: mockAddRule,
+  addRuleBatch: mockAddRuleBatch,
   updateRule: mockUpdateRule,
-  deleteRule: mockDeleteRule
+  deleteRule: mockDeleteRule,
+  previewEffectiveRule: mockPreviewEffectiveRule
 }));
 
 vi.mock('@/api/riskGovernance', () => ({
-  listMissingPolicies: mockListMissingPolicies
+  listMissingPolicies: mockListMissingPolicies,
+  pageMissingPolicyProductMetricSummaries: mockPageMissingPolicyProductMetricSummaries
+}));
+
+vi.mock('@/api/product', () => ({
+  productApi: {
+    getAllProducts: mockGetAllProducts
+  }
 }));
 
 vi.mock('@/utils/alarmLevel', async () => {
@@ -164,6 +187,11 @@ function createRuleRow() {
   return {
     id: 1,
     riskMetricId: 6102,
+    ruleScope: 'METRIC',
+    productType: null,
+    productId: null,
+    deviceId: null,
+    riskPointDeviceId: null,
     ruleName: '北坡位移红色阈值',
     metricIdentifier: 'displacementX',
     metricName: '位移 X',
@@ -173,7 +201,23 @@ function createRuleRow() {
     notificationMethods: 'email,sms',
     convertToEvent: 1,
     status: 0,
-    remark: 'desc'
+    remark: 'desc',
+    createTime: '2026-04-28T00:10:00Z'
+  };
+}
+
+function createProductMetricSummary(overrides: Record<string, unknown> = {}) {
+  return {
+    productId: 1001,
+    productKey: 'nf-monitor-crack-v1',
+    productName: 'Crack Product',
+    riskMetricId: 6102,
+    metricIdentifier: 'displacementX',
+    metricName: 'Displacement X',
+    bindingCount: 12,
+    riskPointCount: 6,
+    deviceCount: 8,
+    ...overrides
   };
 }
 
@@ -219,9 +263,13 @@ describe('RuleDefinitionView', () => {
   beforeEach(() => {
     mockPageRuleList.mockReset();
     mockAddRule.mockReset();
+    mockAddRuleBatch.mockReset();
     mockUpdateRule.mockReset();
     mockDeleteRule.mockReset();
+    mockPreviewEffectiveRule.mockReset();
     mockListMissingPolicies.mockReset();
+    mockPageMissingPolicyProductMetricSummaries.mockReset();
+    mockGetAllProducts.mockReset();
     mockFetchAlarmLevelOptions.mockReset();
     mockRoute.query = {};
     mockFetchAlarmLevelOptions.mockResolvedValue([
@@ -230,6 +278,33 @@ describe('RuleDefinitionView', () => {
       { label: '黄色', value: 'yellow', sortNo: 3 },
       { label: '蓝色', value: 'blue', sortNo: 4 }
     ]);
+    mockPreviewEffectiveRule.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        hasMatchedRule: true,
+        metricIdentifier: 'displacementX',
+        productId: 1001,
+        matchedScope: 'PRODUCT',
+        matchedScopeText: '产品默认',
+        decision: '最终生效策略：产品默认阈值',
+        matchedRule: createRuleRow(),
+        candidates: []
+      }
+    });
+    mockGetAllProducts.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1001,
+          productKey: 'nf-monitor-crack-v1',
+          productName: '裂缝监测仪',
+          protocolCode: 'mqtt-json',
+          nodeType: 1
+        }
+      ]
+    });
     mockListMissingPolicies.mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -240,6 +315,9 @@ describe('RuleDefinitionView', () => {
         records: [
           {
             issueType: 'MISSING_POLICY',
+            productId: 1001,
+            productKey: 'nf-monitor-crack-v1',
+            productName: '裂缝监测仪',
             issueLabel: '待配置阈值策略',
             deviceCode: 'DEVICE-001',
             deviceName: '一号设备',
@@ -248,6 +326,16 @@ describe('RuleDefinitionView', () => {
             metricName: '位移 X'
           }
         ]
+      }
+    });
+    mockPageMissingPolicyProductMetricSummaries.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 5,
+        records: [createProductMetricSummary()]
       }
     });
   });
@@ -355,10 +443,187 @@ describe('RuleDefinitionView', () => {
     }));
   });
 
+  it('preserves long product ids when editing a product default threshold strategy', async () => {
+    const longProductId = '202603192100560260';
+    const productDefaultRule = {
+      ...createRuleRow(),
+      id: 8250,
+      ruleScope: 'PRODUCT',
+      productType: 'MONITORING',
+      productId: longProductId,
+      metricIdentifier: 'value',
+      metricName: '当前雨量',
+      expression: 'value >= 1'
+    };
+    const pageResponse = {
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [productDefaultRule]
+      }
+    };
+    mockGetAllProducts.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: longProductId,
+          productKey: 'nf-monitor-tipping-bucket-rain-gauge-v1',
+          productName: '翻斗式雨量计',
+          protocolCode: 'mqtt-json',
+          nodeType: 1
+        }
+      ]
+    });
+    mockPageRuleList.mockResolvedValueOnce(pageResponse);
+    mockPageRuleList.mockResolvedValueOnce(pageResponse);
+    mockUpdateRule.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: productDefaultRule
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect((wrapper.vm as any).getRuleScopeTargetText(productDefaultRule)).toBe('翻斗式雨量计');
+
+    (wrapper.vm as any).handleEdit(productDefaultRule);
+    await nextTick();
+    (wrapper.vm as any).form.expression = 'value >= 2';
+    await (wrapper.vm as any).handleSubmit();
+
+    expect(mockUpdateRule).toHaveBeenCalledWith(expect.objectContaining({
+      id: 8250,
+      ruleScope: 'PRODUCT',
+      productId: longProductId,
+      metricIdentifier: 'value',
+      expression: 'value >= 2'
+    }));
+  });
+
+  it('preserves long risk metric ids when editing a threshold strategy', async () => {
+    const longRiskMetricId = '202604280000000001';
+    const rule = {
+      ...createRuleRow(),
+      id: '202604280000000101',
+      riskMetricId: longRiskMetricId,
+      ruleScope: 'PRODUCT',
+      productId: '202603192100560260',
+      metricIdentifier: 'value',
+      metricName: '当前雨量',
+      expression: 'value >= 1'
+    };
+    const pageResponse = {
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [rule]
+      }
+    };
+    mockPageRuleList.mockResolvedValueOnce(pageResponse);
+    mockPageRuleList.mockResolvedValueOnce(pageResponse);
+    mockUpdateRule.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: rule
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).handleEdit(rule);
+    await nextTick();
+    await (wrapper.vm as any).handleSubmit();
+
+    expect(mockUpdateRule).toHaveBeenCalledWith(expect.objectContaining({
+      id: '202604280000000101',
+      riskMetricId: longRiskMetricId,
+      productId: '202603192100560260'
+    }));
+  });
+
+  it('previews the effective threshold strategy with preserved scope identities', async () => {
+    const rule = {
+      ...createRuleRow(),
+      id: '202604280000000101',
+      tenantId: '1',
+      riskMetricId: '202604280000000001',
+      ruleScope: 'BINDING',
+      productId: '202603192100560260',
+      deviceId: '202603192100560261',
+      riskPointDeviceId: '202603192100560262',
+      metricIdentifier: 'value',
+      metricName: '当前雨量'
+    };
+    mockPageRuleList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [rule]
+      }
+    });
+    mockPreviewEffectiveRule.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        hasMatchedRule: true,
+        metricIdentifier: 'value',
+        productId: '202603192100560260',
+        deviceId: '202603192100560261',
+        riskPointDeviceId: '202603192100560262',
+        decision: '最终生效策略：绑定个性阈值',
+        matchedRule: rule,
+        candidates: [
+          {
+            ruleId: '202604280000000101',
+            ruleName: '绑定个性阈值',
+            ruleScope: 'BINDING',
+            ruleScopeText: '绑定个性',
+            scopeTarget: '绑定 202603192100560262',
+            expression: 'value >= 1',
+            matchedContext: true,
+            selected: true
+          }
+        ]
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    await (wrapper.vm as any).handlePreviewEffectiveRule(rule);
+    await flushPromises();
+
+    expect(mockPreviewEffectiveRule).toHaveBeenCalledWith({
+      tenantId: '1',
+      riskMetricId: '202604280000000001',
+      metricIdentifier: 'value',
+      productId: '202603192100560260',
+      productType: undefined,
+      deviceId: '202603192100560261',
+      riskPointDeviceId: '202603192100560262'
+    });
+    expect((wrapper.vm as any).effectivePreviewVisible).toBe(true);
+    expect(wrapper.text()).toContain('最终生效策略：绑定个性阈值');
+    expect(wrapper.text()).toContain('绑定个性阈值');
+  });
+
   it('hydrates route query filters before loading threshold strategies', async () => {
     mockRoute.query = {
       ruleName: '裂缝值红色阈值',
       metricIdentifier: 'value',
+      scopeView: 'BUSINESS',
+      ruleScope: 'PRODUCT',
       alarmLevel: 'red',
       status: '0'
     };
@@ -372,6 +637,28 @@ describe('RuleDefinitionView', () => {
         records: [createRuleRow()]
       }
     });
+    mockPageMissingPolicyProductMetricSummaries.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 5,
+        records: [
+          {
+            productId: 1001,
+            productKey: 'nf-monitor-crack-v1',
+            productName: '裂缝监测仪',
+            riskMetricId: 6102,
+            metricIdentifier: 'displacementX',
+            metricName: '位移 X',
+            bindingCount: 12,
+            riskPointCount: 6,
+            deviceCount: 8
+          }
+        ]
+      }
+    });
 
     mountView();
     await flushPromises();
@@ -379,8 +666,486 @@ describe('RuleDefinitionView', () => {
     expect(mockPageRuleList).toHaveBeenCalledWith(expect.objectContaining({
       ruleName: '裂缝值红色阈值',
       metricIdentifier: 'value',
+      scopeView: 'BUSINESS',
+      ruleScope: 'PRODUCT',
       alarmLevel: 'red',
       status: 0
+    }));
+  });
+
+  it('uses business threshold scopes by default and opens product default create form', async () => {
+    mockPageRuleList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(mockPageRuleList).toHaveBeenCalledWith(expect.objectContaining({
+      scopeView: 'BUSINESS',
+      ruleScope: undefined
+    }));
+    expect((wrapper.vm as any).activeFilterTags.some((tag: any) => tag.key === 'scopeView')).toBe(false);
+
+    (wrapper.vm as any).handleAdd();
+    await nextTick();
+
+    expect((wrapper.vm as any).form.ruleScope).toBe('PRODUCT');
+    expect((wrapper.vm as any).formRuleScopeOptions.map((option: any) => option.value)).toEqual([
+      'PRODUCT',
+      'DEVICE',
+      'BINDING'
+    ]);
+  });
+
+  it('truncates long threshold scope target text in the list while preserving the full title', () => {
+    const source = readRuleDefinitionViewSource();
+
+    expect(source).toContain('rule-definition-table-ellipsis');
+    expect(source).toContain(':title="getRuleScopeTargetText(row)"');
+    expect(source).toContain(':title="getMetricDisplayText(row)"');
+    expect(source).toContain(':title="formatDateTime(row.createTime)"');
+    expect(source).toContain('text-overflow: ellipsis;');
+  });
+
+  it('builds clearer chinese threshold names, one-line metrics and a wider action column', async () => {
+    const rule = {
+      ...createRuleRow(),
+      ruleScope: 'PRODUCT',
+      metricName: '褰撳墠闆ㄩ噺',
+      metricIdentifier: 'value',
+      alarmLevel: 'red'
+    };
+    mockPageRuleList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [rule]
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect((wrapper.vm as any).getMetricDisplayText(rule)).toBe('褰撳墠闆ㄩ噺（value）');
+    expect((wrapper.vm as any).getRuleDisplayName(rule)).toContain('产品默认');
+    expect((wrapper.vm as any).getRuleDisplayName(rule)).toContain('褰撳墠闆ㄩ噺');
+    expect((wrapper.vm as any).getRuleDisplayName(rule)).toContain('阈值');
+    expect((wrapper.vm as any).ruleActionColumnWidth).toBeGreaterThanOrEqual(200);
+  });
+
+  it('clears incompatible scope when switching to system template view', async () => {
+    mockPageRuleList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).filters.ruleScope = 'PRODUCT';
+    (wrapper.vm as any).filters.scopeView = 'SYSTEM';
+    (wrapper.vm as any).handleScopeViewChange();
+
+    expect((wrapper.vm as any).filters.ruleScope).toBe('');
+    expect((wrapper.vm as any).currentRuleScopeFilterOptions.map((option: any) => option.value)).toEqual([
+      'METRIC',
+      'PRODUCT_TYPE'
+    ]);
+  });
+
+  it('removes system strategy view from applied filters back to the default business view', async () => {
+    mockPageRuleList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).filters.scopeView = 'SYSTEM';
+    (wrapper.vm as any).handleSearch();
+    await flushPromises();
+
+    expect((wrapper.vm as any).activeFilterTags.some((tag: any) => tag.key === 'scopeView')).toBe(true);
+
+    (wrapper.vm as any).handleRemoveAppliedFilter('scopeView');
+    await flushPromises();
+
+    expect((wrapper.vm as any).filters.scopeView).toBe('BUSINESS');
+    expect((wrapper.vm as any).activeFilterTags.some((tag: any) => tag.key === 'scopeView')).toBe(false);
+    expect(mockPageRuleList).toHaveBeenLastCalledWith(expect.objectContaining({
+      scopeView: 'BUSINESS'
+    }));
+  });
+
+  it('filters product default threshold strategies from the governance shortcut', async () => {
+    mockPageRuleList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).handleProductDefaultFilter();
+    await flushPromises();
+
+    expect(mockPageRuleList).toHaveBeenLastCalledWith(expect.objectContaining({
+      ruleScope: 'PRODUCT'
+    }));
+  });
+
+  it('opens product default create drawer from missing policy backlog', async () => {
+    mockPageRuleList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).handleProductDefaultAdd();
+    await nextTick();
+
+    expect((wrapper.vm as any).formVisible).toBe(true);
+    expect((wrapper.vm as any).form.ruleScope).toBe('PRODUCT');
+    expect((wrapper.vm as any).form.productId).toBe(1001);
+    expect((wrapper.vm as any).form.metricIdentifier).toBe('displacementX');
+    expect((wrapper.vm as any).form.metricName).toBe('Displacement X');
+  });
+
+  it('generates product default threshold drafts from selected product metric summaries', async () => {
+    mockPageRuleList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).handleSelectVisibleMissingPolicySummaries();
+    expect((wrapper.vm as any).selectedMissingPolicySummaryKeys).toHaveLength(1);
+
+    (wrapper.vm as any).handleGenerateSelectedDefaultDrafts();
+    await nextTick();
+
+    expect((wrapper.vm as any).productDefaultDrafts).toHaveLength(1);
+    expect((wrapper.vm as any).selectedMissingPolicySummaryKeys).toHaveLength(0);
+    expect((wrapper.vm as any).productDefaultDrafts[0].metricIdentifier).toBe('displacementX');
+  });
+
+  it('removes an active product default draft after the strategy is submitted', async () => {
+    mockPageRuleList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    mockAddRule.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: createRuleRow()
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    const summary = createProductMetricSummary();
+    (wrapper.vm as any).handleAddSingleProductDefaultDraft(summary);
+    (wrapper.vm as any).handleProductDefaultAdd(summary);
+    (wrapper.vm as any).form.expression = 'value >= 10';
+    await (wrapper.vm as any).handleSubmit();
+
+    expect(mockAddRule).toHaveBeenCalledWith(expect.objectContaining({
+      ruleScope: 'PRODUCT',
+      productId: 1001,
+      metricIdentifier: 'displacementX'
+    }));
+    expect((wrapper.vm as any).productDefaultDrafts).toHaveLength(0);
+  });
+
+  it('batch submits completed product default drafts and keeps incomplete drafts', async () => {
+    mockPageRuleList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    mockAddRuleBatch.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        totalCount: 1,
+        successCount: 1,
+        failedCount: 0,
+        items: [
+          {
+            index: 0,
+            success: true,
+            ruleId: 1,
+            ruleName: 'Displacement X 产品默认阈值',
+            metricIdentifier: 'displacementX',
+            message: 'OK'
+          }
+        ]
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).addProductDefaultDrafts([
+      createProductMetricSummary(),
+      createProductMetricSummary({
+        riskMetricId: 6103,
+        metricIdentifier: 'displacementY',
+        metricName: 'Displacement Y'
+      })
+    ]);
+    (wrapper.vm as any).productDefaultDrafts[0].expression = 'value >= 10';
+
+    await (wrapper.vm as any).handleSubmitProductDefaultDrafts();
+
+    expect(mockAddRuleBatch).toHaveBeenCalledTimes(1);
+    expect(mockAddRuleBatch).toHaveBeenCalledWith([
+      expect.objectContaining({
+        ruleScope: 'PRODUCT',
+        productId: 1001,
+        metricIdentifier: 'displacementX',
+        expression: 'value >= 10'
+      })
+    ]);
+    expect((wrapper.vm as any).productDefaultDrafts).toHaveLength(1);
+    expect((wrapper.vm as any).productDefaultDrafts[0].metricIdentifier).toBe('displacementY');
+  });
+
+  it('marks failed product default drafts with backend messages after batch submit', async () => {
+    mockPageRuleList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    mockAddRuleBatch.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        totalCount: 2,
+        successCount: 1,
+        failedCount: 1,
+        items: [
+          {
+            index: 0,
+            success: true,
+            ruleId: 1,
+            ruleName: 'Displacement X 产品默认阈值',
+            metricIdentifier: 'displacementX',
+            message: 'OK'
+          },
+          {
+            index: 1,
+            success: false,
+            ruleName: 'Displacement Y 产品默认阈值',
+            metricIdentifier: 'displacementY',
+            message: '表达式格式无效'
+          }
+        ]
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).addProductDefaultDrafts([
+      createProductMetricSummary(),
+      createProductMetricSummary({
+        riskMetricId: 6103,
+        metricIdentifier: 'displacementY',
+        metricName: 'Displacement Y'
+      })
+    ]);
+    (wrapper.vm as any).productDefaultDrafts[0].expression = 'value >= 10';
+    (wrapper.vm as any).productDefaultDrafts[1].expression = 'value >< 20';
+
+    await (wrapper.vm as any).handleSubmitProductDefaultDrafts();
+
+    expect((wrapper.vm as any).productDefaultDrafts).toHaveLength(1);
+    expect((wrapper.vm as any).productDefaultDrafts[0].metricIdentifier).toBe('displacementY');
+    expect((wrapper.vm as any).productDefaultDrafts[0].submitStatus).toBe('FAILED');
+    expect((wrapper.vm as any).productDefaultDrafts[0].submitMessage).toBe('表达式格式无效');
+
+    (wrapper.vm as any).clearProductDefaultDraftSubmitState((wrapper.vm as any).productDefaultDrafts[0]);
+
+    expect((wrapper.vm as any).productDefaultDrafts[0].submitStatus).toBe('IDLE');
+    expect((wrapper.vm as any).productDefaultDrafts[0].submitMessage).toBe('');
+  });
+
+  it('applies draft template to empty expressions and can overwrite all drafts', async () => {
+    mockPageRuleList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).addProductDefaultDrafts([
+      createProductMetricSummary(),
+      createProductMetricSummary({
+        riskMetricId: 6103,
+        metricIdentifier: 'displacementY',
+        metricName: 'Displacement Y'
+      })
+    ]);
+    (wrapper.vm as any).productDefaultDrafts[0].expression = 'value >= 8';
+    (wrapper.vm as any).productDefaultDraftTemplate.expression = 'value >= 12';
+    (wrapper.vm as any).productDefaultDraftTemplate.duration = 60;
+    (wrapper.vm as any).productDefaultDraftTemplate.alarmLevel = 'red';
+    (wrapper.vm as any).productDefaultDraftTemplate.convertToEvent = 1;
+
+    (wrapper.vm as any).handleApplyProductDefaultDraftTemplate();
+
+    expect((wrapper.vm as any).productDefaultDrafts[0].expression).toBe('value >= 8');
+    expect((wrapper.vm as any).productDefaultDrafts[1].expression).toBe('value >= 12');
+    expect((wrapper.vm as any).productDefaultDrafts[1].duration).toBe(60);
+    expect((wrapper.vm as any).productDefaultDrafts[1].alarmLevel).toBe('red');
+    expect((wrapper.vm as any).productDefaultDrafts[1].convertToEvent).toBe(1);
+
+    (wrapper.vm as any).productDefaultDraftTemplate.applyMode = 'ALL';
+    (wrapper.vm as any).productDefaultDraftTemplate.expression = 'value >= 20';
+    (wrapper.vm as any).handleApplyProductDefaultDraftTemplate();
+
+    expect((wrapper.vm as any).productDefaultDrafts[0].expression).toBe('value >= 20');
+    expect((wrapper.vm as any).productDefaultDrafts[1].expression).toBe('value >= 20');
+  });
+
+  it('submits product default threshold strategy with product scope identity', async () => {
+    mockPageRuleList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    mockAddRule.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: createRuleRow()
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).handleAdd();
+    (wrapper.vm as any).form.ruleScope = 'PRODUCT';
+    (wrapper.vm as any).form.productId = 1001;
+    (wrapper.vm as any).form.ruleName = '裂缝产品默认阈值';
+    (wrapper.vm as any).form.metricIdentifier = 'value';
+    (wrapper.vm as any).form.metricName = '裂缝值';
+    (wrapper.vm as any).form.expression = 'value >= 10';
+    await (wrapper.vm as any).handleSubmit();
+
+    expect(mockAddRule).toHaveBeenCalledWith(expect.objectContaining({
+      ruleScope: 'PRODUCT',
+      productType: undefined,
+      productId: 1001,
+      metricIdentifier: 'value'
+    }));
+  });
+
+  it('submits monitoring product type threshold template without product identity', async () => {
+    mockPageRuleList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    mockAddRule.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: createRuleRow()
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).handleProductTypeTemplateAdd('MONITORING');
+    (wrapper.vm as any).form.metricIdentifier = 'value';
+    (wrapper.vm as any).form.metricName = 'Crack Value';
+    (wrapper.vm as any).form.expression = 'value >= 10';
+    await (wrapper.vm as any).handleSubmit();
+
+    expect(mockAddRule).toHaveBeenCalledWith(expect.objectContaining({
+      ruleScope: 'PRODUCT_TYPE',
+      productType: 'MONITORING',
+      productId: undefined,
+      metricIdentifier: 'value'
     }));
   });
 
@@ -408,7 +1173,7 @@ describe('RuleDefinitionView', () => {
     await flushPromises();
 
     expect((wrapper.vm as any).formVisible).toBe(true);
-    expect((wrapper.vm as any).form.riskMetricId).toBe(6102);
+    expect((wrapper.vm as any).form.riskMetricId).toBe('6102');
     expect((wrapper.vm as any).form.metricIdentifier).toBe('displacementX');
     expect((wrapper.vm as any).form.metricName).toBe('位移 X');
     expect(wrapper.find('.standard-form-drawer-stub').attributes('data-model-value')).toBe('true');

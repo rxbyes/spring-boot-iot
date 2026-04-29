@@ -20,7 +20,10 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.service.DeviceService;
+import com.ghlzm.iot.device.service.MetricIdentifierResolver;
+import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
 import com.ghlzm.iot.device.service.ProductService;
+import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
 import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.system.enums.DataScopeType;
@@ -69,13 +72,15 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
       private final DeviceService deviceService;
       private final RiskMetricCatalogService riskMetricCatalogService;
       private final ProductService productService;
+      private final PublishedProductContractSnapshotService publishedProductContractSnapshotService;
+      private final MetricIdentifierResolver metricIdentifierResolver;
 
       public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
                                   OrganizationService organizationService,
                                   RegionService regionService,
                                   UserService userService,
                                   DictService dictService) {
-            this(riskPointDeviceMapper, null, organizationService, regionService, userService, dictService, null, null, null, null);
+            this(riskPointDeviceMapper, null, organizationService, regionService, userService, dictService, null, null, null, null, null, null);
       }
 
       public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
@@ -84,7 +89,7 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                                   UserService userService,
                                   DictService dictService,
                                   PermissionService permissionService) {
-            this(riskPointDeviceMapper, null, organizationService, regionService, userService, dictService, permissionService, null, null, null);
+            this(riskPointDeviceMapper, null, organizationService, regionService, userService, dictService, permissionService, null, null, null, null, null);
       }
 
       public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
@@ -94,7 +99,7 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                                   DictService dictService,
                                   PermissionService permissionService,
                                   DeviceService deviceService) {
-            this(riskPointDeviceMapper, null, organizationService, regionService, userService, dictService, permissionService, deviceService, null, null);
+            this(riskPointDeviceMapper, null, organizationService, regionService, userService, dictService, permissionService, deviceService, null, null, null, null);
       }
 
       public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
@@ -105,7 +110,7 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                                   PermissionService permissionService,
                                   DeviceService deviceService,
                                   RiskMetricCatalogService riskMetricCatalogService) {
-            this(riskPointDeviceMapper, null, organizationService, regionService, userService, dictService, permissionService, deviceService, riskMetricCatalogService, null);
+            this(riskPointDeviceMapper, null, organizationService, regionService, userService, dictService, permissionService, deviceService, riskMetricCatalogService, null, null, null);
       }
 
       public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
@@ -116,7 +121,20 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                                   DictService dictService,
                                   PermissionService permissionService,
                                   DeviceService deviceService) {
-            this(riskPointDeviceMapper, capabilityBindingMapper, organizationService, regionService, userService, dictService, permissionService, deviceService, null, null);
+            this(riskPointDeviceMapper, capabilityBindingMapper, organizationService, regionService, userService, dictService, permissionService, deviceService, null, null, null, null);
+      }
+
+      public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
+                                  RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper,
+                                  OrganizationService organizationService,
+                                  RegionService regionService,
+                                  UserService userService,
+                                  DictService dictService,
+                                  PermissionService permissionService,
+                                  DeviceService deviceService,
+                                  RiskMetricCatalogService riskMetricCatalogService,
+                                  ProductService productService) {
+            this(riskPointDeviceMapper, capabilityBindingMapper, organizationService, regionService, userService, dictService, permissionService, deviceService, riskMetricCatalogService, productService, null, null);
       }
 
       @Autowired
@@ -129,7 +147,9 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                                   PermissionService permissionService,
                                   DeviceService deviceService,
                                   RiskMetricCatalogService riskMetricCatalogService,
-                                  ProductService productService) {
+                                  ProductService productService,
+                                  PublishedProductContractSnapshotService publishedProductContractSnapshotService,
+                                  MetricIdentifierResolver metricIdentifierResolver) {
             this.riskPointDeviceMapper = riskPointDeviceMapper;
             this.capabilityBindingMapper = capabilityBindingMapper;
             this.organizationService = organizationService;
@@ -140,6 +160,8 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             this.deviceService = deviceService;
             this.riskMetricCatalogService = riskMetricCatalogService;
             this.productService = productService;
+            this.publishedProductContractSnapshotService = publishedProductContractSnapshotService;
+            this.metricIdentifierResolver = metricIdentifierResolver;
       }
 
       @Override
@@ -298,6 +320,10 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             validateRiskPointDeviceBinding(riskPoint, device, riskPointDevice.getRiskPointId(), currentUserId);
             riskPointDevice.setDeviceCode(device.getDeviceCode());
             riskPointDevice.setDeviceName(device.getDeviceName());
+            RiskPointDevice softDeletedBinding = findSoftDeletedMetricBinding(riskPointDevice);
+            if (softDeletedBinding != null) {
+                  return restoreSoftDeletedMetricBinding(riskPointDevice, softDeletedBinding, currentUserId);
+            }
 
             riskPointDevice.setCreateTime(new Date());
             riskPointDevice.setUpdateTime(new Date());
@@ -306,6 +332,40 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             riskPointDevice.setDeleted(0);
             riskPointDeviceMapper.insert(riskPointDevice);
             return riskPointDevice;
+      }
+
+      private RiskPointDevice findSoftDeletedMetricBinding(RiskPointDevice riskPointDevice) {
+            if (riskPointDevice == null
+                    || riskPointDevice.getRiskPointId() == null
+                    || riskPointDevice.getDeviceId() == null
+                    || !StringUtils.hasText(riskPointDevice.getMetricIdentifier())) {
+                  return null;
+            }
+            return riskPointDeviceMapper.findSoftDeletedBinding(
+                    riskPointDevice.getRiskPointId(),
+                    riskPointDevice.getDeviceId(),
+                    riskPointDevice.getMetricIdentifier()
+            );
+      }
+
+      private RiskPointDevice restoreSoftDeletedMetricBinding(RiskPointDevice request,
+                                                             RiskPointDevice softDeletedBinding,
+                                                             Long currentUserId) {
+            softDeletedBinding.setDeviceCode(request.getDeviceCode());
+            softDeletedBinding.setDeviceName(request.getDeviceName());
+            softDeletedBinding.setRiskMetricId(request.getRiskMetricId());
+            softDeletedBinding.setMetricIdentifier(request.getMetricIdentifier());
+            softDeletedBinding.setMetricName(request.getMetricName());
+            softDeletedBinding.setDefaultThreshold(request.getDefaultThreshold());
+            softDeletedBinding.setThresholdUnit(request.getThresholdUnit());
+            softDeletedBinding.setUpdateTime(new Date());
+            softDeletedBinding.setUpdateBy(currentUserId);
+            softDeletedBinding.setDeleted(0);
+            int restoredRows = riskPointDeviceMapper.restoreSoftDeletedBinding(softDeletedBinding);
+            if (restoredRows <= 0) {
+                  throw new BizException("risk point binding restore failed");
+            }
+            return softDeletedBinding;
       }
 
       @Override
@@ -478,6 +538,30 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                   return;
             }
             RiskMetricCatalogBindingSupport.bindRiskPointDevice(riskPointDevice, catalog);
+            normalizeRuntimeMetricIdentifier(riskPointDevice, device);
+      }
+
+      private void normalizeRuntimeMetricIdentifier(RiskPointDevice riskPointDevice, Device device) {
+            if (riskPointDevice == null
+                    || device == null
+                    || device.getProductId() == null
+                    || publishedProductContractSnapshotService == null
+                    || metricIdentifierResolver == null
+                    || !StringUtils.hasText(riskPointDevice.getMetricIdentifier())) {
+                  return;
+            }
+            MetricIdentifierResolution resolution = metricIdentifierResolver.resolveForRuntime(
+                    publishedProductContractSnapshotService.getRequiredSnapshot(device.getProductId()),
+                    riskPointDevice.getMetricIdentifier()
+            );
+            String runtimeIdentifier = normalizeMetricIdentifier(
+                    resolution == null ? null : resolution.canonicalIdentifier()
+            );
+            if (!StringUtils.hasText(runtimeIdentifier)) {
+                  return;
+            }
+            riskPointDevice.setMetricIdentifier(runtimeIdentifier);
+            riskPointDevice.setMetricName(resolveMetricName(riskPointDevice.getMetricName(), runtimeIdentifier));
       }
 
       private Device resolveRequiredDevice(Long currentUserId, Long deviceId) {
@@ -759,6 +843,7 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             }
             wrapper.eq(RiskPoint::getDeleted, 0);
             wrapper.orderByDesc(RiskPoint::getCreateTime);
+            wrapper.orderByDesc(RiskPoint::getId);
             return wrapper;
       }
 

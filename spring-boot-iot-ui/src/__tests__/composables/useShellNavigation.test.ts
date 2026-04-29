@@ -84,6 +84,50 @@ function createDynamicMenus(): MenuTreeNode[] {
   ];
 }
 
+function createDynamicMenusWithHiddenProductDetail(): MenuTreeNode[] {
+  return [
+    {
+      id: 100,
+      menuName: '接入智维',
+      menuCode: 'iot-access',
+      path: '',
+      type: 0,
+      meta: {
+        description: '资产、链路与异常观测',
+        menuTitle: '接入智维',
+        menuHint: '覆盖产品定义、设备资产、链路校验与异常观测。'
+      },
+      children: [
+        {
+          id: 101,
+          parentId: 100,
+          menuName: '产品定义中心',
+          menuCode: 'device:product',
+          path: '/products',
+          type: 1,
+          meta: {
+            caption: '产品台账与接入契约'
+          },
+          children: []
+        },
+        {
+          id: 103,
+          parentId: 100,
+          menuName: '契约字段',
+          menuCode: 'iot:products:detail-contracts',
+          path: '/products/:productId/contracts',
+          type: 1,
+          meta: {
+            caption: '样本输入、识别结果、本次生效与当前已生效字段',
+            hiddenInSidebar: true
+          },
+          children: []
+        }
+      ]
+    }
+  ];
+}
+
 function createLegacyQualityMenus(): MenuTreeNode[] {
   return [
     {
@@ -93,20 +137,20 @@ function createLegacyQualityMenus(): MenuTreeNode[] {
       path: '',
       type: 0,
       meta: {
-        description: '研发工场、执行组织与结果基线',
+        description: '业务验收与自动化治理',
         menuTitle: '质量工场',
-        menuHint: '覆盖研发资产编排、执行组织与结果基线治理。'
+        menuHint: '覆盖业务验收与自动化治理。'
       },
       children: [
         {
           id: 93003009,
           parentId: 93000005,
-          menuName: '自动化工场（兼容入口）',
-          menuCode: 'system:automation-test',
-          path: '/automation-test',
+          menuName: '自动化治理台',
+          menuCode: 'system:automation-governance',
+          path: '/automation-governance',
           type: 1,
           meta: {
-            caption: '兼容旧入口'
+            caption: '治理资产、执行与证据'
           },
           children: []
         }
@@ -219,9 +263,9 @@ describe('useShellNavigation', () => {
     expect(pushMock).toHaveBeenCalledWith('/system-management');
   });
 
-  it('upgrades the legacy quality-workbench menu tree to the split rd/execution/results navigation', () => {
-    routeState.path = '/rd-automation-plans';
-    routeState.meta = { title: '计划编排台' };
+  it('maps quality-workbench menus onto the consolidated business and governance navigation', () => {
+    routeState.path = '/automation-governance';
+    routeState.meta = { title: '自动化治理台' };
     const permissionStore = usePermissionStore();
     permissionStore.setAccessToken('token');
     permissionStore.setAuthContext(
@@ -238,17 +282,10 @@ describe('useShellNavigation', () => {
 
     expect(qualityGroup?.items.map((item) => item.to)).toEqual([
       '/quality-workbench',
-      '/rd-workbench',
-      '/rd-automation-inventory',
-      '/rd-automation-templates',
-      '/rd-automation-plans',
-      '/rd-automation-handoff',
-      '/automation-execution',
-      '/automation-results'
+      '/automation-governance'
     ]);
-    expect(qualityGroup?.items.some((item) => item.to === '/automation-test')).toBe(false);
     expect(navigation.activeGroup.value.key).toBe('quality-workbench');
-    expect(navigation.activeTitle.value).toBe('计划编排台');
+    expect(navigation.activeTitle.value).toBe('自动化治理台');
   });
 
   it('prefers backend menu names over static workspace labels for renamed menu items', () => {
@@ -272,5 +309,29 @@ describe('useShellNavigation', () => {
 
     expect(securityItem?.label).toBe('秘钥治理');
     expect(navigation.activeTitle.value).toBe('秘钥治理');
+  });
+
+  it('keeps hidden detail routes out of the sidebar while still resolving the correct workspace group', () => {
+    routeState.path = '/products/202603192100560252/contracts';
+    routeState.meta = { title: '契约字段' };
+    const permissionStore = usePermissionStore();
+    permissionStore.setAccessToken('token');
+    permissionStore.setAuthContext(
+      createAuthContext({
+        roleCodes: ['OPS_STAFF'],
+        roles: [{ id: 11, roleCode: 'OPS_STAFF', roleName: '运维人员' }],
+        homePath: '/device-access',
+        menus: createDynamicMenusWithHiddenProductDetail()
+      })
+    );
+
+    const navigation = useShellNavigation();
+    const accessGroup = navigation.navigationGroups.value.find((group) => group.key === 'iot-access');
+
+    expect(accessGroup?.items.map((item) => item.to)).toEqual(['/device-access', '/products']);
+    expect(accessGroup?.items.some((item) => item.to === '/products/:productId/contracts')).toBe(false);
+    expect(navigation.activeGroup.value.key).toBe('iot-access');
+    expect(navigation.activeMenuItem.value).toBeNull();
+    expect(navigation.activeTitle.value).toBe('契约字段');
   });
 });

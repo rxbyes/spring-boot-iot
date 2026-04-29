@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { defineComponent } from 'vue'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
@@ -41,6 +43,19 @@ const ElTableColumnStub = defineComponent({
   `
 })
 
+const StandardTableTextColumnStub = defineComponent({
+  name: 'StandardTableTextColumn',
+  props: ['label', 'prop', 'secondaryProp'],
+  template: `
+    <section
+      class="product-device-table-text-column-stub"
+      :data-label="label"
+      :data-prop="prop"
+      :data-secondary-prop="secondaryProp"
+    />
+  `
+})
+
 describe('ProductDeviceListWorkspace', () => {
   it('shows the device list workspace with visible heading and table actions', () => {
     const wrapper = mount(ProductDeviceListWorkspace, {
@@ -62,6 +77,7 @@ describe('ProductDeviceListWorkspace', () => {
           ElTag: true,
           ElTable: ElTableStub,
           ElTableColumn: ElTableColumnStub,
+          StandardTableTextColumn: StandardTableTextColumnStub,
           StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
           StandardPagination: StandardPaginationStub
         }
@@ -104,6 +120,7 @@ describe('ProductDeviceListWorkspace', () => {
           ElTag: true,
           ElTable: ElTableStub,
           ElTableColumn: ElTableColumnStub,
+          StandardTableTextColumn: StandardTableTextColumnStub,
           StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
           StandardPagination: StandardPaginationStub
         }
@@ -117,5 +134,16 @@ describe('ProductDeviceListWorkspace', () => {
 
     await wrapper.get('.device-pagination-stub__resize').trigger('click')
     expect(wrapper.emitted('page-size-change')).toEqual([[20]])
+  })
+
+  it('stacks device code under the device name in the shared first-column grammar', () => {
+    const source = readFileSync(
+      resolve(import.meta.dirname, '../../../components/product/ProductDeviceListWorkspace.vue'),
+      'utf8'
+    )
+
+    expect(source).toContain('secondary-prop="deviceCode"')
+    expect(source).toContain('label="设备"')
+    expect(source).not.toContain('<el-table-column prop="deviceCode" label="设备编码"')
   })
 })

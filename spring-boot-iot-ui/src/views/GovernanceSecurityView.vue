@@ -54,8 +54,12 @@
             element-loading-background="var(--loading-mask-bg)"
           >
             <el-table v-if="matrixItems.length" :data="matrixItems" border stripe style="width: 100%">
-              <StandardTableTextColumn prop="domainName" label="治理域" :width="120" />
-              <StandardTableTextColumn prop="actionName" label="动作" :min-width="140" />
+              <StandardTableTextColumn
+                prop="actionName"
+                label="治理动作"
+                secondary-prop="domainName"
+                :min-width="220"
+              />
               <StandardTableTextColumn prop="operatorPermissionCode" label="执行权限" :min-width="220" />
               <StandardTableTextColumn prop="approverPermissionCode" label="复核权限" :min-width="220" />
               <el-table-column label="双人复核" width="110">
@@ -91,8 +95,12 @@
             element-loading-background="var(--loading-mask-bg)"
           >
             <el-table v-if="rotationLogList.length" :data="rotationLogList" border stripe style="width: 100%">
-              <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
-              <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="140" />
+              <StandardTableTextColumn
+                prop="deviceCode"
+                label="设备"
+                secondary-prop="productKey"
+                :min-width="180"
+              />
               <StandardTableTextColumn prop="rotationBatchId" label="轮换批次号" :min-width="190" />
               <StandardTableTextColumn prop="previousSecretDigest" label="旧密钥摘要" :min-width="180" />
               <StandardTableTextColumn prop="currentSecretDigest" label="新密钥摘要" :min-width="180" />

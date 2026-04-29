@@ -1,5 +1,6 @@
 package com.ghlzm.iot.alarm.service.impl;
 
+import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
 import org.junit.jupiter.api.Test;
 
@@ -13,59 +14,111 @@ class DefaultRiskMetricCatalogPublishRuleTest {
     private final DefaultRiskMetricCatalogPublishRule rule = new DefaultRiskMetricCatalogPublishRule();
 
     @Test
-    void resolveRiskEnabledIdentifiersShouldPublishCrackValueOnly() {
-        ProductModel value = productModel("value");
-        ProductModel sensorState = productModel("sensor_state");
+    void resolveRiskEnabledIdentifiersShouldUseMeasureEntriesFromProductMetadataOnly() {
+        Product product = product("zhd-monitor-multi-displacement-v1", "多维检测仪");
+        product.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {"identifier":"L1_LF_1.value","displayName":"裂缝量","group":"measure","enabled":true,"includeInTrend":true},
+                      {"identifier":"L1_QJ_1.angle","displayName":"倾角","group":"measure","enabled":true,"includeInTrend":true},
+                      {"identifier":"L1_JS_1.gX","displayName":"加速度X","group":"measure","enabled":true,"includeInTrend":true},
+                      {"identifier":"S1_ZT_1.sensor_state","displayName":"设备状态","group":"status","enabled":true,"includeInTrend":true}
+                    ]
+                  }
+                }
+                """);
 
-        Set<String> identifiers = rule.resolveRiskEnabledIdentifiers(null, List.of(value, sensorState));
+        Set<String> identifiers = rule.resolveRiskEnabledIdentifiers(
+                product,
+                null,
+                null,
+                List.of(
+                        productModel("L1_LF_1.value"),
+                        productModel("L1_QJ_1.angle"),
+                        productModel("L1_JS_1.gX"),
+                        productModel("S1_ZT_1.sensor_state")
+                )
+        );
 
-        assertEquals(Set.of("value"), identifiers);
+        assertEquals(Set.of("L1_LF_1.value", "L1_QJ_1.angle", "L1_JS_1.gX"), identifiers);
     }
 
     @Test
-    void resolveRiskEnabledIdentifiersShouldPublishOnlyGnssTotals() {
-        ProductModel gpsInitial = productModel("gpsInitial");
-        ProductModel gpsTotalX = productModel("gpsTotalX");
-        ProductModel gpsTotalY = productModel("gpsTotalY");
-        ProductModel gpsTotalZ = productModel("gpsTotalZ");
+    void resolveRiskEnabledIdentifiersShouldIgnoreEntriesNotMarkedAsMeasureTruth() {
+        Product product = product("generic-monitor-v1", "通用监测产品");
+        product.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {"identifier":"L1_LF_1.value","displayName":"裂缝量","group":"measure","enabled":true,"includeInTrend":false},
+                      {"identifier":"L1_QJ_1.angle","displayName":"倾角","group":"runtime","enabled":true,"includeInTrend":true},
+                      {"identifier":"L1_JS_1.gX","displayName":"加速度X","group":"status","enabled":true,"includeInTrend":true}
+                    ]
+                  }
+                }
+                """);
 
         Set<String> identifiers = rule.resolveRiskEnabledIdentifiers(
+                product,
                 null,
-                List.of(gpsInitial, gpsTotalX, gpsTotalY, gpsTotalZ)
+                null,
+                List.of(
+                        productModel("L1_LF_1.value"),
+                        productModel("L1_QJ_1.angle"),
+                        productModel("L1_JS_1.gX")
+                )
         );
 
-        assertEquals(Set.of("gpsTotalX", "gpsTotalY", "gpsTotalZ"), identifiers);
+        assertEquals(Set.of(), identifiers);
     }
 
     @Test
-    void resolveRiskEnabledIdentifiersShouldPublishOnlyDeepDisplacementMetrics() {
-        ProductModel dispsX = productModel("dispsX");
-        ProductModel dispsY = productModel("dispsY");
-        ProductModel sensorState = productModel("sensor_state");
+    void resolveRiskEnabledIdentifiersShouldIntersectMeasureTruthWithReleasedContractsOnly() {
+        Product product = product("generic-monitor-v1", "通用监测产品");
+        product.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {"identifier":"L1_LF_1.value","displayName":"裂缝量","group":"measure","enabled":true,"includeInTrend":true},
+                      {"identifier":"L1_QJ_1.angle","displayName":"倾角","group":"measure","enabled":true,"includeInTrend":true}
+                    ]
+                  }
+                }
+                """);
 
         Set<String> identifiers = rule.resolveRiskEnabledIdentifiers(
+                product,
                 null,
-                List.of(dispsX, dispsY, sensorState)
+                null,
+                List.of(productModel("L1_LF_1.value"))
         );
 
-        assertEquals(Set.of("dispsX", "dispsY"), identifiers);
+        assertEquals(Set.of("L1_LF_1.value"), identifiers);
     }
 
     @Test
-    void resolveRiskEnabledIdentifiersShouldPublishOnlyRainGaugeCurrentValue() {
-        ProductModel value = productModel("value");
-        ProductModel totalValue = productModel("totalValue");
-
+    void resolveRiskEnabledIdentifiersShouldReturnEmptyWhenProductMetadataMissing() {
         Set<String> identifiers = rule.resolveRiskEnabledIdentifiers(
+                product("generic-monitor-v1", "通用监测产品"),
                 null,
-                List.of(value, totalValue)
+                null,
+                List.of(productModel("L1_LF_1.value"))
         );
 
-        assertEquals(Set.of("value"), identifiers);
+        assertEquals(Set.of(), identifiers);
+    }
+
+    private Product product(String productKey, String productName) {
+        Product product = new Product();
+        product.setProductKey(productKey);
+        product.setProductName(productName);
+        return product;
     }
 
     private ProductModel productModel(String identifier) {
         ProductModel productModel = new ProductModel();
+        productModel.setModelType("property");
         productModel.setIdentifier(identifier);
         return productModel;
     }

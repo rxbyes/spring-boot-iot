@@ -1,6 +1,80 @@
 <template>
   <div class="message-trace-detail-workbench">
-    <section class="message-trace-detail-workbench__stage" data-testid="message-trace-detail-summary-stage">
+    <section
+      v-if="detailContinuityNotice"
+      class="message-trace-detail-workbench__continuity"
+      data-testid="message-trace-detail-continuity"
+    >
+      <div class="message-trace-detail-workbench__continuity-copy">
+        <span class="message-trace-detail-workbench__continuity-eyebrow">
+          {{ detailContinuityNotice.eyebrow }}
+        </span>
+        <strong>{{ detailContinuityNotice.title }}</strong>
+        <p>{{ detailContinuityNotice.description }}</p>
+      </div>
+
+      <div class="message-trace-detail-workbench__continuity-meta">
+        <span
+          class="message-trace-detail-workbench__continuity-signal"
+          :class="`message-trace-detail-workbench__continuity-signal--${detailContinuityNotice.tone}`"
+        >
+          {{ detailContinuityNotice.signal }}
+        </span>
+        <span
+          v-for="pill in detailContinuityNotice.pills"
+          :key="pill"
+          class="message-trace-detail-workbench__continuity-pill"
+        >
+          {{ pill }}
+        </span>
+      </div>
+
+      <div class="message-trace-detail-workbench__continuity-actions">
+        <button
+          v-if="detailContinuityNotice.showReturnAction"
+          type="button"
+          class="message-trace-detail-workbench__continuity-action message-trace-detail-workbench__continuity-action--primary"
+          @click="emit('return-to-insight')"
+        >
+          回对象洞察继续排查
+        </button>
+        <button
+          v-if="detailContinuityNotice.showCopyAction"
+          type="button"
+          class="message-trace-detail-workbench__continuity-action"
+          @click="emit('copy-trace-clues')"
+        >
+          复制链路线索
+        </button>
+      </div>
+
+      <div
+        v-if="detailPriorityGuide"
+        class="message-trace-detail-workbench__priority-guide"
+        data-testid="message-trace-detail-priority-guide"
+      >
+        <article class="message-trace-detail-workbench__priority-step">
+          <span class="message-trace-detail-workbench__priority-step-label">先看</span>
+          <strong>时间线状态</strong>
+          <p>{{ detailPriorityGuide.timeline }}</p>
+        </article>
+        <article class="message-trace-detail-workbench__priority-step">
+          <span class="message-trace-detail-workbench__priority-step-label">再看</span>
+          <strong>Payload 对照</strong>
+          <p>{{ detailPriorityGuide.payload }}</p>
+        </article>
+      </div>
+    </section>
+
+    <section
+      :class="[
+        'message-trace-detail-workbench__stage',
+        {
+          'message-trace-detail-workbench__stage--contextual': hasInboundEvidencePriority
+        }
+      ]"
+      data-testid="message-trace-detail-summary-stage"
+    >
       <div class="message-trace-detail-workbench__stage-header">
         <h3>消息态势与处理概况</h3>
       </div>
@@ -144,17 +218,55 @@
       </article>
     </section>
 
-    <section class="message-trace-detail-workbench__stage" data-testid="message-trace-detail-payload-stage">
+    <section
+      :class="[
+        'message-trace-detail-workbench__stage',
+        {
+          'message-trace-detail-workbench__stage--evidence-secondary': hasInboundEvidencePriority
+        }
+      ]"
+      data-testid="message-trace-detail-payload-stage"
+    >
       <div class="message-trace-detail-workbench__stage-header">
-        <h3>Payload 对照</h3>
+        <div class="message-trace-detail-workbench__stage-header-copy">
+          <span
+            v-if="hasInboundEvidencePriority"
+            class="message-trace-detail-workbench__stage-header-kicker message-trace-detail-workbench__stage-header-kicker--secondary"
+          >
+            再看
+          </span>
+          <h3>Payload 对照</h3>
+          <p v-if="detailPriorityGuide" class="message-trace-detail-workbench__stage-note">
+            {{ detailPriorityGuide.payload }}
+          </p>
+        </div>
       </div>
 
       <MessageTracePayloadComparisonSection :panels="panels" />
     </section>
 
-    <section class="message-trace-detail-workbench__stage" data-testid="message-trace-detail-timeline-stage">
+    <section
+      :class="[
+        'message-trace-detail-workbench__stage',
+        {
+          'message-trace-detail-workbench__stage--evidence-primary': hasInboundEvidencePriority
+        }
+      ]"
+      data-testid="message-trace-detail-timeline-stage"
+    >
       <div class="message-trace-detail-workbench__stage-header message-trace-detail-workbench__stage-header--between">
-        <h3>处理时间线</h3>
+        <div class="message-trace-detail-workbench__stage-header-copy">
+          <span
+            v-if="hasInboundEvidencePriority"
+            class="message-trace-detail-workbench__stage-header-kicker message-trace-detail-workbench__stage-header-kicker--primary"
+          >
+            先看
+          </span>
+          <h3>处理时间线</h3>
+          <p v-if="detailPriorityGuide" class="message-trace-detail-workbench__stage-note">
+            {{ detailPriorityGuide.timeline }}
+          </p>
+        </div>
         <button
           type="button"
           class="message-trace-detail-workbench__toggle"
@@ -169,9 +281,11 @@
         <article
           v-for="card in timelineSummaryCards"
           :key="card.key"
+          :data-testid="`message-trace-timeline-card-${card.key}`"
           :class="[
             'message-trace-detail-workbench__timeline-card',
             `message-trace-detail-workbench__timeline-card--${card.tone ?? 'plain'}`,
+            card.emphasis ? `message-trace-detail-workbench__timeline-card--${card.emphasis}` : '',
             { 'message-trace-detail-workbench__timeline-card--wide': card.wide }
           ]"
         >
@@ -209,6 +323,7 @@ import { computed, ref, watch } from 'vue';
 import MessageTracePayloadComparisonSection from '@/components/messageTrace/MessageTracePayloadComparisonSection.vue';
 import StandardTraceTimeline from '@/components/StandardTraceTimeline.vue';
 import type { MessageFlowTimeline, MessageTraceDetail } from '@/types/api';
+import type { DiagnosticContext } from '@/utils/iotAccessDiagnostics';
 import type { MessageTracePayloadComparisonPanel } from '@/utils/messageTracePayloadComparison';
 import { formatDateTime, formatMessageTraceReportTime } from '@/utils/format';
 
@@ -233,8 +348,30 @@ interface TimelineSummaryCard {
   value: string;
   hint?: string;
   tone?: 'plain' | 'ready' | 'warning' | 'muted' | 'loading';
+  emphasis?: 'spotlight' | 'context';
   wide?: boolean;
 }
+
+interface DetailContinuityNotice {
+  eyebrow: string;
+  title: string;
+  description: string;
+  signal: string;
+  tone: 'ready' | 'warning' | 'muted' | 'attention' | 'loading';
+  pills: string[];
+  showReturnAction: boolean;
+  showCopyAction: boolean;
+}
+
+interface DetailPriorityGuide {
+  timeline: string;
+  payload: string;
+}
+
+const emit = defineEmits<{
+  (event: 'return-to-insight'): void;
+  (event: 'copy-trace-clues'): void;
+}>();
 
 const props = defineProps<{
   detail: Partial<MessageTraceDetail>;
@@ -245,6 +382,8 @@ const props = defineProps<{
   timelineLookupError: boolean;
   timelineEmptyTitle: string;
   timelineEmptyDescription: string;
+  inboundContext?: DiagnosticContext | null;
+  canReturnToInsight?: boolean;
 }>();
 
 const timelineExpanded = ref(false);
@@ -383,6 +522,123 @@ const timelineStorageHint = computed(() => {
   return '当前记录没有可复盘链路';
 });
 
+const detailContinuityNotice = computed<DetailContinuityNotice | null>(() => {
+  const inboundContext = props.inboundContext;
+  if (!inboundContext || inboundContext.sourcePage !== 'insight' || inboundContext.reportStatus !== 'timeline-missing') {
+    return null;
+  }
+
+  const pills = [
+    props.detail.deviceCode || inboundContext.deviceCode ? `设备 ${formatValue(props.detail.deviceCode ?? inboundContext.deviceCode)}` : '',
+    props.detail.traceId || inboundContext.traceId ? `Trace ${formatValue(props.detail.traceId ?? inboundContext.traceId)}` : '',
+    props.detail.topic || inboundContext.topic ? '带 Topic 回看' : ''
+  ].filter(Boolean);
+
+  if (props.timelineLookupError) {
+    return {
+      eyebrow: '来自对象洞察台',
+      title: '当前正在补 latest 链路',
+      description: '这次是沿着 latest 缺口回到主链路复盘。message-flow / Redis 读取异常时，先用消息日志、Payload 和 Topic 确认上报是否进入主链路，再决定是否回对象洞察继续排查。',
+      signal: '主链路证据暂未接住',
+      tone: 'warning',
+      pills,
+      showReturnAction: Boolean(props.canReturnToInsight),
+      showCopyAction: pills.length > 0
+    };
+  }
+
+  if (props.timelineExpired) {
+    return {
+      eyebrow: '来自对象洞察台',
+      title: '当前正在补 latest 链路',
+      description: '这次是沿着 latest 缺口回到主链路复盘。短期时间线已过期时，优先复盘消息日志、Payload 和 Topic，确认 latest 写入前后的证据是否还完整。',
+      signal: '短期时间线已过期',
+      tone: 'muted',
+      pills,
+      showReturnAction: Boolean(props.canReturnToInsight),
+      showCopyAction: pills.length > 0
+    };
+  }
+
+  if (props.timelineLoading) {
+    return {
+      eyebrow: '来自对象洞察台',
+      title: '当前正在补 latest 链路',
+      description: '这次是沿着 latest 缺口回到主链路复盘。后台正在补主链路证据，先保留当前 Trace / Topic 线索，等时间线加载完成后再确认 latest 写入落在哪一段。',
+      signal: '正在补主链路证据',
+      tone: 'loading',
+      pills,
+      showReturnAction: Boolean(props.canReturnToInsight),
+      showCopyAction: pills.length > 0
+    };
+  }
+
+  if (timelineStepCount.value > 0) {
+    return {
+      eyebrow: '来自对象洞察台',
+      title: '当前正在补 latest 链路',
+      description: '主链路证据已经接住。先看时间线和 Payload 对照，确认 latest 写入是在进入主链路前掉线，还是在处理中途出现缺口。',
+      signal: '主链路证据已接住',
+      tone: 'ready',
+      pills,
+      showReturnAction: Boolean(props.canReturnToInsight),
+      showCopyAction: pills.length > 0
+    };
+  }
+
+  return {
+    eyebrow: '来自对象洞察台',
+    title: '当前正在补 latest 链路',
+    description: '这次是沿着 latest 缺口回到主链路复盘。先核对当前 Trace、Topic 和设备编码是否齐全，再继续补主链路证据。',
+    signal: '先核对 Trace / Topic',
+    tone: 'attention',
+    pills,
+    showReturnAction: Boolean(props.canReturnToInsight),
+    showCopyAction: pills.length > 0
+  };
+});
+
+const detailPriorityGuide = computed<DetailPriorityGuide | null>(() => {
+  if (!detailContinuityNotice.value) {
+    return null;
+  }
+
+  if (props.timelineLookupError) {
+    return {
+      timeline: '先确认 Redis / message-flow 读取是否异常，再判断 latest 缺口是存储缺证还是链路断点。',
+      payload: '再核对原始、解密和解析结果，确认 latest 缺口前后的字段是否已经进入主链路。'
+    };
+  }
+
+  if (props.timelineExpired) {
+    return {
+      timeline: '先用当前 Trace 和过期提示判断 latest 缺口是否已越过短期时间线窗口。',
+      payload: '再核对原始、解密和解析结果，补齐 latest 写入前后还能复盘到的报文证据。'
+    };
+  }
+
+  if (props.timelineLoading) {
+    return {
+      timeline: '先等主链路证据加载完成，再确认 latest 写入落在哪一段处理节点上。',
+      payload: '再对照原始、解密和解析结果，避免在时间线未补齐前过早判断字段是否丢失。'
+    };
+  }
+
+  if (timelineStepCount.value > 0) {
+    return {
+      timeline: '先看时间线状态和处理节点，确认 latest 写入落在哪一段。',
+      payload: '再核对 latest 写入前后的原始、解密和解析差异。'
+    };
+  }
+
+  return {
+    timeline: '先核对当前 Trace、Topic 和设备编码是否足够定位主链路。',
+    payload: '再核对当前报文内容，确认 latest 缺口是否来自字段缺失或解析未命中。'
+  };
+});
+
+const hasInboundEvidencePriority = computed(() => Boolean(detailPriorityGuide.value));
+
 const summaryCards = computed<SummaryCard[]>(() => [
   {
     key: 'messageType',
@@ -504,32 +760,68 @@ const timelineSummaryDescription = computed(() => {
   }
   return '';
 });
+
+const timelinePriorityCardKeys = computed(() => {
+  if (!hasInboundEvidencePriority.value) {
+    return {
+      spotlight: [] as string[],
+      context: [] as string[]
+    };
+  }
+
+  if (props.timelineLoading || props.timelineLookupError || props.timelineExpired || timelineStepCount.value === 0) {
+    return {
+      spotlight: ['status', 'storage'],
+      context: ['steps', 'owner']
+    };
+  }
+
+  return {
+    spotlight: ['status', 'steps'],
+    context: ['owner', 'storage']
+  };
+});
+
+function getTimelineCardEmphasis(key: string): TimelineSummaryCard['emphasis'] {
+  if (timelinePriorityCardKeys.value.spotlight.includes(key)) {
+    return 'spotlight';
+  }
+  if (timelinePriorityCardKeys.value.context.includes(key)) {
+    return 'context';
+  }
+  return undefined;
+}
+
 const timelineSummaryCards = computed<TimelineSummaryCard[]>(() => [
   {
     key: 'status',
     label: '当前状态',
     value: timelineStatusValue.value,
     hint: timelineStatusHint.value,
-    tone: timelineSummaryTone.value
+    tone: timelineSummaryTone.value,
+    emphasis: getTimelineCardEmphasis('status')
   },
   {
     key: 'steps',
     label: '处理节点',
     value: timelineNodeValue.value,
-    hint: timelineNodeHint.value
+    hint: timelineNodeHint.value,
+    emphasis: getTimelineCardEmphasis('steps')
   },
   {
     key: 'owner',
     label: 'Trace 归属',
     value: timelineOwnerValue.value,
     hint: timelineOwnerHint.value,
+    emphasis: getTimelineCardEmphasis('owner'),
     wide: !props.timeline?.sessionId && timelineOwnerValue.value !== '--'
   },
   {
     key: 'storage',
     label: '存储提示',
     value: timelineStorageValue.value,
-    hint: timelineStorageHint.value
+    hint: timelineStorageHint.value,
+    emphasis: getTimelineCardEmphasis('storage')
   }
 ]);
 
@@ -606,6 +898,164 @@ function getMessageTypeLabel(value?: string | null) {
   gap: 1rem;
 }
 
+.message-trace-detail-workbench__continuity {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid color-mix(in srgb, var(--warning) 16%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 4px);
+  background: color-mix(in srgb, var(--warning-bg) 28%, white);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.message-trace-detail-workbench__continuity-copy {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.message-trace-detail-workbench__continuity-eyebrow {
+  color: color-mix(in srgb, var(--warning) 72%, var(--text-secondary));
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.message-trace-detail-workbench__continuity-copy strong {
+  color: var(--text-heading);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.message-trace-detail-workbench__continuity-copy p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.message-trace-detail-workbench__continuity-meta,
+.message-trace-detail-workbench__continuity-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.message-trace-detail-workbench__continuity-pill,
+.message-trace-detail-workbench__continuity-signal {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 0.8rem;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.message-trace-detail-workbench__continuity-pill {
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-secondary);
+}
+
+.message-trace-detail-workbench__continuity-signal {
+  border: 1px solid color-mix(in srgb, var(--warning) 18%, var(--panel-border));
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
+.message-trace-detail-workbench__continuity-signal--ready {
+  border-color: color-mix(in srgb, var(--success) 20%, var(--panel-border));
+  color: color-mix(in srgb, var(--success) 74%, var(--text-heading));
+}
+
+.message-trace-detail-workbench__continuity-signal--warning {
+  border-color: color-mix(in srgb, var(--warning) 26%, var(--panel-border));
+  color: color-mix(in srgb, var(--warning) 82%, var(--text-heading));
+}
+
+.message-trace-detail-workbench__continuity-signal--muted {
+  border-color: color-mix(in srgb, var(--text-secondary) 20%, var(--panel-border));
+  color: var(--text-secondary);
+}
+
+.message-trace-detail-workbench__continuity-signal--attention {
+  border-color: color-mix(in srgb, var(--brand) 16%, var(--panel-border));
+  color: color-mix(in srgb, var(--brand) 72%, var(--text-heading));
+}
+
+.message-trace-detail-workbench__continuity-signal--loading {
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--panel-border));
+  color: color-mix(in srgb, var(--accent) 72%, var(--text-heading));
+}
+
+.message-trace-detail-workbench__continuity-action {
+  min-height: 34px;
+  padding: 0 0.95rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.message-trace-detail-workbench__continuity-action:hover {
+  border-color: color-mix(in srgb, var(--brand) 18%, var(--panel-border));
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 6%, white);
+}
+
+.message-trace-detail-workbench__continuity-action--primary {
+  border-color: color-mix(in srgb, var(--brand) 18%, var(--panel-border));
+  background: color-mix(in srgb, var(--brand) 8%, white);
+  color: var(--brand);
+}
+
+.message-trace-detail-workbench__priority-guide {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.message-trace-detail-workbench__priority-step {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.88rem 0.95rem;
+  border: 1px dashed color-mix(in srgb, var(--warning) 18%, var(--panel-border));
+  border-radius: calc(var(--radius-md) + 2px);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.message-trace-detail-workbench__priority-step-label {
+  color: color-mix(in srgb, var(--warning) 72%, var(--text-secondary));
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.message-trace-detail-workbench__priority-step strong {
+  color: var(--text-heading);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.message-trace-detail-workbench__priority-step p,
+.message-trace-detail-workbench__stage-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
 .message-trace-detail-workbench__stage,
 .message-trace-detail-workbench__subsection,
 .message-trace-detail-workbench__overview-panel {
@@ -618,6 +1068,31 @@ function getMessageTypeLabel(value?: string | null) {
   box-shadow: var(--shadow-inset-highlight-78);
 }
 
+.message-trace-detail-workbench__stage--contextual {
+  border-color: color-mix(in srgb, var(--panel-border) 88%, white);
+  background:
+    linear-gradient(180deg, rgba(250, 252, 255, 0.94) 0%, rgba(247, 250, 255, 0.92) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+.message-trace-detail-workbench__stage--evidence-primary,
+.message-trace-detail-workbench__stage--evidence-secondary {
+  border-color: color-mix(in srgb, var(--brand) 16%, var(--panel-border));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 0 0 1px rgba(255, 255, 255, 0.36);
+}
+
+.message-trace-detail-workbench__stage--evidence-primary {
+  background:
+    linear-gradient(180deg, rgba(255, 250, 245, 0.98) 0%, rgba(255, 255, 255, 0.96) 100%);
+}
+
+.message-trace-detail-workbench__stage--evidence-secondary {
+  background:
+    linear-gradient(180deg, rgba(250, 252, 255, 0.98) 0%, rgba(255, 255, 255, 0.96) 100%);
+}
+
 .message-trace-detail-workbench__stage--subtle,
 .message-trace-detail-workbench__subsection,
 .message-trace-detail-workbench__overview-panel {
@@ -628,6 +1103,34 @@ function getMessageTypeLabel(value?: string | null) {
 .message-trace-detail-workbench__stage-header--between {
   display: flex;
   align-items: center;
+}
+
+.message-trace-detail-workbench__stage-header-copy {
+  display: grid;
+  gap: 0.22rem;
+  min-width: 0;
+}
+
+.message-trace-detail-workbench__stage-header-kicker {
+  display: inline-flex;
+  align-items: center;
+  justify-self: flex-start;
+  min-height: 22px;
+  padding: 0 0.55rem;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.message-trace-detail-workbench__stage-header-kicker--primary {
+  background: color-mix(in srgb, var(--brand) 12%, white);
+  color: color-mix(in srgb, var(--brand) 86%, var(--text-heading));
+}
+
+.message-trace-detail-workbench__stage-header-kicker--secondary {
+  background: color-mix(in srgb, var(--info) 10%, white);
+  color: color-mix(in srgb, var(--info) 72%, var(--text-heading));
 }
 
 .message-trace-detail-workbench__stage-header {
@@ -663,6 +1166,16 @@ function getMessageTypeLabel(value?: string | null) {
   background:
     linear-gradient(180deg, rgba(248, 251, 255, 0.98) 0%, rgba(244, 248, 255, 0.94) 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.message-trace-detail-workbench__stage--contextual .message-trace-detail-workbench__summary-card {
+  border-color: color-mix(in srgb, var(--panel-border) 92%, white);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: none;
+}
+
+.message-trace-detail-workbench__stage--contextual .message-trace-detail-workbench__summary-value {
+  font-size: 14px;
 }
 
 .message-trace-detail-workbench__summary-label,
@@ -764,6 +1277,21 @@ function getMessageTypeLabel(value?: string | null) {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
 }
 
+.message-trace-detail-workbench__timeline-card--spotlight {
+  border-color: color-mix(in srgb, var(--brand) 20%, var(--panel-border));
+  background:
+    linear-gradient(180deg, rgba(255, 249, 243, 0.98) 0%, rgba(255, 255, 255, 0.96) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.94),
+    0 0 0 1px rgba(255, 244, 236, 0.78);
+}
+
+.message-trace-detail-workbench__timeline-card--context {
+  border-color: color-mix(in srgb, var(--panel-border) 92%, white);
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: none;
+}
+
 .message-trace-detail-workbench__timeline-card--wide {
   grid-column: 1 / -1;
 }
@@ -841,6 +1369,10 @@ function getMessageTypeLabel(value?: string | null) {
   }
 
   .message-trace-detail-workbench__timeline-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .message-trace-detail-workbench__priority-guide {
     grid-template-columns: minmax(0, 1fr);
   }
 

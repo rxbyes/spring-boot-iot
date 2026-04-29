@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.ghlzm.iot.common.event.governance.ProductObjectInsightMetricsChangedEvent;
 import com.ghlzm.iot.common.enums.DeviceStatusEnum;
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
@@ -41,8 +42,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -63,6 +66,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
     private final DeviceOnlineSessionService deviceOnlineSessionService;
     private final PublishedProductContractSnapshotService snapshotService;
     private final MetricIdentifierResolver metricIdentifierResolver;
+    private final ApplicationEventPublisher applicationEventPublisher;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     @Autowired
@@ -71,13 +75,32 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
                               ProductContractReleaseBatchMapper releaseBatchMapper,
                               DeviceOnlineSessionService deviceOnlineSessionService,
                               PublishedProductContractSnapshotService snapshotService,
-                              MetricIdentifierResolver metricIdentifierResolver) {
+                              MetricIdentifierResolver metricIdentifierResolver,
+                              ApplicationEventPublisher applicationEventPublisher) {
         this.deviceMapper = deviceMapper;
         this.productModelMapper = productModelMapper;
         this.releaseBatchMapper = releaseBatchMapper;
         this.deviceOnlineSessionService = deviceOnlineSessionService;
         this.snapshotService = snapshotService;
         this.metricIdentifierResolver = metricIdentifierResolver;
+        this.applicationEventPublisher = applicationEventPublisher;
+    }
+
+    public ProductServiceImpl(DeviceMapper deviceMapper,
+                              ProductModelMapper productModelMapper,
+                              ProductContractReleaseBatchMapper releaseBatchMapper,
+                              DeviceOnlineSessionService deviceOnlineSessionService,
+                              PublishedProductContractSnapshotService snapshotService,
+                              MetricIdentifierResolver metricIdentifierResolver) {
+        this(
+                deviceMapper,
+                productModelMapper,
+                releaseBatchMapper,
+                deviceOnlineSessionService,
+                snapshotService,
+                metricIdentifierResolver,
+                null
+        );
     }
 
     public ProductServiceImpl(DeviceMapper deviceMapper,
@@ -90,7 +113,8 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
                 releaseBatchMapper,
                 deviceOnlineSessionService,
                 new PublishedProductContractSnapshotServiceImpl(productModelMapper, releaseBatchMapper),
-                new DefaultMetricIdentifierResolver()
+                new DefaultMetricIdentifierResolver(),
+                null
         );
     }
 
@@ -198,8 +222,10 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             }
         }
 
+        String previousMetadataJson = product.getMetadataJson();
         applyEditableFields(product, dto);
         updateById(product);
+        publishObjectInsightMetricSyncEvent(product, previousMetadataJson);
 
         if (protocolChanged || nodeTypeChanged) {
             syncRelatedDeviceBaseInfo(product);
@@ -408,6 +434,34 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             return null;
         }
         return batches.get(0);
+    }
+
+    private void publishObjectInsightMetricSyncEvent(Product product, String previousMetadataJson) {
+        if (applicationEventPublisher == null || product == null) {
+            return;
+        }
+        String normalizedPreviousMetadataJson = normalizeMetadataJsonForComparison(product.getId(), previousMetadataJson);
+        if (Objects.equals(normalizedPreviousMetadataJson, product.getMetadataJson())) {
+            return;
+        }
+        ProductContractReleaseBatch latestBatch = loadLatestReleaseBatch(product.getId());
+        applicationEventPublisher.publishEvent(new ProductObjectInsightMetricsChangedEvent(
+                product.getTenantId(),
+                product.getId(),
+                latestBatch == null ? null : latestBatch.getId(),
+                null
+        ));
+    }
+
+    private String normalizeMetadataJsonForComparison(Long productId, String metadataJson) {
+        if (!StringUtils.hasText(metadataJson)) {
+            return null;
+        }
+        try {
+            return normalizeMetadataJson(productId, metadataJson);
+        } catch (BizException ex) {
+            return metadataJson.trim();
+        }
     }
 
     private ProductPageVO toPageVO(Product product, ProductDeviceStatRow stat) {
@@ -652,16 +706,19 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
                 && !CollectionUtils.isEmpty(snapshot.publishedIdentifiers())
                 && metricIdentifierResolver != null) {
             MetricIdentifierResolution resolution = metricIdentifierResolver.resolveForGovernance(snapshot, identifier);
-            if (resolution == null || !StringUtils.hasText(resolution.canonicalIdentifier())) {
-                throw new BizException("对象洞察指标必须使用已发布合同标识符: " + identifier);
+            if (resolution != null && StringUtils.hasText(resolution.canonicalIdentifier())) {
+                if (snapshot.containsPublishedIdentifier(identifier)) {
+                    return resolution.canonicalIdentifier();
+                }
+                if (StringUtils.hasText(formalIdentifier)
+                        && !formalIdentifier.equalsIgnoreCase(resolution.canonicalIdentifier())
+                        && snapshot.containsPublishedIdentifier(resolution.canonicalIdentifier())) {
+                    return formalIdentifier;
+                }
             }
-            if (snapshot.containsPublishedIdentifier(identifier)) {
-                return resolution.canonicalIdentifier();
-            }
-            if (StringUtils.hasText(formalIdentifier)
-                    && !formalIdentifier.equalsIgnoreCase(resolution.canonicalIdentifier())
-                    && snapshot.containsPublishedIdentifier(resolution.canonicalIdentifier())) {
-                return formalIdentifier;
+            String uniqueTailMatchedIdentifier = resolveUniquePublishedIdentifierByTail(snapshot, normalizedIdentifier);
+            if (StringUtils.hasText(uniqueTailMatchedIdentifier)) {
+                return uniqueTailMatchedIdentifier;
             }
             throw new BizException("对象洞察指标必须使用已发布合同标识符: " + identifier);
         }
@@ -669,6 +726,48 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             return normalizedIdentifier;
         }
         return formalIdentifier;
+    }
+
+    private String resolveUniquePublishedIdentifierByTail(PublishedProductContractSnapshot snapshot,
+                                                          String identifier) {
+        if (snapshot == null
+                || CollectionUtils.isEmpty(snapshot.publishedIdentifiers())
+                || !StringUtils.hasText(identifier)) {
+            return null;
+        }
+        String normalizedInput = identifier.trim();
+        if (normalizedInput.contains(".")) {
+            return null;
+        }
+        String inputTail = normalizeIdentifierTail(normalizedInput);
+        if (!StringUtils.hasText(inputTail)) {
+            return null;
+        }
+        String matchedIdentifier = null;
+        for (String publishedIdentifier : snapshot.publishedIdentifiers()) {
+            String publishedTail = normalizeIdentifierTail(publishedIdentifier);
+            if (!StringUtils.hasText(publishedTail) || !publishedTail.equalsIgnoreCase(inputTail)) {
+                continue;
+            }
+            if (matchedIdentifier != null && !matchedIdentifier.equalsIgnoreCase(publishedIdentifier)) {
+                return null;
+            }
+            matchedIdentifier = publishedIdentifier;
+        }
+        return matchedIdentifier;
+    }
+
+    private String normalizeIdentifierTail(String identifier) {
+        if (!StringUtils.hasText(identifier)) {
+            return null;
+        }
+        String normalizedIdentifier = identifier.trim();
+        int tailSeparator = normalizedIdentifier.lastIndexOf('.');
+        if (tailSeparator < 0 || tailSeparator >= normalizedIdentifier.length() - 1) {
+            return normalizedIdentifier;
+        }
+        String tail = normalizedIdentifier.substring(tailSeparator + 1).trim();
+        return StringUtils.hasText(tail) ? tail : null;
     }
 
     private PublishedProductContractSnapshot loadObjectInsightSnapshot(Long productId) {

@@ -3,9 +3,11 @@ package com.ghlzm.iot.alarm.service.impl;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.core.toolkit.LambdaUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ghlzm.iot.alarm.dto.RiskGovernanceGapQuery;
 import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.entity.RiskMetricEmergencyPlanBinding;
 import com.ghlzm.iot.alarm.entity.RiskMetricLinkageBinding;
+import com.ghlzm.iot.alarm.entity.RiskPointDeviceCapabilityBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.mapper.EmergencyPlanMapper;
@@ -13,13 +15,17 @@ import com.ghlzm.iot.alarm.mapper.LinkageRuleMapper;
 import com.ghlzm.iot.alarm.mapper.RiskMetricEmergencyPlanBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskMetricCatalogMapper;
 import com.ghlzm.iot.alarm.mapper.RiskMetricLinkageBindingMapper;
+import com.ghlzm.iot.alarm.mapper.RiskPointDeviceCapabilityBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
 import com.ghlzm.iot.alarm.service.RiskMetricActionBindingBackfillService;
 import com.ghlzm.iot.alarm.service.RiskGovernanceService;
+import com.ghlzm.iot.alarm.service.ThresholdPolicyRecommendationService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceDashboardOverviewVO;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceGapItemVO;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceMissingPolicyProductMetricSummaryVO;
 import com.ghlzm.iot.alarm.vo.RiskMetricCatalogItemVO;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.entity.Device;
@@ -35,8 +41,10 @@ import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.mapper.VendorMetricEvidenceMapper;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.apache.ibatis.session.Configuration;
 import org.junit.jupiter.api.BeforeAll;
@@ -54,6 +62,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -77,6 +86,9 @@ class RiskGovernanceServiceImplTest {
 
     @Mock
     private RiskPointDeviceMapper riskPointDeviceMapper;
+
+    @Mock
+    private RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper;
 
     @Mock
     private RuleDefinitionMapper ruleDefinitionMapper;
@@ -113,6 +125,58 @@ class RiskGovernanceServiceImplTest {
 
     @Mock
     private RiskMetricActionBindingBackfillService backfillService;
+
+    @Mock
+    private ThresholdPolicyRecommendationService thresholdPolicyRecommendationService;
+
+    @Test
+    void listMissingBindingsShouldExcludeDeviceLevelCapabilityBindings() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+        service.setRiskPointDeviceCapabilityBindingMapper(capabilityBindingMapper);
+        RiskPointDevice metricBinding = new RiskPointDevice();
+        metricBinding.setDeviceId(8001L);
+        metricBinding.setDeleted(0);
+        RiskPointDeviceCapabilityBinding capabilityBinding = new RiskPointDeviceCapabilityBinding();
+        capabilityBinding.setDeviceId(8002L);
+        capabilityBinding.setDeleted(0);
+        Device metricBound = new Device();
+        metricBound.setId(8001L);
+        metricBound.setDeviceCode("metric-bound");
+        metricBound.setDeviceName("metric-bound");
+        metricBound.setLastReportTime(LocalDateTime.of(2026, 4, 27, 10, 0));
+        Device capabilityBound = new Device();
+        capabilityBound.setId(8002L);
+        capabilityBound.setDeviceCode("capability-bound");
+        capabilityBound.setDeviceName("capability-bound");
+        capabilityBound.setLastReportTime(LocalDateTime.of(2026, 4, 27, 11, 0));
+        Device unbound = new Device();
+        unbound.setId(8003L);
+        unbound.setDeviceCode("unbound");
+        unbound.setDeviceName("unbound");
+        unbound.setLastReportTime(LocalDateTime.of(2026, 4, 27, 12, 0));
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(metricBinding));
+        when(capabilityBindingMapper.selectList(any())).thenReturn(List.of(capabilityBinding));
+        when(deviceMapper.selectList(any())).thenReturn(List.of(metricBound, capabilityBound, unbound));
+
+        PageResult<RiskGovernanceGapItemVO> result = service.listMissingBindings(null);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals("unbound", result.getRecords().get(0).getDeviceCode());
+    }
 
     @Test
     void pageMetricCatalogsShouldReturnProductScopedRows() {
@@ -337,13 +401,34 @@ class RiskGovernanceServiceImplTest {
         value.setProductId(1001L);
         value.setModelType("property");
         value.setIdentifier("value");
+        value.setModelName("裂缝监测值");
         ProductModel sensorState = new ProductModel();
         sensorState.setId(3002L);
         sensorState.setProductId(1001L);
         sensorState.setModelType("property");
         sensorState.setIdentifier("sensor_state");
         when(productModelMapper.selectList(any())).thenReturn(List.of(value, sensorState));
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("phase1-crack-p1");
+        product.setMetadataJson("""
+                {"objectInsight":{"customMetrics":[
+                  {"identifier":"value","group":"measure","enabled":true,"includeInTrend":true}
+                ]}}
+                """);
+        product.setProductName("裂缝产品");
+        product.setMetadataJson("""
+                {"objectInsight":{"customMetrics":[
+                  {"identifier":"value","group":"measure","enabled":true,"includeInTrend":true}
+                ]}}
+                """);
+        when(productMapper.selectById(any())).thenReturn(product);
 
+        product.setMetadataJson("""
+                {"objectInsight":{"customMetrics":[
+                  {"identifier":"value","group":"measure","enabled":true,"includeInTrend":true}
+                ]}}
+                """);
         RiskMetricCatalog metricValue = new RiskMetricCatalog();
         metricValue.setId(9101L);
         metricValue.setProductId(1001L);
@@ -449,12 +534,23 @@ class RiskGovernanceServiceImplTest {
         value.setProductId(1001L);
         value.setModelType("property");
         value.setIdentifier("value");
+        value.setModelName("裂缝监测值");
         ProductModel sensorState = new ProductModel();
         sensorState.setId(3002L);
         sensorState.setProductId(1001L);
         sensorState.setModelType("property");
         sensorState.setIdentifier("sensor_state");
         when(productModelMapper.selectList(any())).thenReturn(List.of(value, sensorState));
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("phase1-crack-p1");
+        product.setProductName("裂缝产品");
+        product.setMetadataJson("""
+                {"objectInsight":{"customMetrics":[
+                  {"identifier":"value","group":"measure","enabled":true,"includeInTrend":true}
+                ]}}
+                """);
+        when(productMapper.selectById(any())).thenReturn(product);
 
         RiskMetricCatalog metricValue = new RiskMetricCatalog();
         metricValue.setId(9101L);
@@ -817,6 +913,515 @@ class RiskGovernanceServiceImplTest {
         assertEquals(50.0, overview.getLinkageCoverageRate());
         assertEquals(50.0, overview.getEmergencyPlanCoverageRate());
         assertEquals(0.0, overview.getLinkagePlanCoverageRate());
+    }
+
+    @Test
+    void listMissingPoliciesShouldTreatProductDefaultRuleAsCovered() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+
+        RiskPointDevice coveredByProductDefault = binding(8001L, 5001L, 9101L, "value", "裂缝值");
+        coveredByProductDefault.setId(7001L);
+        RiskPointDevice missing = binding(8002L, 5002L, 9101L, "value", "裂缝值");
+        missing.setId(7002L);
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(coveredByProductDefault, missing));
+
+        Device productDevice = new Device();
+        productDevice.setId(8001L);
+        productDevice.setProductId(1001L);
+        Device otherProductDevice = new Device();
+        otherProductDevice.setId(8002L);
+        otherProductDevice.setProductId(1002L);
+        when(deviceMapper.selectList(any())).thenReturn(List.of(productDevice, otherProductDevice));
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("crack-v1");
+        product.setProductName("裂缝监测仪");
+        Product otherProduct = new Product();
+        otherProduct.setId(1002L);
+        otherProduct.setProductKey("gnss-v1");
+        otherProduct.setProductName("GNSS监测仪");
+        when(productMapper.selectList(any())).thenReturn(List.of(product, otherProduct));
+
+        RuleDefinition productDefault = rule(6001L, 9101L, "value");
+        productDefault.setRuleScope("PRODUCT");
+        productDefault.setProductId(1001L);
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(productDefault));
+
+        PageResult<RiskGovernanceGapItemVO> result = service.listMissingPolicies(null);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(8002L, result.getRecords().get(0).getDeviceId());
+        assertEquals(1002L, result.getRecords().get(0).getProductId());
+        assertEquals("gnss-v1", result.getRecords().get(0).getProductKey());
+        assertEquals("GNSS监测仪", result.getRecords().get(0).getProductName());
+    }
+
+    @Test
+    void listMissingPoliciesShouldTreatProductTypeDefaultRuleAsCoveredOnlyForMatchingType() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+
+        RiskPointDevice monitoringBinding = binding(8001L, 5001L, 9101L, "value", "monitoring value");
+        monitoringBinding.setId(7001L);
+        RiskPointDevice videoBinding = binding(8002L, 5002L, 9101L, "value", "monitoring value");
+        videoBinding.setId(7002L);
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(monitoringBinding, videoBinding));
+
+        Device monitoringDevice = new Device();
+        monitoringDevice.setId(8001L);
+        monitoringDevice.setProductId(1001L);
+        Device videoDevice = new Device();
+        videoDevice.setId(8002L);
+        videoDevice.setProductId(1002L);
+        when(deviceMapper.selectList(any())).thenReturn(List.of(monitoringDevice, videoDevice));
+
+        Product monitoringProduct = new Product();
+        monitoringProduct.setId(1001L);
+        monitoringProduct.setProductKey("monitoring-crack-v1");
+        monitoringProduct.setProductName("Monitoring Crack");
+        Product videoProduct = new Product();
+        videoProduct.setId(1002L);
+        videoProduct.setProductKey("camera-v1");
+        videoProduct.setProductName("Video Camera");
+        when(productMapper.selectList(any())).thenReturn(List.of(monitoringProduct, videoProduct), List.of(videoProduct));
+
+        RuleDefinition monitoringDefault = rule(6001L, 9101L, "value");
+        monitoringDefault.setRuleScope("PRODUCT_TYPE");
+        monitoringDefault.setProductType("MONITORING");
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(monitoringDefault));
+
+        PageResult<RiskGovernanceGapItemVO> result = service.listMissingPolicies(null);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(8002L, result.getRecords().get(0).getDeviceId());
+        assertEquals(1002L, result.getRecords().get(0).getProductId());
+        assertEquals("camera-v1", result.getRecords().get(0).getProductKey());
+    }
+
+    @Test
+    void listMissingPoliciesShouldFilterByProductId() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+
+        RiskPointDevice crackBinding = binding(8001L, 5001L, 9101L, "value", "裂缝值");
+        crackBinding.setId(7001L);
+        RiskPointDevice gnssBinding = binding(8002L, 5002L, 9102L, "gpsTotalX", "X轴累计位移");
+        gnssBinding.setId(7002L);
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(crackBinding, gnssBinding));
+
+        Device crackDevice = new Device();
+        crackDevice.setId(8001L);
+        crackDevice.setProductId(1001L);
+        Device gnssDevice = new Device();
+        gnssDevice.setId(8002L);
+        gnssDevice.setProductId(1002L);
+        when(deviceMapper.selectList(any())).thenReturn(List.of(crackDevice, gnssDevice));
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("crack-v1");
+        product.setProductName("裂缝监测仪");
+        when(productMapper.selectList(any())).thenReturn(List.of(product));
+
+        RiskGovernanceGapQuery query = new RiskGovernanceGapQuery();
+        query.setProductId(1001L);
+
+        PageResult<RiskGovernanceGapItemVO> result = service.listMissingPolicies(query);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(8001L, result.getRecords().get(0).getDeviceId());
+        assertEquals(1001L, result.getRecords().get(0).getProductId());
+        assertEquals("裂缝监测仪", result.getRecords().get(0).getProductName());
+    }
+
+    @Test
+    void pageMissingPolicyProductMetricSummariesShouldAggregateByProductAndMetric() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+
+        RiskPointDevice crackA = binding(8001L, 5001L, 9101L, "value", "裂缝值");
+        crackA.setId(7001L);
+        RiskPointDevice crackB = binding(8002L, 5002L, 9101L, "value", "裂缝值");
+        crackB.setId(7002L);
+        RiskPointDevice gnss = binding(8101L, 5101L, 9201L, "gpsTotalX", "X轴累计位移");
+        gnss.setId(7101L);
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(crackA, crackB, gnss));
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+
+        Device crackDeviceA = new Device();
+        crackDeviceA.setId(8001L);
+        crackDeviceA.setProductId(1001L);
+        Device crackDeviceB = new Device();
+        crackDeviceB.setId(8002L);
+        crackDeviceB.setProductId(1001L);
+        Device gnssDevice = new Device();
+        gnssDevice.setId(8101L);
+        gnssDevice.setProductId(1002L);
+        when(deviceMapper.selectList(any())).thenReturn(List.of(crackDeviceA, crackDeviceB, gnssDevice));
+
+        Product crackProduct = new Product();
+        crackProduct.setId(1001L);
+        crackProduct.setProductKey("crack-v1");
+        crackProduct.setProductName("裂缝监测仪");
+        Product gnssProduct = new Product();
+        gnssProduct.setId(1002L);
+        gnssProduct.setProductKey("gnss-v1");
+        gnssProduct.setProductName("GNSS监测仪");
+        when(productMapper.selectList(any())).thenReturn(List.of(crackProduct, gnssProduct));
+
+        PageResult<RiskGovernanceMissingPolicyProductMetricSummaryVO> result =
+                service.pageMissingPolicyProductMetricSummaries(null);
+
+        assertEquals(2L, result.getTotal());
+        RiskGovernanceMissingPolicyProductMetricSummaryVO first = result.getRecords().get(0);
+        assertEquals(1001L, first.getProductId());
+        assertEquals("crack-v1", first.getProductKey());
+        assertEquals("value", first.getMetricIdentifier());
+        assertEquals(2L, first.getBindingCount());
+        assertEquals(2L, first.getRiskPointCount());
+        assertEquals(2L, first.getDeviceCount());
+    }
+
+    @Test
+    void pageMissingPolicyProductMetricSummariesShouldTreatLeafMetricRuleAsCovered() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+
+        RiskPointDevice binding = binding(8001L, 5001L, null, "L1_JS_1.gX", "X axis acceleration");
+        binding.setId(7001L);
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(binding));
+
+        RuleDefinition rule = new RuleDefinition();
+        rule.setId(6001L);
+        rule.setStatus(0);
+        rule.setMetricIdentifier("gX");
+        rule.setRuleScope("PRODUCT_TYPE");
+        rule.setProductType("MONITORING");
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(rule));
+
+        Device device = new Device();
+        device.setId(8001L);
+        device.setProductId(1001L);
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device));
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("nf-monitor-gnss-monitor-v1");
+        product.setProductName("GNSS monitor");
+        when(productMapper.selectList(any())).thenReturn(List.of(product));
+
+        PageResult<RiskGovernanceMissingPolicyProductMetricSummaryVO> result =
+                service.pageMissingPolicyProductMetricSummaries(null);
+
+        assertEquals(0L, result.getTotal());
+        assertTrue(result.getRecords().isEmpty());
+    }
+
+    @Test
+    void pageMissingPolicyProductMetricSummariesShouldIncludeRecommendedThreshold() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+        service.setThresholdPolicyRecommendationService(thresholdPolicyRecommendationService);
+
+        RiskPointDevice crack = binding(8001L, 5001L, 9101L, "value", "monitoring value");
+        crack.setId(7001L);
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(crack));
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+
+        Device device = new Device();
+        device.setId(8001L);
+        device.setProductId(1001L);
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device));
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("monitoring-crack-v1");
+        product.setProductName("Monitoring Crack");
+        when(productMapper.selectList(any())).thenReturn(List.of(product));
+
+        when(thresholdPolicyRecommendationService.recommend(product, "value", Set.of(8001L)))
+                .thenReturn(new ThresholdPolicyRecommendationService.ThresholdPolicyRecommendation(
+                        15,
+                        120L,
+                        new BigDecimal("1.20"),
+                        new BigDecimal("10.00"),
+                        new BigDecimal("4.60"),
+                        "value >= 12",
+                        null,
+                        "value >= 12",
+                        "READY",
+                        "UPPER",
+                        "最近15天样本 120 条，按最大值 1.2 倍提炼"
+                ));
+
+        PageResult<RiskGovernanceMissingPolicyProductMetricSummaryVO> result =
+                service.pageMissingPolicyProductMetricSummaries(null);
+
+        RiskGovernanceMissingPolicyProductMetricSummaryVO first = result.getRecords().get(0);
+        assertEquals("value >= 12", first.getRecommendedExpression());
+        assertEquals(15, first.getRecommendationWindowDays());
+        assertEquals(120L, first.getRecommendationSampleCount());
+        assertEquals("READY", first.getRecommendationStatus());
+        assertEquals("UPPER", first.getRecommendationDirection());
+    }
+
+    @Test
+    void pageMissingPolicyProductMetricSummariesShouldFallbackToCatalogProductForRecommendation() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+        service.setThresholdPolicyRecommendationService(thresholdPolicyRecommendationService);
+
+        RiskPointDevice binding = binding(8801L, 5801L, 9301L, "dispsY", "slope displacement");
+        binding.setId(7301L);
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(binding));
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+
+        RiskMetricCatalog catalog = new RiskMetricCatalog();
+        catalog.setId(9301L);
+        catalog.setProductId(1003L);
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of(catalog));
+
+        Product product = new Product();
+        product.setId(1003L);
+        product.setProductKey("monitoring-deep-displacement-v1");
+        product.setProductName("Deep Displacement");
+        when(productMapper.selectList(any())).thenReturn(List.of(product));
+
+        when(thresholdPolicyRecommendationService.recommend(product, "dispsY", Set.of(8801L)))
+                .thenReturn(new ThresholdPolicyRecommendationService.ThresholdPolicyRecommendation(
+                        null,
+                        2L,
+                        new BigDecimal("6.50"),
+                        new BigDecimal("8.00"),
+                        new BigDecimal("7.25"),
+                        "value >= 9.6",
+                        null,
+                        "value >= 9.6",
+                        "LATEST_PROPERTY_SUGGESTED",
+                        "UPPER_ONLY",
+                        "catalog product fallback"
+                ));
+
+        PageResult<RiskGovernanceMissingPolicyProductMetricSummaryVO> result =
+                service.pageMissingPolicyProductMetricSummaries(null);
+
+        RiskGovernanceMissingPolicyProductMetricSummaryVO first = result.getRecords().get(0);
+        assertEquals(1003L, first.getProductId());
+        assertEquals("monitoring-deep-displacement-v1", first.getProductKey());
+        assertEquals("value >= 9.6", first.getRecommendedExpression());
+        assertEquals("LATEST_PROPERTY_SUGGESTED", first.getRecommendationStatus());
+    }
+
+    @Test
+    void pageMissingPolicyProductMetricSummariesShouldUseCatalogProductFallbackForProductScopedRules() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+
+        RiskPointDevice binding = binding(8801L, 5801L, 9301L, "dispsY", "slope displacement");
+        binding.setId(7301L);
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(binding));
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+
+        RiskMetricCatalog catalog = new RiskMetricCatalog();
+        catalog.setId(9301L);
+        catalog.setProductId(1003L);
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of(catalog));
+
+        RuleDefinition rule = new RuleDefinition();
+        rule.setId(6001L);
+        rule.setStatus(0);
+        rule.setMetricIdentifier("dispsY");
+        rule.setRuleScope("PRODUCT");
+        rule.setProductId(1003L);
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(rule));
+
+        PageResult<RiskGovernanceMissingPolicyProductMetricSummaryVO> result =
+                service.pageMissingPolicyProductMetricSummaries(null);
+
+        assertEquals(0L, result.getTotal());
+        assertTrue(result.getRecords().isEmpty());
+    }
+
+    @Test
+    void pageMissingPolicyProductMetricSummariesShouldRecommendOnlyPagedRows() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+        service.setThresholdPolicyRecommendationService(thresholdPolicyRecommendationService);
+
+        RiskPointDevice firstA = binding(8001L, 5001L, 9101L, "value", "monitoring value");
+        firstA.setId(7001L);
+        RiskPointDevice firstB = binding(8002L, 5002L, 9101L, "value", "monitoring value");
+        firstB.setId(7002L);
+        RiskPointDevice second = binding(8003L, 5003L, 9102L, "gpsTotalX", "x total");
+        second.setId(7003L);
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(firstA, firstB, second));
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+
+        Device device1 = new Device();
+        device1.setId(8001L);
+        device1.setProductId(1001L);
+        Device device2 = new Device();
+        device2.setId(8002L);
+        device2.setProductId(1001L);
+        Device device3 = new Device();
+        device3.setId(8003L);
+        device3.setProductId(1001L);
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device1, device2, device3));
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("monitoring-crack-v1");
+        product.setProductName("Monitoring Crack");
+        when(productMapper.selectList(any())).thenReturn(List.of(product));
+
+        when(thresholdPolicyRecommendationService.recommend(product, "value", Set.of(8001L, 8002L)))
+                .thenReturn(new ThresholdPolicyRecommendationService.ThresholdPolicyRecommendation(
+                        15,
+                        12L,
+                        new BigDecimal("1.20"),
+                        new BigDecimal("10.00"),
+                        new BigDecimal("4.60"),
+                        "value >= 12",
+                        null,
+                        "value >= 12",
+                        "READY",
+                        "UPPER",
+                        "page scoped recommendation"
+                ));
+
+        RiskGovernanceGapQuery query = new RiskGovernanceGapQuery();
+        query.setPageNum(1L);
+        query.setPageSize(1L);
+
+        PageResult<RiskGovernanceMissingPolicyProductMetricSummaryVO> result =
+                service.pageMissingPolicyProductMetricSummaries(query);
+
+        assertEquals(2L, result.getTotal());
+        assertEquals(1, result.getRecords().size());
+        assertEquals("value", result.getRecords().get(0).getMetricIdentifier());
+        assertEquals("value >= 12", result.getRecords().get(0).getRecommendedExpression());
+        verify(thresholdPolicyRecommendationService).recommend(product, "value", Set.of(8001L, 8002L));
+        verifyNoMoreInteractions(thresholdPolicyRecommendationService);
     }
 
     @Test

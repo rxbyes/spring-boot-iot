@@ -1,7 +1,7 @@
 <template>
   <IotAccessPageShell
     title="无代码接入台"
-    description="统一查看接入案例、当前步骤、阻塞原因和下一步动作，首版继续收口协议治理、产品治理、合同发布和标准接入验收。"
+    description="统一查看接入案例、当前步骤、阻塞原因和下一步动作，产品相关执行统一跳到产品工作台处理。"
   >
     <template #actions>
       <StandardButton action="refresh" @click="handleRefresh">刷新列表</StandardButton>
@@ -28,7 +28,7 @@
 
     <StandardWorkbenchPanel
       title="接入案例"
-      description="先在这里看当前卡在哪一步，再跳到协议治理或产品治理处理，不再分散逐页排查。"
+      description="先在这里看当前卡在哪一步，再跳到协议治理或产品工作台处理，不再分散逐页排查。"
       show-filters
       show-toolbar
       show-pagination
@@ -112,6 +112,7 @@
                   </option>
                 </select>
                 <StandardButton
+                  v-permission="'iot:device-onboarding:template-pack'"
                   data-testid="apply-template-pack"
                   :disabled="!form.templatePackId"
                   @click="handleApplySelectedTemplatePack"
@@ -219,6 +220,7 @@
           </div>
           <div class="device-onboarding-workbench__form-actions">
             <StandardButton
+              v-permission="editingId == null ? 'iot:device-onboarding:create-case' : 'iot:device-onboarding:update-case'"
               data-testid="onboarding-save"
               :disabled="saving"
               @click="handleSave"
@@ -315,6 +317,7 @@
           </div>
           <div class="device-onboarding-workbench__form-actions">
             <StandardButton
+              v-permission="'iot:device-onboarding:template-pack'"
               data-testid="template-pack-save"
               :disabled="templateSaving"
               @click="handleSaveTemplatePack"
@@ -335,8 +338,8 @@
                 <small>{{ pack.scenarioCode || '--' }} / {{ pack.deviceFamily || '--' }}</small>
               </div>
               <div class="device-onboarding-workbench__template-actions">
-                <StandardButton @click="handleApplyTemplatePack(pack)">预填案例</StandardButton>
-                <StandardButton link @click="handleEditTemplatePack(pack)">编辑模板</StandardButton>
+                <StandardButton v-permission="'iot:device-onboarding:template-pack'" @click="handleApplyTemplatePack(pack)">预填案例</StandardButton>
+                <StandardButton v-permission="'iot:device-onboarding:template-pack'" link @click="handleEditTemplatePack(pack)">编辑模板</StandardButton>
               </div>
             </article>
           </div>
@@ -352,7 +355,7 @@
           <li>协议信息齐全但未绑定产品时，阻塞在“产品治理”。</li>
           <li>已绑定产品但未发布正式合同批次时，停留在“合同发布”。</li>
           <li>正式批次已存在但缺验收设备编码时，阻塞在“接入验收”。</li>
-          <li>验收设备齐备后可触发标准接入验收，并跳转统一结果中心查看 runId 结果。</li>
+          <li>验收设备齐备后可触发标准接入验收，并跳转自动化治理台的结果证据查看 runId 结果。</li>
         </ul>
       </PanelCard>
 
@@ -395,6 +398,7 @@
         </div>
         <div class="device-onboarding-workbench__form-actions">
           <StandardButton
+            v-permission="'iot:device-onboarding:batch-create'"
             data-testid="onboarding-batch-create"
             :disabled="batchCreating"
             @click="handleBatchCreate"
@@ -402,6 +406,7 @@
             {{ batchCreating ? '批量创建中...' : '批量创建' }}
           </StandardButton>
           <StandardButton
+            v-permission="'iot:device-onboarding:batch-apply-template'"
             data-testid="onboarding-batch-apply-template"
             :disabled="batchApplyingTemplate || selectedCaseIds.length === 0 || !batchTemplatePackId"
             @click="handleBatchApplyTemplate"
@@ -409,6 +414,7 @@
             {{ batchApplyingTemplate ? '套用中...' : '批量套用模板' }}
           </StandardButton>
           <StandardButton
+            v-permission="'iot:device-onboarding:start-acceptance'"
             data-testid="onboarding-batch-start-acceptance"
             :disabled="batchStartingAcceptance || selectedCaseIds.length === 0"
             @click="handleBatchStartAcceptance"
@@ -518,8 +524,9 @@
           </dl>
 
           <div class="device-onboarding-workbench__actions">
-            <StandardButton @click="handleEdit(row)">编辑</StandardButton>
+            <StandardButton v-permission="'iot:device-onboarding:update-case'" @click="handleEdit(row)">编辑</StandardButton>
             <StandardButton
+              v-permission="'iot:device-onboarding:refresh-status'"
               :data-testid="`onboarding-refresh-${row.id}`"
               :disabled="refreshingId === String(row.id)"
               @click="handleRefreshRow(row)"
@@ -528,6 +535,7 @@
             </StandardButton>
             <StandardButton
               v-if="row.currentStep === 'ACCEPTANCE'"
+              v-permission="'iot:device-onboarding:start-acceptance'"
               :data-testid="`onboarding-accept-${row.id}`"
               :disabled="acceptingId === String(row.id) || !canStartAcceptance(row)"
               @click="handleStartAcceptance(row)"
@@ -542,6 +550,15 @@
               查看结果
             </StandardButton>
             <StandardButton
+              v-if="row.productId != null"
+              v-permission="'iot:products'"
+              :data-testid="`onboarding-open-product-${row.id}`"
+              @click="handleOpenProductWorkbench(row)"
+            >
+              进入产品工作台
+            </StandardButton>
+            <StandardButton
+              v-permission="nextActionPermission(row)"
               :data-testid="`onboarding-next-${row.id}`"
               :disabled="row.currentStep === 'ACCEPTANCE'"
               @click="handleNext(row)"
@@ -553,7 +570,7 @@
       </div>
       <div v-else class="device-onboarding-workbench__empty">
         <strong>当前还没有接入案例</strong>
-        <span>先创建案例，再根据当前步骤跳到协议治理或产品治理处理。</span>
+        <span>先创建案例，再根据当前步骤跳到协议治理或产品工作台处理。</span>
       </div>
 
       <template #pagination>
@@ -602,11 +619,13 @@ import type {
   DeviceOnboardingCaseCreatePayload,
   DeviceOnboardingCasePageQuery,
   DeviceOnboardingCaseUpdatePayload,
+  IdType,
   OnboardingTemplatePack,
   OnboardingTemplatePackCreatePayload,
   OnboardingTemplatePackUpdatePayload
 } from '@/types/api'
 import { ElMessage } from '@/utils/message'
+import { buildAutomationGovernanceEvidencePath } from '@/utils/automationGovernance'
 import { buildProductWorkbenchSectionPath } from '@/utils/productWorkbenchRoutes'
 
 const router = useRouter()
@@ -850,8 +869,10 @@ async function handleBatchCreate(): Promise<void> {
 async function handleBatchApplyTemplate(): Promise<void> {
   batchApplyingTemplate.value = true
   try {
-    const caseIds = selectedCaseIds.value.map((id) => Number(id))
-    const templatePackId = normalizeOptionalNumber(batchTemplatePackId.value)
+    const caseIds = selectedCaseIds.value
+      .map((id) => normalizeOptionalId(id))
+      .filter((id): id is IdType => id != null)
+    const templatePackId = normalizeOptionalId(batchTemplatePackId.value)
     if (!caseIds.length) {
       throw new Error('请至少选择一个接入案例')
     }
@@ -876,7 +897,9 @@ async function handleBatchApplyTemplate(): Promise<void> {
 async function handleBatchStartAcceptance(): Promise<void> {
   batchStartingAcceptance.value = true
   try {
-    const caseIds = selectedCaseIds.value.map((id) => Number(id))
+    const caseIds = selectedCaseIds.value
+      .map((id) => normalizeOptionalId(id))
+      .filter((id): id is IdType => id != null)
     if (!caseIds.length) {
       throw new Error('请至少选择一个接入案例')
     }
@@ -948,17 +971,18 @@ async function handleSizeChange(pageSize: number): Promise<void> {
 }
 
 function handleNext(row: DeviceOnboardingCase): void {
-  if (row.currentStep === 'PROTOCOL_GOVERNANCE') {
-    void router.push({ path: '/protocol-governance' })
+  const action = resolveNextAction(row)
+  if (!action.path) {
     return
   }
-  if (row.currentStep === 'PRODUCT_GOVERNANCE' || row.currentStep === 'CONTRACT_RELEASE') {
-    void router.push(
-      row.productId == null
-        ? '/products'
-        : buildProductWorkbenchSectionPath(row.productId, 'contracts')
-    )
+  void router.push(action.path)
+}
+
+function handleOpenProductWorkbench(row: DeviceOnboardingCase): void {
+  if (row.productId == null) {
+    return
   }
+  void router.push(buildProductWorkbenchSectionPath(row.productId, 'overview'))
 }
 
 function primaryBlocker(row: DeviceOnboardingCase): string {
@@ -989,7 +1013,7 @@ function acceptanceJumpPath(row: DeviceOnboardingCase): string {
     return row.acceptance.jumpPath
   }
   if (row.acceptance?.runId) {
-    return `/automation-results?runId=${row.acceptance.runId}`
+    return buildAutomationGovernanceEvidencePath(row.acceptance.runId)
   }
   return ''
 }
@@ -1034,13 +1058,37 @@ function statusLabel(status: DeviceOnboardingCase['status']): string {
 }
 
 function nextActionLabel(row: DeviceOnboardingCase): string {
+  return resolveNextAction(row).label
+}
+
+function nextActionPermission(row: DeviceOnboardingCase): string | undefined {
+  return resolveNextAction(row).permission
+}
+
+function resolveNextAction(row: DeviceOnboardingCase): {
+  label: string
+  path?: string
+  permission?: string
+} {
   if (row.currentStep === 'PROTOCOL_GOVERNANCE') {
-    return '前往协议治理'
+    return {
+      label: '前往协议治理',
+      path: '/protocol-governance',
+      permission: 'iot:protocol-governance'
+    }
   }
   if (row.currentStep === 'PRODUCT_GOVERNANCE' || row.currentStep === 'CONTRACT_RELEASE') {
-    return '前往产品治理'
+    return {
+      label: row.productId == null ? '前往产品列表' : '前往契约字段',
+      path: row.productId == null
+        ? '/products'
+        : buildProductWorkbenchSectionPath(row.productId, 'contracts'),
+      permission: 'iot:products'
+    }
   }
-  return '已具备验收条件'
+  return {
+    label: '已具备验收条件'
+  }
 }
 
 function buildPayload(): DeviceOnboardingCaseCreatePayload | DeviceOnboardingCaseUpdatePayload {
@@ -1053,9 +1101,9 @@ function buildPayload(): DeviceOnboardingCaseCreatePayload | DeviceOnboardingCas
     protocolFamilyCode: normalizeOptionalText(form.protocolFamilyCode),
     decryptProfileCode: normalizeOptionalText(form.decryptProfileCode),
     protocolTemplateCode: normalizeOptionalText(form.protocolTemplateCode),
-    templatePackId: normalizeOptionalNumber(form.templatePackId),
-    productId: normalizeOptionalNumber(form.productId),
-    releaseBatchId: normalizeOptionalNumber(form.releaseBatchId),
+    templatePackId: normalizeOptionalId(form.templatePackId),
+    productId: normalizeOptionalId(form.productId),
+    releaseBatchId: normalizeOptionalId(form.releaseBatchId),
     deviceCode: normalizeOptionalText(form.deviceCode),
     remark: normalizeOptionalText(form.remark)
   }
@@ -1112,13 +1160,19 @@ function normalizeOptionalText(value: string): string | null {
   return normalized ? normalized : null
 }
 
-function normalizeOptionalNumber(value: string): number | null {
+function normalizeOptionalId(value: string): IdType | null {
   const normalized = value.trim()
   if (!normalized) {
     return null
   }
+  if (!/^\d+$/.test(normalized)) {
+    return null
+  }
   const parsed = Number(normalized)
-  return Number.isFinite(parsed) ? parsed : null
+  if (Number.isSafeInteger(parsed)) {
+    return parsed
+  }
+  return normalized
 }
 </script>
 

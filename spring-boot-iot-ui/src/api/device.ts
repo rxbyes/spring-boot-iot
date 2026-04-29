@@ -1,6 +1,7 @@
 import { request, type RequestOptions } from './request'
 import type {
   ApiEnvelope,
+  CommandRecordPageItem,
   Device,
   DeviceAddPayload,
   DeviceBatchAddPayload,
@@ -9,8 +10,12 @@ import type {
   DeviceOnboardingBatchResult,
   DeviceFileSnapshot,
   DeviceFirmwareAggregate,
+  DeviceCapabilityExecutePayload,
+  DeviceCapabilityExecuteResult,
+  DeviceCapabilityOverview,
   DeviceMessageLog,
   DeviceOnboardingSuggestion,
+  DeviceThresholdOverview,
   MessageFlowSubmitResult,
   DeviceRelation,
   DeviceRelationUpsertPayload,
@@ -98,6 +103,17 @@ export function pageDevices(
   })
 }
 
+export function exportDevices(
+  params: DevicePageQueryParams = {},
+  options: DeviceRequestOptions = {}
+): Promise<ApiEnvelope<Device[]>> {
+  const query = buildQuery(params)
+  return request<Device[]>(`/api/device/export${query ? `?${query}` : ''}`, {
+    method: 'GET',
+    ...options
+  })
+}
+
 export function updateDevice(id: IdType, payload: DeviceAddPayload): Promise<ApiEnvelope<Device>> {
   return request<Device>(`/api/device/${id}`, {
     method: 'PUT',
@@ -180,6 +196,39 @@ export function createDeviceRelation(payload: DeviceRelationUpsertPayload): Prom
   })
 }
 
+export function getDeviceCapabilities(deviceCode: string): Promise<ApiEnvelope<DeviceCapabilityOverview>> {
+  return request<DeviceCapabilityOverview>(`/api/device/${deviceCode}/capabilities`)
+}
+
+export function executeDeviceCapability(
+  deviceCode: string,
+  capabilityCode: string,
+  payload: DeviceCapabilityExecutePayload
+): Promise<ApiEnvelope<DeviceCapabilityExecuteResult>> {
+  return request<DeviceCapabilityExecuteResult>(`/api/device/${deviceCode}/capabilities/${capabilityCode}/execute`, {
+    method: 'POST',
+    body: payload
+  })
+}
+
+export function pageDeviceCommands(
+  deviceCode: string,
+  params: { capabilityCode?: string; status?: string; pageNum?: number; pageSize?: number } = {}
+): Promise<ApiEnvelope<PageResult<CommandRecordPageItem>>> {
+  const query = buildQuery(params)
+  return request<PageResult<CommandRecordPageItem>>(`/api/device/${deviceCode}/commands${query ? `?${query}` : ''}`)
+}
+
+export function getDeviceThresholds(
+  deviceId: IdType,
+  options: DeviceRequestOptions = {}
+): Promise<ApiEnvelope<DeviceThresholdOverview>> {
+  return request<DeviceThresholdOverview>(`/api/device/${deviceId}/thresholds`, {
+    method: 'GET',
+    ...options
+  })
+}
+
 export const deviceApi = {
   addDevice,
   getDeviceById,
@@ -187,6 +236,7 @@ export const deviceApi = {
   batchActivateOnboardingSuggestions,
   getDeviceByCode,
   pageDevices,
+  exportDevices,
   updateDevice,
   batchAddDevices,
   replaceDevice,
@@ -199,5 +249,9 @@ export const deviceApi = {
   getDeviceFileSnapshots,
   getDeviceFirmwareAggregates,
   listDeviceRelations,
-  createDeviceRelation
+  createDeviceRelation,
+  getDeviceCapabilities,
+  executeDeviceCapability,
+  pageDeviceCommands,
+  getDeviceThresholds
 }

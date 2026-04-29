@@ -80,7 +80,7 @@ function roundUpToStep(value: number, step: number) {
 }
 
 function resolveWorkbenchTableMinWidth(visibleActionCount: number, fallbackMinWidth: number) {
-  return WORKBENCH_TABLE_MIN_WIDTH_BY_VISIBLE_COUNT[visibleActionCount] ?? fallbackMinWidth
+  return Math.max(WORKBENCH_TABLE_MIN_WIDTH_BY_VISIBLE_COUNT[visibleActionCount] ?? fallbackMinWidth, fallbackMinWidth)
 }
 
 export function resolveAdaptiveActionColumnWidth({

@@ -1,9 +1,11 @@
 package com.ghlzm.iot.alarm.controller;
 
 import com.ghlzm.iot.alarm.dto.RiskPointDeviceCapabilityBindingRequest;
+import com.ghlzm.iot.alarm.dto.RiskPointBatchBindDeviceRequest;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.dto.RiskPointBindingReplaceRequest;
+import com.ghlzm.iot.alarm.dto.RiskPointBindingRenameRequest;
 import com.ghlzm.iot.alarm.service.RiskPointBindingMaintenanceService;
 import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingDeviceGroupVO;
@@ -15,6 +17,8 @@ import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.vo.GovernanceSubmissionResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
@@ -32,16 +36,24 @@ public class RiskPointController {
 
       private final RiskPointService riskPointService;
       private final RiskPointBindingMaintenanceService bindingMaintenanceService;
+      private final GovernancePermissionGuard permissionGuard;
 
       public RiskPointController(RiskPointService riskPointService) {
-            this(riskPointService, null);
+            this(riskPointService, null, null);
+      }
+
+      public RiskPointController(RiskPointService riskPointService,
+                                 RiskPointBindingMaintenanceService bindingMaintenanceService) {
+            this(riskPointService, bindingMaintenanceService, null);
       }
 
       @Autowired
       public RiskPointController(RiskPointService riskPointService,
-                                 RiskPointBindingMaintenanceService bindingMaintenanceService) {
+                                 RiskPointBindingMaintenanceService bindingMaintenanceService,
+                                 GovernancePermissionGuard permissionGuard) {
             this.riskPointService = riskPointService;
             this.bindingMaintenanceService = bindingMaintenanceService;
+            this.permissionGuard = permissionGuard;
       }
 
       /**
@@ -49,7 +61,9 @@ public class RiskPointController {
        */
       @PostMapping("/add")
       public R<RiskPoint> addRiskPoint(@RequestBody RiskPoint riskPoint, Authentication authentication) {
-            RiskPoint result = riskPointService.addRiskPoint(riskPoint, requireCurrentUserId(authentication));
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "新增风险点", GovernancePermissionCodes.RISK_POINT_ADD);
+            RiskPoint result = riskPointService.addRiskPoint(riskPoint, currentUserId);
             return R.ok(result);
       }
 
@@ -58,7 +72,9 @@ public class RiskPointController {
        */
       @PostMapping("/update")
       public R<RiskPoint> updateRiskPoint(@RequestBody RiskPoint riskPoint, Authentication authentication) {
-            RiskPoint result = riskPointService.updateRiskPoint(riskPoint, requireCurrentUserId(authentication));
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "编辑风险点", GovernancePermissionCodes.RISK_POINT_UPDATE);
+            RiskPoint result = riskPointService.updateRiskPoint(riskPoint, currentUserId);
             return R.ok(result);
       }
 
@@ -67,8 +83,16 @@ public class RiskPointController {
        */
       @PostMapping("/delete/{id}")
       public R<Void> deleteRiskPoint(@PathVariable Long id, Authentication authentication) {
-            riskPointService.deleteRiskPoint(id, requireCurrentUserId(authentication));
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "删除风险点", GovernancePermissionCodes.RISK_POINT_DELETE);
+            riskPointService.deleteRiskPoint(id, currentUserId);
             return R.ok();
+      }
+
+      private void requirePermission(Long currentUserId, String actionName, String permissionCode) {
+            if (permissionGuard != null) {
+                  permissionGuard.requireAnyPermission(currentUserId, actionName, permissionCode);
+            }
       }
 
       /**
@@ -129,11 +153,14 @@ public class RiskPointController {
       }
 
      /**
-       * 绑定风险点与设备
-       */
+      * 绑定风险点与设备
+      */
      @PostMapping("/bind-device")
-      public R<GovernanceSubmissionResultVO> bindDevice(@RequestBody RiskPointDevice riskPointDevice, Authentication authentication) {
-            return R.ok(bindingMaintenanceService.submitBindDevice(riskPointDevice, requireCurrentUserId(authentication)));
+      public R<GovernanceSubmissionResultVO> bindDevice(@RequestBody RiskPointBatchBindDeviceRequest request,
+                                                        Authentication authentication) {
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "绑定风险点设备", GovernancePermissionCodes.RISK_POINT_BIND_EXECUTE);
+            return R.ok(bindingMaintenanceService.submitBindDevice(request, currentUserId));
       }
 
       /**
@@ -142,7 +169,9 @@ public class RiskPointController {
       @PostMapping("/bind-device-capability")
       public R<GovernanceSubmissionResultVO> bindDeviceCapability(@RequestBody RiskPointDeviceCapabilityBindingRequest request,
                                                                   Authentication authentication) {
-            return R.ok(bindingMaintenanceService.submitBindDeviceCapability(request, requireCurrentUserId(authentication)));
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "绑定风险点设备能力", GovernancePermissionCodes.RISK_POINT_BIND_EXECUTE);
+            return R.ok(bindingMaintenanceService.submitBindDeviceCapability(request, currentUserId));
       }
 
       /**
@@ -150,7 +179,9 @@ public class RiskPointController {
        */
       @PostMapping("/unbind-device")
       public R<GovernanceSubmissionResultVO> unbindDevice(@RequestParam Long riskPointId, @RequestParam Long deviceId, Authentication authentication) {
-            return R.ok(bindingMaintenanceService.submitUnbindDevice(riskPointId, deviceId, requireCurrentUserId(authentication)));
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "解绑风险点设备", GovernancePermissionCodes.RISK_POINT_BIND_EXECUTE);
+            return R.ok(bindingMaintenanceService.submitUnbindDevice(riskPointId, deviceId, currentUserId));
       }
 
       /**
@@ -214,21 +245,39 @@ public class RiskPointController {
        */
       @PostMapping("/bindings/{bindingId}/remove")
       public R<Void> removeBinding(@PathVariable Long bindingId, Authentication authentication) {
-            bindingMaintenanceService.removeBinding(bindingId, requireCurrentUserId(authentication));
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "删除风险点正式绑定", GovernancePermissionCodes.RISK_POINT_BIND_EXECUTE);
+            bindingMaintenanceService.removeBinding(bindingId, currentUserId);
             return R.ok();
       }
 
       /**
        * 替换单条风险点绑定测点。
        */
+      @PostMapping("/bindings/{bindingId}/rename")
+      public R<RiskPointBindingMetricVO> renameBindingMetric(@PathVariable Long bindingId,
+                                                             @RequestBody RiskPointBindingRenameRequest request,
+                                                             Authentication authentication) {
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "修改风险点正式测点名称", GovernancePermissionCodes.RISK_POINT_BIND_EXECUTE);
+            RiskPointBindingMetricVO renamed = bindingMaintenanceService.renameBindingMetric(
+                    bindingId,
+                    request,
+                    currentUserId
+            );
+            return R.ok(renamed);
+      }
+
       @PostMapping("/bindings/{bindingId}/replace")
       public R<RiskPointBindingMetricVO> replaceBindingMetric(@PathVariable Long bindingId,
                                                               @RequestBody RiskPointBindingReplaceRequest request,
                                                               Authentication authentication) {
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "替换风险点正式测点", GovernancePermissionCodes.RISK_POINT_BIND_EXECUTE);
             RiskPointBindingMetricVO replaced = bindingMaintenanceService.replaceBindingMetric(
                     bindingId,
                     request,
-                    requireCurrentUserId(authentication)
+                    currentUserId
             );
             return R.ok(replaced);
       }

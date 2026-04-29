@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ghlzm.iot.common.event.governance.ProductObjectInsightMetricsChangedEvent;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
@@ -38,6 +39,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -67,6 +69,8 @@ class ProductServiceImplTest {
     private ProductContractReleaseBatchMapper productContractReleaseBatchMapper;
     @Mock
     private DeviceOnlineSessionService deviceOnlineSessionService;
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
 
     private ProductServiceImpl productService;
 
@@ -320,6 +324,8 @@ class ProductServiceImplTest {
     @Test
     void updateProductShouldDeduplicateObjectInsightIdentifiers() {
         doReturn(buildExistingProduct()).when(productService).getRequiredById(1001L);
+        doReturn(true).when(productService).updateById(any(Product.class));
+        doReturn(new ProductDetailVO()).when(productService).getDetailById(1001L);
 
         ProductAddDTO dto = buildProductDto();
         dto.setMetadataJson("""
@@ -470,6 +476,172 @@ class ProductServiceImplTest {
     }
 
     @Test
+    void updateProductShouldPublishObjectInsightMetricsChangedEventWhenMetadataChangesAndReleaseExists() {
+        ProductServiceImpl eventAwareService = spy(new ProductServiceImpl(
+                deviceMapper,
+                productModelMapper,
+                productContractReleaseBatchMapper,
+                deviceOnlineSessionService,
+                new PublishedProductContractSnapshotServiceImpl(productModelMapper, productContractReleaseBatchMapper),
+                new DefaultMetricIdentifierResolver(),
+                applicationEventPublisher
+        ));
+        Product existing = buildExistingProduct();
+        existing.setTenantId(9001L);
+        existing.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": []
+                  }
+                }
+                """);
+        ProductContractReleaseBatch latestBatch = new ProductContractReleaseBatch();
+        latestBatch.setId(7001L);
+        doReturn(existing).when(eventAwareService).getRequiredById(1001L);
+        doReturn(true).when(eventAwareService).updateById(any(Product.class));
+        doReturn(new ProductDetailVO()).when(eventAwareService).getDetailById(1001L);
+        when(productContractReleaseBatchMapper.selectList(any())).thenReturn(List.of(latestBatch));
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                buildProductModel(1001L, "L1_LF_1.value", "裂缝量")
+        ));
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {
+                        "identifier": "L1_LF_1.value",
+                        "displayName": "裂缝量",
+                        "group": "measure",
+                        "includeInTrend": true
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        eventAwareService.updateProduct(1001L, dto);
+
+        verify(applicationEventPublisher).publishEvent(org.mockito.ArgumentMatchers.argThat((Object event) ->
+                event instanceof ProductObjectInsightMetricsChangedEvent changedEvent
+                        && Long.valueOf(9001L).equals(changedEvent.tenantId())
+                        && Long.valueOf(1001L).equals(changedEvent.productId())
+                        && Long.valueOf(7001L).equals(changedEvent.releaseBatchId())
+        ));
+    }
+
+    @Test
+    void updateProductShouldNotPublishObjectInsightMetricsChangedEventWhenMetadataUnchanged() {
+        ProductServiceImpl eventAwareService = spy(new ProductServiceImpl(
+                deviceMapper,
+                productModelMapper,
+                productContractReleaseBatchMapper,
+                deviceOnlineSessionService,
+                new PublishedProductContractSnapshotServiceImpl(productModelMapper, productContractReleaseBatchMapper),
+                new DefaultMetricIdentifierResolver(),
+                applicationEventPublisher
+        ));
+        Product existing = buildExistingProduct();
+        existing.setTenantId(9001L);
+        existing.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {
+                        "identifier": "L1_LF_1.value",
+                        "displayName": "裂缝量",
+                        "group": "measure",
+                        "includeInTrend": true
+                      }
+                    ]
+                  }
+                }
+                """);
+        doReturn(existing).when(eventAwareService).getRequiredById(1001L);
+        doReturn(true).when(eventAwareService).updateById(any(Product.class));
+        doReturn(new ProductDetailVO()).when(eventAwareService).getDetailById(1001L);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                buildProductModel(1001L, "L1_LF_1.value", "裂缝量")
+        ));
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson(existing.getMetadataJson());
+
+        eventAwareService.updateProduct(1001L, dto);
+
+        verifyNoInteractions(applicationEventPublisher);
+    }
+
+    @Test
+    void updateProductShouldPublishObjectInsightMetricsChangedEventWithoutReleaseBatchForHistoricalFormalProducts() {
+        ProductServiceImpl eventAwareService = spy(new ProductServiceImpl(
+                deviceMapper,
+                productModelMapper,
+                productContractReleaseBatchMapper,
+                deviceOnlineSessionService,
+                new PublishedProductContractSnapshotServiceImpl(productModelMapper, productContractReleaseBatchMapper),
+                new DefaultMetricIdentifierResolver(),
+                applicationEventPublisher
+        ));
+        Product existing = buildExistingProduct();
+        existing.setTenantId(9001L);
+        existing.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {
+                        "identifier": "L1_LF_1.value",
+                        "displayName": "裂缝量",
+                        "group": "measure",
+                        "includeInTrend": true
+                      }
+                    ]
+                  }
+                }
+                """);
+        doReturn(existing).when(eventAwareService).getRequiredById(1001L);
+        doReturn(true).when(eventAwareService).updateById(any(Product.class));
+        doReturn(new ProductDetailVO()).when(eventAwareService).getDetailById(1001L);
+        when(productContractReleaseBatchMapper.selectList(any())).thenReturn(List.of());
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                buildProductModel(1001L, "L1_LF_1.value", "裂缝量"),
+                buildProductModel(1001L, "L1_QJ_1.angle", "倾角")
+        ));
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {
+                        "identifier": "L1_LF_1.value",
+                        "displayName": "裂缝量",
+                        "group": "measure",
+                        "includeInTrend": true
+                      },
+                      {
+                        "identifier": "L1_QJ_1.angle",
+                        "displayName": "倾角",
+                        "group": "measure",
+                        "includeInTrend": true
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        eventAwareService.updateProduct(1001L, dto);
+
+        verify(applicationEventPublisher).publishEvent(org.mockito.ArgumentMatchers.argThat((Object event) ->
+                event instanceof ProductObjectInsightMetricsChangedEvent changedEvent
+                        && Long.valueOf(9001L).equals(changedEvent.tenantId())
+                        && Long.valueOf(1001L).equals(changedEvent.productId())
+                        && changedEvent.releaseBatchId() == null
+        ));
+    }
+
+    @Test
     void updateProductShouldAllowRuntimeObjectInsightGroup() {
         Product existing = buildExistingProduct();
         doReturn(existing).when(productService).getRequiredById(1001L);
@@ -502,11 +674,46 @@ class ProductServiceImplTest {
     }
 
     @Test
-    void updateProductShouldRejectObjectInsightMetricConfiguredWithUnpublishedAlias() {
+    void updateProductShouldNormalizeShortObjectInsightAliasToUniquePublishedIdentifier() {
+        Product existing = buildExistingProduct();
+        doReturn(existing).when(productService).getRequiredById(1001L);
+        doReturn(true).when(productService).updateById(any(Product.class));
+        doReturn(new ProductDetailVO()).when(productService).getDetailById(1001L);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                buildProductModel(1001L, "L1_LF_1.value", "裂缝值")
+        ));
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                      "objectInsight": {
+                        "customMetrics": [
+                          {
+                        "identifier": "value",
+                        "displayName": "裂缝值",
+                        "group": "measure",
+                        "includeInTrend": true
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        productService.updateProduct(1001L, dto);
+
+        ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+        verify(productService).updateById(captor.capture());
+        assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"L1_LF_1.value\""));
+        assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"value\""));
+    }
+
+    @Test
+    void updateProductShouldRejectShortAliasWhenPublishedIdentifierTailMatchesMultipleFields() {
         Product existing = buildExistingProduct();
         doReturn(existing).when(productService).getRequiredById(1001L);
         when(productModelMapper.selectList(any())).thenReturn(List.of(
-                buildProductModel(1001L, "L1_LF_1.value", "裂缝值")
+                buildProductModel(1001L, "L1_LF_1.value", "裂缝值"),
+                buildProductModel(1001L, "L2_LF_9.value", "裂缝值-备份")
         ));
 
         ProductAddDTO dto = buildProductDto();
@@ -529,6 +736,78 @@ class ProductServiceImplTest {
 
         assertEquals("对象洞察指标必须使用已发布合同标识符: value", ex.getMessage());
         verify(productService, never()).updateById(any(Product.class));
+    }
+
+    @Test
+    void updateProductShouldRejectObjectInsightMetricWhenIdentifierCannotMatchPublishedSnapshot() {
+        Product existing = buildExistingProduct();
+        doReturn(existing).when(productService).getRequiredById(1001L);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                buildProductModel(1001L, "L1_LF_1.value", "裂缝值")
+        ));
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                      "objectInsight": {
+                        "customMetrics": [
+                          {
+                        "identifier": "gX",
+                        "displayName": "X轴加速度",
+                        "group": "measure",
+                        "includeInTrend": true
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        BizException ex = assertThrows(BizException.class, () -> productService.updateProduct(1001L, dto));
+
+        assertEquals("对象洞察指标必须使用已发布合同标识符: gX", ex.getMessage());
+        verify(productService, never()).updateById(any(Product.class));
+    }
+
+    @Test
+    void updateProductShouldPreferPublishedFullPathWhenLegacyShortAliasCoexistsInSamePayload() {
+        Product existing = buildExistingProduct();
+        doReturn(existing).when(productService).getRequiredById(1001L);
+        doReturn(true).when(productService).updateById(any(Product.class));
+        doReturn(new ProductDetailVO()).when(productService).getDetailById(1001L);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                buildProductModel(1001L, "L1_LF_1.value", "裂缝值")
+        ));
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {
+                        "identifier": "value",
+                        "displayName": "裂缝值",
+                        "group": "measure",
+                        "includeInTrend": true
+                      },
+                      {
+                        "identifier": "L1_LF_1.value",
+                        "displayName": "裂缝值（正式）",
+                        "group": "measure",
+                        "includeInTrend": true
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        productService.updateProduct(1001L, dto);
+
+        ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+        verify(productService).updateById(captor.capture());
+        String metadataJson = captor.getValue().getMetadataJson();
+        assertTrue(metadataJson.contains("\"identifier\":\"L1_LF_1.value\""));
+        assertTrue(!metadataJson.contains("\"identifier\":\"value\""));
+        assertEquals(1, countOccurrences(metadataJson, "\"identifier\":\"L1_LF_1.value\""));
     }
 
     @Test
@@ -629,6 +908,23 @@ class ProductServiceImplTest {
         verify(legacyCompatibleService).updateById(captor.capture());
         assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"L1_LF_1.value\""));
         assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"value\""));
+    }
+
+    private int countOccurrences(String text, String token) {
+        if (text == null || token == null || token.isEmpty()) {
+            return 0;
+        }
+        int count = 0;
+        int fromIndex = 0;
+        while (fromIndex >= 0) {
+            int hit = text.indexOf(token, fromIndex);
+            if (hit < 0) {
+                break;
+            }
+            count++;
+            fromIndex = hit + token.length();
+        }
+        return count;
     }
 
     private Product buildExistingProduct() {

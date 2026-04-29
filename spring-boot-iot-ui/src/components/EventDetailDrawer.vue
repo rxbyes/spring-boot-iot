@@ -184,6 +184,8 @@
         <strong class="detail-notice__value">{{ eventAdvice }}</strong>
       </div>
     </section>
+
+    <RiskObjectSituationPanel :source="detail?.reviewNotes" />
   </StandardDetailDrawer>
 </template>
 
@@ -194,6 +196,7 @@ import type { EventRecord } from '@/api/alarm';
 import { formatDateTime } from '@/utils/format';
 import { getAlarmLevelTagType, getAlarmLevelText } from '@/utils/alarmLevel';
 import { getRiskLevelTagType, getRiskLevelText } from '@/utils/riskLevel';
+import RiskObjectSituationPanel from '@/components/RiskObjectSituationPanel.vue';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
 
 const props = defineProps<{

@@ -104,7 +104,11 @@
             @selection-change="handleSelectionChange"
           >
             <el-table-column type="selection" width="48" />
-            <StandardTableTextColumn prop="title" label="文档标题" :min-width="220" />
+            <StandardTableTextColumn prop="title" label="文档标题" :min-width="260">
+              <template #secondary="{ row }">
+                {{ getRelatedPathSummary(row.relatedPaths) }}
+              </template>
+            </StandardTableTextColumn>
             <el-table-column prop="docCategory" label="文档分类" width="110">
               <template #default="{ row }">
                 <el-tag :type="categoryTagType(row.docCategory)">
@@ -115,11 +119,6 @@
             <StandardTableTextColumn label="可见角色" :min-width="200">
               <template #default="{ row }">
                 {{ getRoleSummary(row.visibleRoleCodes) }}
-              </template>
-            </StandardTableTextColumn>
-            <StandardTableTextColumn label="关联页面" :min-width="220">
-              <template #default="{ row }">
-                {{ getRelatedPathSummary(row.relatedPaths) }}
               </template>
             </StandardTableTextColumn>
             <el-table-column prop="status" label="状态" width="90">

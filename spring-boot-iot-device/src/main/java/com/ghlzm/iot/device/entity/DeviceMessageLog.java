@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
  * Date 2026/3/13 - 14:30
  */
 @Data
-@TableName("iot_device_message_log")
+@TableName("iot_message_log")
 public class DeviceMessageLog {
 
     @TableId(type = IdType.ASSIGN_ID)

@@ -192,6 +192,17 @@ export function removeProductObjectInsightMetric(
   return rows.filter((item) => !compareMetricIdentifier(item.identifier, normalizedIdentifier))
 }
 
+export function isProductObjectInsightMeasureTruthMetric(
+  metric?: Partial<ProductObjectInsightCustomMetricConfig> | null
+) {
+  if (!metric) {
+    return false
+  }
+  return normalizeObjectInsightMetricGroup(metric.group, metric.identifier, metric.displayName) === 'measure'
+    && metric.enabled !== false
+    && metric.includeInTrend !== false
+}
+
 function parseProductMetadata(metadataJson?: string | null): ProductMetadata | null {
   const text = normalizeText(metadataJson)
   if (!text) {

@@ -12,6 +12,8 @@ public class RiskGovernanceGapQuery {
 
     private Long riskPointId;
 
+    private Long productId;
+
     private Long pageNum;
 
     private Long pageSize;

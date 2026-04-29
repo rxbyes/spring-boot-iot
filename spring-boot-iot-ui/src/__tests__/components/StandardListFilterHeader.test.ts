@@ -135,7 +135,7 @@ describe('StandardListFilterHeader', () => {
     expect(wrapper.emitted('toggle-advanced')?.[0]).toEqual([])
   })
 
-  it('marks the filter shell as the refined minimal header', async () => {
+  it('marks the filter shell as the shared workbench header band', async () => {
     const wrapper = mount(StandardListFilterHeader, {
       props: {
         model: {}
@@ -156,8 +156,10 @@ describe('StandardListFilterHeader', () => {
 
     await flushComponentTicks()
 
-    expect(wrapper.classes()).toContain('standard-list-filter-header--minimal')
-    expect(wrapper.find('.standard-list-filter-header__actions-row').classes()).toContain('standard-list-filter-header__actions-row--minimal')
+    expect(wrapper.classes()).toContain('standard-list-filter-header--workbench-foundation')
+    expect(wrapper.find('.standard-list-filter-header__actions-row').classes()).toContain(
+      'standard-list-filter-header__actions-row--workbench'
+    )
   })
 
   it('keeps the filter grid and actions row on shared spacing variables', () => {

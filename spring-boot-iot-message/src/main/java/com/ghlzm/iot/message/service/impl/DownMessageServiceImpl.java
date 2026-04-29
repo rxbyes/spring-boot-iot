@@ -105,7 +105,14 @@ public class DownMessageServiceImpl implements DownMessageService {
         commandRecordService.create(commandRecord);
 
         try {
-            mqttDownMessagePublisher.publish(actualProtocolCode, actualTopic, downMessage, context, actualQos, retained);
+            mqttDownMessagePublisher.publishIsolated(
+                    actualProtocolCode,
+                    actualTopic,
+                    downMessage,
+                    context,
+                    actualQos,
+                    retained
+            );
             commandRecordService.markSent(commandRecord.getId(), java.time.LocalDateTime.now());
         } catch (RuntimeException ex) {
             commandRecordService.markFailed(commandRecord.getId(), ex.getMessage());

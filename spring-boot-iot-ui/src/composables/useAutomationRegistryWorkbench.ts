@@ -1,10 +1,12 @@
 import { computed, reactive, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import {
   getAutomationResultDetail,
   getAutomationResultEvidenceContent,
+  listAutomationResultFacets,
   listAutomationResultEvidence,
-  pageAutomationResults
+  pageAutomationResults,
+  refreshAutomationResultIndex
 } from '@/api/automationResults';
 import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request';
 import { useServerPagination } from '@/composables/useServerPagination';
@@ -12,6 +14,7 @@ import { ElMessage } from '@/utils/message';
 import type {
   AutomationResultEvidenceContent,
   AutomationResultEvidenceItem,
+  AutomationResultArchiveFacets,
   AutomationResultLedgerFilters,
   AutomationResultRunSummary,
   ParsedAcceptanceRegistryRunSummary
@@ -42,12 +45,24 @@ function createLedgerFilters(): AutomationResultLedgerFilters {
     keyword: '',
     status: '',
     runnerType: '',
+    packageCode: '',
+    environmentCode: '',
     dateRange: []
+  };
+}
+
+function createEmptyLedgerFacetOptions(): AutomationResultArchiveFacets {
+  return {
+    statuses: [],
+    runnerTypes: [],
+    packageCodes: [],
+    environmentCodes: []
   };
 }
 
 export function useAutomationRegistryWorkbench() {
   const route = useRoute();
+  const router = useRouter();
   const registryDocument = loadAcceptanceRegistryDocument();
   const importedRun = ref<ParsedAcceptanceRegistryRunSummary | null>(null);
   const displaySource = ref<RegistryRunDisplaySource>('backend');
@@ -59,6 +74,9 @@ export function useAutomationRegistryWorkbench() {
   const ledgerLoading = ref(false);
   const ledgerErrorMessage = ref('');
   const lastLedgerReloadedAt = ref('');
+  const ledgerFacetOptions = ref<AutomationResultArchiveFacets>(createEmptyLedgerFacetOptions());
+  const ledgerFacetLoaded = ref(false);
+  const refreshArchiveIndexLoading = ref(false);
 
   const selectedLedgerRunId = ref('');
   const selectedLedgerRunDetail = ref<ParsedAcceptanceRegistryRunSummary | null>(null);
@@ -109,6 +127,8 @@ export function useAutomationRegistryWorkbench() {
     ledgerFilters.keyword = '';
     ledgerFilters.status = '';
     ledgerFilters.runnerType = '';
+    ledgerFilters.packageCode = '';
+    ledgerFilters.environmentCode = '';
     ledgerFilters.dateRange = [];
   }
 
@@ -146,9 +166,25 @@ export function useAutomationRegistryWorkbench() {
       keyword: normalizeFilterValue(ledgerFilters.keyword),
       status: normalizeFilterValue(ledgerFilters.status),
       runnerType: normalizeFilterValue(ledgerFilters.runnerType),
+      packageCode: normalizeFilterValue(ledgerFilters.packageCode),
+      environmentCode: normalizeFilterValue(ledgerFilters.environmentCode),
       dateFrom: normalizeFilterValue(dateFrom),
       dateTo: normalizeFilterValue(dateTo)
     };
+  }
+
+  async function loadLedgerFacets(force = false) {
+    if (ledgerFacetLoaded.value && !force) {
+      return;
+    }
+    try {
+      const response = await listAutomationResultFacets();
+      ledgerFacetOptions.value = response.data || createEmptyLedgerFacetOptions();
+      ledgerFacetLoaded.value = true;
+    } catch {
+      ledgerFacetOptions.value = createEmptyLedgerFacetOptions();
+      ledgerFacetLoaded.value = false;
+    }
   }
 
   async function selectEvidence(runId: string, path: string) {
@@ -197,7 +233,24 @@ export function useAutomationRegistryWorkbench() {
     }
   }
 
-  async function selectLedgerRun(runId: string, options: { silent?: boolean } = {}) {
+  async function syncRunIdQuery(runId: string) {
+    const currentRunId = normalizeFilterValue(route.query.runId);
+    const nextRunId = normalizeFilterValue(runId);
+    if (currentRunId === nextRunId) {
+      return;
+    }
+    const nextQuery = { ...(route.query || {}) } as Record<string, unknown>;
+    if (nextRunId) {
+      nextQuery.runId = nextRunId;
+    } else {
+      delete nextQuery.runId;
+    }
+    await router.replace({
+      query: nextQuery
+    });
+  }
+
+  async function selectLedgerRun(runId: string, options: { silent?: boolean; syncQuery?: boolean } = {}) {
     if (!runId) {
       clearBackendSelection();
       return;
@@ -206,6 +259,9 @@ export function useAutomationRegistryWorkbench() {
     switchToBackendDisplay();
     selectedLedgerRunId.value = runId;
     selectedLedgerRunErrorMessage.value = '';
+    if (options.syncQuery !== false) {
+      await syncRunIdQuery(runId);
+    }
 
     try {
       const response = await getAutomationResultDetail(runId);
@@ -234,17 +290,18 @@ export function useAutomationRegistryWorkbench() {
       !!selectedLedgerRunId.value && records.some((item) => item.runId === selectedLedgerRunId.value);
 
     if (hasSelectedRun) {
-      await selectLedgerRun(selectedLedgerRunId.value, { silent: true });
+      await selectLedgerRun(selectedLedgerRunId.value, { silent: true, syncQuery: false });
       return;
     }
 
-    await selectLedgerRun(records[0].runId, { silent: true });
+    await selectLedgerRun(records[0].runId, { silent: true, syncQuery: false });
   }
 
   async function fetchRunLedger() {
     ledgerLoading.value = true;
     ledgerErrorMessage.value = '';
     try {
+      await loadLedgerFacets();
       const response = await pageAutomationResults(buildLedgerQuery());
       const pageResult = response.data || undefined;
       ledgerRuns.value = applyPageResult(pageResult);
@@ -256,6 +313,22 @@ export function useAutomationRegistryWorkbench() {
       ledgerErrorMessage.value = '历史运行台账加载失败，请检查后台结果接口或日志目录。';
     } finally {
       ledgerLoading.value = false;
+    }
+  }
+
+  async function refreshResultArchiveIndex() {
+    refreshArchiveIndexLoading.value = true;
+    try {
+      await refreshAutomationResultIndex();
+      await loadLedgerFacets(true);
+      await fetchRunLedger();
+      ElMessage.success('结果归档索引已刷新');
+    } catch (error) {
+      if (!isHandledRequestError(error)) {
+        ElMessage.error(resolveRequestErrorMessage(error, '刷新结果归档索引失败'));
+      }
+    } finally {
+      refreshArchiveIndexLoading.value = false;
     }
   }
 
@@ -303,7 +376,7 @@ export function useAutomationRegistryWorkbench() {
       if (!normalizedRunId || normalizedRunId === selectedLedgerRunId.value) {
         return;
       }
-      void selectLedgerRun(normalizedRunId, { silent: true });
+      void selectLedgerRun(normalizedRunId, { silent: true, syncQuery: false });
     },
     { immediate: true }
   );
@@ -318,6 +391,8 @@ export function useAutomationRegistryWorkbench() {
     ledgerLoading,
     ledgerErrorMessage,
     lastLedgerReloadedAt,
+    ledgerFacetOptions,
+    refreshArchiveIndexLoading,
     selectedLedgerRunId,
     selectedLedgerRunDetail,
     selectedLedgerRunErrorMessage,
@@ -341,6 +416,7 @@ export function useAutomationRegistryWorkbench() {
     visibleEvidencePreviewLoading,
     visibleEvidencePreviewErrorMessage,
     fetchRunLedger,
+    refreshResultArchiveIndex,
     applyLedgerFilters,
     resetLedgerAndReload,
     handleLedgerPageChange,

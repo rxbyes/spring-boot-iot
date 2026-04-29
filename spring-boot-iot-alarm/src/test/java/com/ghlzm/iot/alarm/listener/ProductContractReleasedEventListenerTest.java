@@ -3,8 +3,7 @@ package com.ghlzm.iot.alarm.listener;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.core.toolkit.LambdaUtils;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.ghlzm.iot.alarm.service.RiskMetricCatalogPublishRule;
-import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogRebuildService;
 import com.ghlzm.iot.common.event.governance.ProductContractReleasedEvent;
 import com.ghlzm.iot.device.entity.ProductMetricResolverSnapshot;
 import com.ghlzm.iot.device.entity.ProductModel;
@@ -39,10 +38,7 @@ class ProductContractReleasedEventListenerTest {
     private ProductModelMapper productModelMapper;
 
     @Mock
-    private RiskMetricCatalogPublishRule publishRule;
-
-    @Mock
-    private RiskMetricCatalogService riskMetricCatalogService;
+    private RiskMetricCatalogRebuildService rebuildService;
 
     @Mock
     private ProductMetricResolverSnapshotMapper resolverSnapshotMapper;
@@ -61,15 +57,12 @@ class ProductContractReleasedEventListenerTest {
     void onProductContractReleasedShouldPublishMetricCatalogFromReleasedProperties() {
         ProductContractReleasedEventListener listener = new ProductContractReleasedEventListener(
                 productModelMapper,
-                publishRule,
-                riskMetricCatalogService,
+                rebuildService,
                 resolverSnapshotMapper
         );
         ProductModel value = propertyModel(3101L, 1001L, "value", "裂缝监测值");
         ProductModel sensorState = propertyModel(3102L, 1001L, "sensor_state", "传感器状态");
         when(productModelMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(value, sensorState));
-        when(publishRule.resolveRiskEnabledIdentifiers(null, List.of(value, sensorState))).thenReturn(Set.of("value"));
-
         listener.onProductContractReleased(new ProductContractReleasedEvent(
                 1L,
                 1001L,
@@ -90,11 +83,10 @@ class ProductContractReleasedEventListenerTest {
         assertTrue(wrapper.getParamNameValuePairs().values().contains("value"));
         assertTrue(wrapper.getParamNameValuePairs().values().contains("sensor_state"));
 
-        verify(riskMetricCatalogService).publishFromReleasedContracts(
+        verify(rebuildService).rebuildReleasedContracts(
                 1001L,
                 7001L,
-                List.of(value, sensorState),
-                Set.of("value")
+                List.of(value, sensorState)
         );
     }
 
@@ -102,8 +94,7 @@ class ProductContractReleasedEventListenerTest {
     void onProductContractReleasedShouldIgnoreEmptyReleasedIdentifiers() {
         ProductContractReleasedEventListener listener = new ProductContractReleasedEventListener(
                 productModelMapper,
-                publishRule,
-                riskMetricCatalogService,
+                rebuildService,
                 resolverSnapshotMapper
         );
 
@@ -118,20 +109,18 @@ class ProductContractReleasedEventListenerTest {
         ));
 
         verify(productModelMapper, never()).selectList(any(LambdaQueryWrapper.class));
-        verify(riskMetricCatalogService, never()).publishFromReleasedContracts(any(), any(), any(), any());
+        verify(rebuildService, never()).rebuildReleasedContracts(any(), any(), any());
     }
 
     @Test
     void onProductContractReleasedShouldCompileResolverSnapshotBeforePublishingCatalog() {
         ProductContractReleasedEventListener listener = new ProductContractReleasedEventListener(
                 productModelMapper,
-                publishRule,
-                riskMetricCatalogService,
+                rebuildService,
                 resolverSnapshotMapper
         );
         ProductModel value = propertyModel(3101L, 1001L, "L1_LF_1.value", "裂缝监测值");
         when(productModelMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(value));
-        when(publishRule.resolveRiskEnabledIdentifiers(any(), any())).thenReturn(Set.of("value"));
 
         listener.onProductContractReleased(new ProductContractReleasedEvent(
                 1L,
@@ -153,11 +142,38 @@ class ProductContractReleasedEventListenerTest {
     }
 
     @Test
+    void onProductContractReleasedShouldPublishFullPathRiskMetricCatalogIdentifiers() {
+        ProductContractReleasedEventListener listener = new ProductContractReleasedEventListener(
+                productModelMapper,
+                rebuildService,
+                resolverSnapshotMapper
+        );
+        ProductModel crackValue = propertyModel(4101L, 2002L, "L1_LF_1.value", "裂缝量");
+        ProductModel tiltAngle = propertyModel(4102L, 2002L, "L1_QJ_1.angle", "水平面夹角");
+        when(productModelMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(crackValue, tiltAngle));
+
+        listener.onProductContractReleased(new ProductContractReleasedEvent(
+                1L,
+                2002L,
+                8001L,
+                "phase1-crack",
+                List.of("L1_LF_1.value", "L1_QJ_1.angle"),
+                9001L,
+                99001L
+        ));
+
+        verify(rebuildService).rebuildReleasedContracts(
+                2002L,
+                8001L,
+                List.of(crackValue, tiltAngle)
+        );
+    }
+
+    @Test
     void springContextShouldInstantiateProductContractReleasedEventListenerBean() {
         try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
             context.registerBean(ProductModelMapper.class, () -> productModelMapper);
-            context.registerBean(RiskMetricCatalogPublishRule.class, () -> publishRule);
-            context.registerBean(RiskMetricCatalogService.class, () -> riskMetricCatalogService);
+            context.registerBean(RiskMetricCatalogRebuildService.class, () -> rebuildService);
             context.registerBean(ProductMetricResolverSnapshotMapper.class, () -> resolverSnapshotMapper);
             context.register(ProductContractReleasedEventListener.class);
 

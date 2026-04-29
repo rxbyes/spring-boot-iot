@@ -1,5 +1,7 @@
 <template>
-  <div class="standard-list-filter-header standard-list-filter-header--minimal">
+  <div
+    class="standard-list-filter-header standard-list-filter-header--minimal standard-list-filter-header--workbench-foundation"
+  >
     <el-form :model="model" class="standard-list-filter-header__form" @submit.prevent>
       <div ref="primaryRowRef" class="standard-list-filter-header__row" :style="layoutVars">
         <slot name="primary" />
@@ -13,7 +15,9 @@
         </div>
       </el-collapse-transition>
 
-      <div class="standard-list-filter-header__actions-row standard-list-filter-header__actions-row--minimal">
+      <div
+        class="standard-list-filter-header__actions-row standard-list-filter-header__actions-row--minimal standard-list-filter-header__actions-row--workbench"
+      >
         <StandardActionGroup gap="sm" class="standard-list-filter-header__actions">
           <slot name="actions" />
         </StandardActionGroup>
@@ -136,6 +140,13 @@ onUpdated(() => {
   gap: 0.1rem;
 }
 
+.standard-list-filter-header--workbench-foundation {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .standard-list-filter-header__form {
   display: grid;
 }
@@ -184,6 +195,10 @@ onUpdated(() => {
 .standard-list-filter-header__actions-row--minimal {
   margin-top: 12px;
   gap: 8px var(--ops-filter-actions-gap, 14px);
+}
+
+.standard-list-filter-header__actions-row--workbench {
+  margin-top: 10px;
 }
 
 .standard-list-filter-header__actions {

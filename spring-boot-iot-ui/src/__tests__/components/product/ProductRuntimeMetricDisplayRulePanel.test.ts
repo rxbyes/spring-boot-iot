@@ -289,6 +289,33 @@ describe('ProductRuntimeMetricDisplayRulePanel', () => {
     })
   })
 
+  it('prefills the raw identifier when contract compare focuses runtime display governance', async () => {
+    const wrapper = mountPanel({
+      focusRawIdentifier: 'L4_NW_1',
+      focusToken: 1
+    })
+
+    await flushPromises()
+    await flushPromises()
+
+    expect((wrapper.get('[data-testid="runtime-display-rule-raw-identifier"]').element as HTMLInputElement).value).toBe(
+      'L4_NW_1'
+    )
+    expect(wrapper.get('[data-testid="runtime-display-rule-form-message"]').text()).toContain('已带入原始字段')
+
+    await wrapper.get('[data-testid="runtime-display-rule-display-name"]').setValue('泥水位')
+    await wrapper.setProps({
+      focusRawIdentifier: 'L4_LD_1.speed',
+      focusToken: 2
+    })
+    await flushPromises()
+
+    expect((wrapper.get('[data-testid="runtime-display-rule-raw-identifier"]').element as HTMLInputElement).value).toBe(
+      'L4_LD_1.speed'
+    )
+    expect((wrapper.get('[data-testid="runtime-display-rule-display-name"]').element as HTMLInputElement).value).toBe('')
+  })
+
   it('does not show a second toast for handled creation errors', async () => {
     mockCreateRuntimeMetricDisplayRule.mockRejectedValueOnce(
       createRequestError('运行态规则冲突', true, 400, '运行态规则冲突')

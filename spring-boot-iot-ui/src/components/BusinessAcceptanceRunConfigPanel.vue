@@ -1,5 +1,5 @@
 <template>
-  <PanelCard title="执行前配置" description="业务人员只需要选择环境、账号模板和模块范围，其他执行细节继续复用现有自动化底座。">
+  <PanelCard title="执行配置" description="只保留环境、账号模板和模块范围三项选择，让验收动作更直接。">
     <div class="business-acceptance-run-config-panel__form">
       <label class="business-acceptance-run-config-panel__field">
         <span>环境</span>
@@ -34,25 +34,27 @@
       </label>
     </div>
 
-    <label class="business-acceptance-run-config-panel__field">
-      <span>模块范围</span>
-      <el-checkbox-group
-        :model-value="selectedModuleCodes"
-        class="business-acceptance-run-config-panel__modules"
-        @update:model-value="$emit('update:module-codes', Array.isArray($event) ? $event.map(String) : [])"
-      >
-        <el-checkbox
-          v-for="module in moduleOptions"
-          :key="module.moduleCode"
-          :label="module.moduleCode"
+    <div class="business-acceptance-run-config-panel__section">
+      <label class="business-acceptance-run-config-panel__field">
+        <span>模块范围</span>
+        <el-checkbox-group
+          :model-value="selectedModuleCodes"
+          class="business-acceptance-run-config-panel__modules"
+          @update:model-value="$emit('update:module-codes', Array.isArray($event) ? $event.map(String) : [])"
         >
-          {{ module.moduleName }}
-        </el-checkbox>
-      </el-checkbox-group>
-    </label>
+          <el-checkbox
+            v-for="module in moduleOptions"
+            :key="module.moduleCode"
+            :label="module.moduleCode"
+          >
+            {{ module.moduleName }}
+          </el-checkbox>
+        </el-checkbox-group>
+      </label>
+    </div>
 
     <div class="business-acceptance-run-config-panel__actions">
-      <StandardButton action="confirm" :loading="launching" @click="$emit('launch')">
+      <StandardButton v-permission="'system:business-acceptance:launch'" action="confirm" :loading="launching" @click="$emit('launch')">
         一键执行验收
       </StandardButton>
       <span class="business-acceptance-run-config-panel__hint">
@@ -182,6 +184,12 @@ const latestSummary = computed(() => {
   font-size: 0.88rem;
 }
 
+.business-acceptance-run-config-panel__section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--panel-border);
+}
+
 .business-acceptance-run-config-panel__field span {
   color: var(--text-tertiary);
   font-size: 0.8rem;
@@ -192,6 +200,7 @@ const latestSummary = computed(() => {
 
 .business-acceptance-run-config-panel__modules {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.55rem;
 }
 
@@ -213,6 +222,8 @@ const latestSummary = computed(() => {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.8rem;
   margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--panel-border);
 }
 
 .business-acceptance-run-config-panel__latest-summary {
@@ -223,7 +234,8 @@ const latestSummary = computed(() => {
 
 @media (max-width: 960px) {
   .business-acceptance-run-config-panel__form,
-  .business-acceptance-run-config-panel__latest {
+  .business-acceptance-run-config-panel__latest,
+  .business-acceptance-run-config-panel__modules {
     grid-template-columns: 1fr;
   }
 }

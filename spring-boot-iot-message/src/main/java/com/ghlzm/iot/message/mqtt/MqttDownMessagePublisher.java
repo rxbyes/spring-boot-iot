@@ -44,6 +44,21 @@ public class MqttDownMessagePublisher {
     }
 
     /**
+     * 使用独立 publisher 客户端发布统一下行消息，避免与订阅消费者共用连接。
+     */
+    public void publishIsolated(String protocolCode, String topic, DeviceDownMessage message, ProtocolContext context) {
+        String actualProtocolCode = (protocolCode == null || protocolCode.isBlank())
+                ? iotProperties.getProtocol().getDefaultCode()
+                : protocolCode;
+        ProtocolAdapter adapter = protocolAdapterRegistry.getAdapter(actualProtocolCode);
+        if (adapter == null) {
+            throw new BizException("未找到协议适配器: " + actualProtocolCode);
+        }
+        byte[] payload = adapter.encode(message, context);
+        publishRawIsolated(topic, payload, iotProperties.getMqtt().getQos(), false);
+    }
+
+    /**
      * 按协议编码发布统一下行消息，允许显式指定 QoS 和 retained。
      */
     public void publish(String protocolCode,
@@ -61,6 +76,26 @@ public class MqttDownMessagePublisher {
         }
         byte[] payload = adapter.encode(message, context);
         publishRaw(topic, payload, qos, retained);
+    }
+
+    /**
+     * 使用独立 publisher 客户端发布统一下行消息，允许显式指定 QoS 和 retained。
+     */
+    public void publishIsolated(String protocolCode,
+                                String topic,
+                                DeviceDownMessage message,
+                                ProtocolContext context,
+                                int qos,
+                                boolean retained) {
+        String actualProtocolCode = (protocolCode == null || protocolCode.isBlank())
+                ? iotProperties.getProtocol().getDefaultCode()
+                : protocolCode;
+        ProtocolAdapter adapter = protocolAdapterRegistry.getAdapter(actualProtocolCode);
+        if (adapter == null) {
+            throw new BizException("未找到协议适配器: " + actualProtocolCode);
+        }
+        byte[] payload = adapter.encode(message, context);
+        publishRawIsolated(topic, payload, qos, retained);
     }
 
     /**

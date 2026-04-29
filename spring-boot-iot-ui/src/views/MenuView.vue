@@ -99,8 +99,12 @@
             :load="loadChildren"
             :tree-props="treeProps"
           >
-            <StandardTableTextColumn prop="menuName" label="菜单名称" :min-width="160" />
-            <StandardTableTextColumn prop="menuCode" label="菜单编码" :min-width="180" />
+            <StandardTableTextColumn
+              prop="menuName"
+              label="菜单"
+              secondary-prop="menuCode"
+              :min-width="220"
+            />
             <StandardTableTextColumn prop="path" label="路由路径" :min-width="160" />
             <StandardTableTextColumn prop="component" label="组件" :min-width="140" />
             <el-table-column prop="type" label="类型" width="90">

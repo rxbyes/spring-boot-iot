@@ -95,8 +95,12 @@
 
         <template v-else-if="hasRecords">
           <el-table :data="rows" border stripe>
-            <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
-            <StandardTableTextColumn prop="deviceName" label="设备名称" :min-width="150" />
+            <StandardTableTextColumn
+              prop="deviceName"
+              label="设备"
+              secondary-prop="deviceCode"
+              :min-width="180"
+            />
             <StandardTableTextColumn prop="productName" label="产品名称" :min-width="150" />
             <StandardTableTextColumn prop="riskPointName" label="风险点" :min-width="140" />
             <StandardTableTextColumn label="测点" :min-width="150">
@@ -194,6 +198,7 @@ import { getRiskPointList, type RiskPoint } from '../api/riskPoint';
 import type { IdType } from '../types/api';
 import { resolveWorkbenchActionColumnWidth } from '../utils/adaptiveActionColumn';
 import { formatDateTime } from '../utils/format';
+import { normalizeOptionalId } from '../utils/id';
 import { fetchRiskLevelOptions, getRiskLevelTagType, getRiskLevelText, getRiskLevelWeight, type RiskLevelOption } from '../utils/riskLevel';
 
 interface SelectOption {
@@ -206,7 +211,7 @@ const rows = ref<RiskMonitoringListItem[]>([]);
 const riskPoints = ref<RiskPoint[]>([]);
 const riskLevelOptions = ref<RiskLevelOption[]>([]);
 const detailVisible = ref(false);
-const activeBindingId = ref<number | null>(null);
+const activeBindingId = ref<IdType | null>(null);
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } = useServerPagination();
 const monitoringRowActions = [{ command: 'detail' as const, label: '详情' }];
 const monitoringActionColumnWidth = resolveWorkbenchActionColumnWidth({
@@ -346,8 +351,8 @@ function handlePageSizeChange(size: number) {
 }
 
 function openDetail(bindingId: IdType) {
-  const normalizedBindingId = Number(bindingId);
-  if (Number.isNaN(normalizedBindingId)) {
+  const normalizedBindingId = normalizeOptionalId(bindingId);
+  if (normalizedBindingId === undefined) {
     ElMessage.warning('监测详情标识无效');
     return;
   }

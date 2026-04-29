@@ -2355,6 +2355,373 @@
       ],
       "lineageRole": "governance_master_data",
       "businessBoundary": "用于审计日志表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
+    },
+    {
+      "name": "sys_business_event_log",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "业务事件日志表",
+      "commentZh": "业务事件日志表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "trace_id",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "链路追踪ID"
+        },
+        {
+          "name": "event_code",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "业务事件编码"
+        },
+        {
+          "name": "event_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "业务事件名称"
+        },
+        {
+          "name": "domain_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "业务域编码"
+        },
+        {
+          "name": "action_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "业务动作编码"
+        },
+        {
+          "name": "object_type",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "业务对象类型"
+        },
+        {
+          "name": "object_id",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "业务对象标识"
+        },
+        {
+          "name": "object_name",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "业务对象名称"
+        },
+        {
+          "name": "actor_user_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "操作者用户ID"
+        },
+        {
+          "name": "actor_name",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "操作者名称"
+        },
+        {
+          "name": "result_status",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'SUCCESS'",
+          "commentZh": "事件结果状态"
+        },
+        {
+          "name": "source_type",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'SYSTEM'",
+          "commentZh": "事件来源类型"
+        },
+        {
+          "name": "evidence_type",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "关联证据类型"
+        },
+        {
+          "name": "evidence_id",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "关联证据标识"
+        },
+        {
+          "name": "request_method",
+          "type": "VARCHAR(16) DEFAULT NULL",
+          "commentZh": "请求方法"
+        },
+        {
+          "name": "request_uri",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "请求URI"
+        },
+        {
+          "name": "duration_ms",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "耗时毫秒"
+        },
+        {
+          "name": "error_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "错误编码"
+        },
+        {
+          "name": "error_message",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "错误摘要"
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "事件扩展元数据"
+        },
+        {
+          "name": "occurred_at",
+          "type": "DATETIME NOT NULL",
+          "commentZh": "事件发生时间"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除标记"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_business_event_trace",
+          "kind": "INDEX",
+          "columns": [
+            "trace_id"
+          ]
+        },
+        {
+          "name": "idx_business_event_domain_time",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "domain_code",
+            "occurred_at",
+            "id"
+          ]
+        },
+        {
+          "name": "idx_business_event_code_time",
+          "kind": "INDEX",
+          "columns": [
+            "event_code",
+            "occurred_at"
+          ]
+        },
+        {
+          "name": "idx_business_event_object",
+          "kind": "INDEX",
+          "columns": [
+            "object_type",
+            "object_id"
+          ]
+        },
+        {
+          "name": "idx_business_event_result_time",
+          "kind": "INDEX",
+          "columns": [
+            "result_status",
+            "occurred_at"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "business_event_evidence",
+      "businessBoundary": "用于业务事件字典落地后的事件证据持久化，承载跨域业务动作、结果、关联对象和证据引用。"
+    },
+    {
+      "name": "sys_observability_span_log",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "可观测调用片段日志表",
+      "commentZh": "可观测调用片段日志表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "trace_id",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "链路追踪ID"
+        },
+        {
+          "name": "parent_span_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "父调用片段标识"
+        },
+        {
+          "name": "span_type",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "调用片段类型"
+        },
+        {
+          "name": "span_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "调用片段名称"
+        },
+        {
+          "name": "domain_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "业务域编码"
+        },
+        {
+          "name": "event_code",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "关联事件编码"
+        },
+        {
+          "name": "object_type",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "业务对象类型"
+        },
+        {
+          "name": "object_id",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "业务对象标识"
+        },
+        {
+          "name": "transport_type",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "传输类型"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'SUCCESS'",
+          "commentZh": "调用片段状态"
+        },
+        {
+          "name": "duration_ms",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "耗时毫秒"
+        },
+        {
+          "name": "started_at",
+          "type": "DATETIME NOT NULL",
+          "commentZh": "开始时间"
+        },
+        {
+          "name": "finished_at",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "结束时间"
+        },
+        {
+          "name": "error_class",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "异常类型"
+        },
+        {
+          "name": "error_message",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "异常摘要"
+        },
+        {
+          "name": "tags_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "调用片段标签数据"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除标记"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_observability_span_trace",
+          "kind": "INDEX",
+          "columns": [
+            "trace_id"
+          ]
+        },
+        {
+          "name": "idx_observability_span_type_time",
+          "kind": "INDEX",
+          "columns": [
+            "span_type",
+            "started_at"
+          ]
+        },
+        {
+          "name": "idx_observability_span_status_time",
+          "kind": "INDEX",
+          "columns": [
+            "status",
+            "started_at"
+          ]
+        },
+        {
+          "name": "idx_observability_span_event",
+          "kind": "INDEX",
+          "columns": [
+            "event_code",
+            "started_at"
+          ]
+        },
+        {
+          "name": "idx_observability_span_object",
+          "kind": "INDEX",
+          "columns": [
+            "object_type",
+            "object_id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "observability_span_evidence",
+      "businessBoundary": "用于轻量持久化网页接口、设备上行链路、调度任务和慢查询的调用片段摘要，服务异常定位与性能定位。"
     }
   ]
 }

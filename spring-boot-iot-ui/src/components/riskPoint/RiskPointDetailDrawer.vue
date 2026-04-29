@@ -164,6 +164,7 @@
     <template #footer>
       <div class="detail-actions">
         <StandardButton
+          v-permission="'risk:point:update'"
           data-testid="detail-edit-action"
           :disabled="!displayRiskPoint"
           @click="emit('edit')"

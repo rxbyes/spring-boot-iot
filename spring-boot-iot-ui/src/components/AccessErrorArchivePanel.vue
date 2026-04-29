@@ -205,13 +205,17 @@
         stripe
         style="width: 100%"
       >
-        <StandardTableTextColumn prop="traceId" label="TraceId" :min-width="200" />
+        <StandardTableTextColumn
+          prop="traceId"
+          label="Trace / 设备编码"
+          :min-width="220"
+          secondary-prop="deviceCode"
+        />
         <StandardTableTextColumn label="失败阶段" :width="150">
           <template #default="{ row }">
             {{ getFailureStageLabel(row.failureStage) }}
           </template>
         </StandardTableTextColumn>
-        <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
         <StandardTableTextColumn prop="productKey" label="产品标识" :min-width="140" />
         <StandardTableTextColumn prop="protocolCode" label="协议编码" :min-width="130" />
         <StandardTableTextColumn prop="errorCode" label="异常编码" :min-width="120" />
@@ -272,10 +276,25 @@
     <div class="access-error-detail-workbench">
       <section class="access-error-detail-workbench__stage" data-testid="access-error-detail-summary-stage">
         <div class="access-error-detail-workbench__stage-header">
-          <h3>失败态势与处理概况</h3>
+          <h3>归档摘要</h3>
         </div>
 
         <div class="access-error-detail-workbench__summary-grid">
+          <article class="access-error-detail-workbench__summary-card access-error-detail-workbench__summary-card--primary">
+            <span class="access-error-detail-workbench__summary-label">当前归档主线索</span>
+            <strong class="access-error-detail-workbench__summary-title">{{ detailSummaryIdentityTitle }}</strong>
+            <p class="access-error-detail-workbench__summary-copy">{{ detailSummaryIdentityCopy }}</p>
+            <div class="access-error-detail-workbench__summary-meta">
+              <small
+                v-for="item in detailSummaryIdentityMeta"
+                :key="item.key"
+                class="access-error-detail-workbench__summary-meta-item"
+              >
+                {{ item.label }}：{{ item.value }}
+              </small>
+            </div>
+          </article>
+
           <article
             v-for="card in detailSummaryCards"
             :key="card.key"
@@ -498,6 +517,15 @@ const detailRouteAdvice = computed(() => {
   }
   return '建议先结合 Topic、协议编码和契约快照定位失败发生点，再决定回链路追踪台还是治理页。';
 });
+const detailSummaryIdentityTitle = computed(
+  () => detailData.value.traceId || detailData.value.deviceCode || formatValue(detailData.value.id)
+);
+const detailSummaryIdentityCopy = computed(() => formatValue(detailData.value.errorMessage));
+const detailSummaryIdentityMeta = computed(() => [
+  { key: 'deviceCode', label: '设备', value: formatValue(detailData.value.deviceCode) },
+  { key: 'productKey', label: '产品', value: formatValue(detailData.value.productKey) },
+  { key: 'archiveTime', label: '归档时间', value: detailDisplayTime.value }
+]);
 const detailSummaryCards = computed<DetailSummaryCard[]>(() => [
   {
     key: 'failureStage',
@@ -506,22 +534,22 @@ const detailSummaryCards = computed<DetailSummaryCard[]>(() => [
     hint: `异常编码：${formatValue(detailData.value.errorCode)}`
   },
   {
+    key: 'protocolCode',
+    label: '协议 / 通道',
+    value: formatValue(detailData.value.protocolCode),
+    hint: `请求方式：${formatValue(detailData.value.requestMethod)}`
+  },
+  {
     key: 'archiveTime',
     label: '归档时间',
     value: detailDisplayTime.value,
     hint: `日志 ID：${formatValue(detailData.value.id)}`
   },
   {
-    key: 'deviceCode',
-    label: '设备编码',
-    value: formatValue(detailData.value.deviceCode),
-    hint: `产品标识：${formatValue(detailData.value.productKey)}`
-  },
-  {
-    key: 'protocolCode',
-    label: '协议编码',
-    value: formatValue(detailData.value.protocolCode),
-    hint: `请求通道：${formatValue(detailData.value.requestMethod)}`
+    key: 'exceptionClass',
+    label: '异常类型',
+    value: formatValue(detailData.value.exceptionClass),
+    hint: `消息类型：${formatValue(detailData.value.messageType)}`
   }
 ]);
 const detailIdentityItems = computed<DetailLedgerItem[]>(() => [
@@ -1056,6 +1084,15 @@ onMounted(() => {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
 }
 
+.access-error-detail-workbench__summary-card--primary {
+  gap: 0.6rem;
+  grid-column: 1 / -1;
+  padding: 1.05rem 1.1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(247, 250, 255, 0.96) 100%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 9%, transparent), transparent 48%);
+}
+
 .access-error-detail-workbench__summary-label,
 .access-error-detail-workbench__fact-label,
 .access-error-detail-workbench__notice-label {
@@ -1070,6 +1107,34 @@ onMounted(() => {
   font-weight: 500;
   line-height: 1.5;
   overflow-wrap: anywhere;
+}
+
+.access-error-detail-workbench__summary-title {
+  color: var(--text-heading);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.access-error-detail-workbench__summary-copy {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.access-error-detail-workbench__summary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.75rem;
+}
+
+.access-error-detail-workbench__summary-meta-item {
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .access-error-detail-workbench__summary-hint {
@@ -1257,6 +1322,10 @@ onMounted(() => {
   .access-error-detail-workbench__summary-grid,
   .access-error-detail-workbench__fact-row {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .access-error-detail-workbench__summary-card--primary {
+    grid-column: auto;
   }
 
   .access-error-detail-workbench__fact-label {

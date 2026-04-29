@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { defineComponent } from 'vue'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
@@ -6,6 +8,7 @@ import AutomationManualPageDrawer from '@/components/AutomationManualPageDrawer.
 import AutomationPlanImportDrawer from '@/components/AutomationPlanImportDrawer.vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import DeviceBatchImportDrawer from '@/components/DeviceBatchImportDrawer.vue'
+import DeviceOnboardingSuggestionDrawer from '@/components/device/DeviceOnboardingSuggestionDrawer.vue'
 import DeviceReplaceDrawer from '@/components/DeviceReplaceDrawer.vue'
 
 const StandardFormDrawerStub = defineComponent({
@@ -61,6 +64,7 @@ function buildGlobalStubs() {
     StandardButton: StandardButtonStub,
     StandardActionLink: StandardActionLinkStub,
     StandardRowActions: StandardRowActionsStub,
+    StandardTableTextColumn: true,
     ElInput: true,
     ElForm: true,
     ElFormItem: true,
@@ -78,6 +82,46 @@ function buildGlobalStubs() {
     ElTabs: true,
     ElTabPane: true,
     ElScrollbar: true
+  }
+}
+
+function readComponentSource(relativePath: string) {
+  return readFileSync(resolve(import.meta.dirname, relativePath), 'utf8')
+}
+
+function buildDeviceReplaceProps(overrides: Record<string, unknown> = {}) {
+  return {
+    modelValue: true,
+    device: {
+      id: 1,
+      productKey: 'south-monitor',
+      deviceName: '旧设备',
+      deviceCode: 'device-001',
+      deviceStatus: 1,
+      onlineStatus: 1,
+      parentDeviceId: null,
+      parentDeviceName: '',
+      parentDeviceCode: '',
+      gatewayDeviceName: '',
+      gatewayDeviceCode: '',
+      deviceSecret: '',
+      clientId: '',
+      username: '',
+      password: '',
+      firmwareVersion: '',
+      ipAddress: '',
+      address: '',
+      metadataJson: ''
+    },
+    productOptions: [],
+    deviceOptions: [],
+    productLoading: false,
+    deviceOptionsLoading: false,
+    refreshing: false,
+    refreshMessage: '',
+    refreshState: '',
+    submitting: false,
+    ...overrides
   }
 }
 
@@ -101,40 +145,18 @@ describe('drawer eyebrow cleanup', () => {
     expect(wrapper.text()).not.toContain('Device Batch Import')
   })
 
+  it('keeps the batch import preview on the shared stacked first-column grammar', () => {
+    const source = readComponentSource('../../components/DeviceBatchImportDrawer.vue')
+
+    expect(source).toContain('StandardTableTextColumn')
+    expect(source).toContain('secondary-prop="deviceCode"')
+    expect(source).toContain('device-import-summary__pill')
+    expect(source).not.toContain('<el-table-column prop="deviceCode" label="设备编码" min-width="170"')
+  })
+
   it('keeps the device replace drawer in a two-tier Chinese hierarchy without repeated eyebrow labels', () => {
     const wrapper = mount(DeviceReplaceDrawer, {
-      props: {
-        modelValue: true,
-        device: {
-          id: 1,
-          productKey: 'south-monitor',
-          deviceName: '旧设备',
-          deviceCode: 'device-001',
-          deviceStatus: 1,
-          onlineStatus: 1,
-          parentDeviceId: null,
-          parentDeviceName: '',
-          parentDeviceCode: '',
-          gatewayDeviceName: '',
-          gatewayDeviceCode: '',
-          deviceSecret: '',
-          clientId: '',
-          username: '',
-          password: '',
-          firmwareVersion: '',
-          ipAddress: '',
-          address: '',
-          metadataJson: ''
-        },
-        productOptions: [],
-        deviceOptions: [],
-        productLoading: false,
-        deviceOptionsLoading: false,
-        refreshing: false,
-        refreshMessage: '',
-        refreshState: '',
-        submitting: false
-      },
+      props: buildDeviceReplaceProps(),
       global: {
         stubs: {
           ...buildGlobalStubs(),
@@ -150,38 +172,50 @@ describe('drawer eyebrow cleanup', () => {
     expect(wrapper.text()).not.toContain('设备替换操作')
   })
 
+  it('keeps the device replace source summary on a single stacked identity card', () => {
+    const source = readComponentSource('../../components/DeviceReplaceDrawer.vue')
+
+    expect(source).toContain('device-replace-summary-card--identity')
+    expect(source).toContain('device-replace-summary-card__status-pills')
+    expect(source).toContain("device.deviceName || device.deviceCode || '--'")
+    expect(source).not.toContain('<span>设备编码</span>')
+    expect(source).not.toContain('<span>设备名称</span>')
+  })
+
+  it('keeps the onboarding suggestion summary on a stacked identity card', () => {
+    const source = readComponentSource('../../components/device/DeviceOnboardingSuggestionDrawer.vue')
+
+    expect(source).toContain('device-onboarding-suggestion-drawer__identity-card')
+    expect(source).toContain('device-onboarding-suggestion-drawer__status-pill')
+    expect(source).toContain('{{ identityName }}')
+    expect(source).toContain('{{ identityDeviceCode }}')
+    expect(source).toContain('{{ identityTraceId }}')
+    expect(source).not.toContain('<dt>设备编码</dt>')
+    expect(source).not.toContain('<dt>Trace</dt>')
+  })
+
+  it('keeps the device capability execute drawer summary on an identity-first card', () => {
+    const source = readComponentSource('../../components/device/DeviceCapabilityExecuteDrawer.vue')
+
+    expect(source).toContain('device-capability-execute-drawer__summary-card--identity')
+    expect(source).toContain('device-capability-execute-drawer__summary-meta')
+    expect(source).toContain("{{ capability?.name || '--' }}")
+  })
+
+  it('keeps the device capability workbench drawer summary on an identity-first card', () => {
+    const source = readComponentSource('../../components/device/DeviceCapabilityWorkbenchDrawer.vue')
+
+    expect(source).toContain('device-capability-workbench-drawer__summary-card--identity')
+    expect(source).toContain('device-capability-workbench-drawer__summary-meta')
+    expect(source).toContain('{{ identityTitle }}')
+  })
+
   it('does not show the old automatic refresh hint in the device replace drawer', () => {
     const wrapper = mount(DeviceReplaceDrawer, {
-      props: {
-        modelValue: true,
-        device: {
-          id: 1,
-          productKey: 'south-monitor',
-          deviceName: '旧设备',
-          deviceCode: 'device-001',
-          deviceStatus: 1,
-          onlineStatus: 1,
-          parentDeviceId: null,
-          parentDeviceName: '',
-          parentDeviceCode: '',
-          gatewayDeviceName: '',
-          gatewayDeviceCode: '',
-          deviceSecret: '',
-          clientId: '',
-          username: '',
-          password: '',
-          firmwareVersion: '',
-          ipAddress: '',
-          address: '',
-          metadataJson: ''
-        },
-        productOptions: [],
-        deviceOptions: [],
+      props: buildDeviceReplaceProps({
         refreshing: true,
-        refreshMessage: '',
-        refreshState: 'info',
-        submitting: false
-      },
+        refreshState: 'info'
+      }),
       global: {
         stubs: {
           ...buildGlobalStubs(),

@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteRecordRaw } from 'vue-router';
 import { usePermissionStore } from '../stores/permission';
 import { getRouteMetaPreset } from '../utils/sectionWorkspaces';
+import { handleDynamicImportRouteError } from './dynamicImportRecovery';
 import { appScrollBehavior } from './scrollBehavior';
 
 function routeMeta(path: string, overrides: Record<string, unknown> = {}) {
@@ -312,58 +313,10 @@ const routes: RouteRecordRaw[] = [
     })
   },
   {
-    path: '/rd-workbench',
-    name: 'rd-workbench',
-    component: () => import('../views/RdWorkbenchLandingView.vue'),
-    meta: routeMeta('/rd-workbench')
-  },
-  {
-    path: '/rd-automation-inventory',
-    name: 'rd-automation-inventory',
-    component: () => import('../views/AutomationInventoryView.vue'),
-    meta: routeMeta('/rd-automation-inventory')
-  },
-  {
-    path: '/rd-automation-templates',
-    name: 'rd-automation-templates',
-    component: () => import('../views/AutomationTemplatesView.vue'),
-    meta: routeMeta('/rd-automation-templates')
-  },
-  {
-    path: '/rd-automation-plans',
-    name: 'rd-automation-plans',
-    component: () => import('../views/AutomationPlansView.vue'),
-    meta: routeMeta('/rd-automation-plans')
-  },
-  {
-    path: '/rd-automation-handoff',
-    name: 'rd-automation-handoff',
-    component: () => import('../views/AutomationHandoffView.vue'),
-    meta: routeMeta('/rd-automation-handoff')
-  },
-  {
-    path: '/automation-assets',
-    name: 'automation-assets',
-    component: () => import('../views/AutomationAssetsView.vue'),
-    meta: routeMeta('/automation-assets')
-  },
-  {
-    path: '/automation-execution',
-    name: 'automation-execution',
-    component: () => import('../views/AutomationExecutionView.vue'),
-    meta: routeMeta('/automation-execution')
-  },
-  {
-    path: '/automation-results',
-    name: 'automation-results',
-    component: () => import('../views/AutomationResultsView.vue'),
-    meta: routeMeta('/automation-results')
-  },
-  {
-    path: '/automation-test',
-    name: 'automation-test',
-    component: () => import('../views/AutomationTestCenterView.vue'),
-    meta: routeMeta('/automation-test')
+    path: '/automation-governance',
+    name: 'automation-governance',
+    component: () => import('../views/AutomationGovernanceWorkbenchView.vue'),
+    meta: routeMeta('/automation-governance')
   },
   {
     path: '/audit-log',
@@ -438,7 +391,9 @@ router.beforeEach(async (to) => {
   }
 
   if (to.matched.length === 0) {
-    permissionStore.logout();
+    if (permissionStore.isLoggedIn) {
+      return resolveRedirectTarget(permissionStore, to.fullPath);
+    }
     return createLoginRedirect(to.fullPath);
   }
 
@@ -447,8 +402,7 @@ router.beforeEach(async (to) => {
   }
 
   if (requiresAuth && !permissionStore.hasRoutePermission(to.path)) {
-    permissionStore.logout();
-    return createLoginRedirect(to.fullPath);
+    return resolveRedirectTarget(permissionStore, to.fullPath);
   }
 
   const requiredPermission = to.meta.permission as string | undefined;
@@ -462,6 +416,10 @@ router.beforeEach(async (to) => {
 router.afterEach((to) => {
   const title = String(to.meta.title || '平台首页');
   document.title = `${title} | 监测预警平台`;
+});
+
+router.onError((error) => {
+  handleDynamicImportRouteError(error);
 });
 
 export default router;

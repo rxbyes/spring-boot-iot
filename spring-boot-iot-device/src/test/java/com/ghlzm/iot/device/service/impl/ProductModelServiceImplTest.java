@@ -742,6 +742,206 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldKeepSingleBusinessIdentifierDirectEvenWhenPublishedStatusUsesFullPath() {
+        Product product = product(9009L, "nf-monitor-mud-level-meter-v1", "南方测绘 监测型 泥位计");
+        when(productMapper.selectById(9009L)).thenReturn(product);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                existingModel(9101L, "S1_ZT_1.signal_4g", 10)
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"SK00F30D1309042":{"L4_NW_1":{"2026-04-23T12:54:20.000Z":0}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(9009L, dto);
+
+        assertEquals("DIRECT", result.getManualSummary().getResolvedContractIdentifierMode());
+        List<String> identifiers = result.getCompareRows().stream()
+                .map(ProductModelGovernanceCompareRowVO::getIdentifier)
+                .toList();
+        assertTrue(identifiers.contains("L4_NW_1"));
+        assertTrue(identifiers.stream().noneMatch("S1_ZT_1.L4_NW_1"::equals));
+    }
+
+    @Test
+    void compareGovernanceShouldDecorateMudLevelRowsWithNormativeMetadata() {
+        when(productMapper.selectById(9009L)).thenReturn(product(
+                9009L,
+                "nf-monitor-mud-level-meter-v1",
+                "南方测绘 监测型 泥位计"
+        ));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listByScenario("phase5-mud-level")).thenReturn(List.of(
+                normativeDefinitionWithCodes("phase5-mud-level", "value", "泥水位高程", 0, "L4", "NW")
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"SK00F30D1309042":{"L4_NW_1":{"2026-04-23T12:54:20.000Z":0}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(9009L, dto);
+
+        ProductModelGovernanceCompareRowVO row = compareRow(result, "property", "L4_NW_1");
+        assertEquals("value", row.getNormativeIdentifier());
+        assertEquals("泥水位高程", row.getNormativeName());
+        assertEquals(Boolean.FALSE, row.getRiskReady());
+        assertEquals(List.of("L4_NW_1"), row.getRawIdentifiers());
+        assertEquals("MATCHED", row.getNormativeMatchStatus());
+        assertEquals("CODE_PREFIX_FALLBACK", row.getNormativeMatchSource());
+        assertEquals("依据 L4/NW + leaf=value", row.getNormativeMatchReason());
+        assertEquals(List.of("phase5-mud-level / value / 泥水位高程"), row.getNormativeCandidates());
+        verify(productMetricEvidenceService).replaceManualEvidence(eq(9009L), eq("phase5-mud-level"), any());
+    }
+
+    @Test
+    void compareGovernanceShouldFallbackNormativeMatchByRawMonitorCodeWhenScenarioUnknown() {
+        when(productMapper.selectById(9010L)).thenReturn(product(
+                9010L,
+                "future-monitor-air-temp-v1",
+                "未来厂商 影响因素 气温传感器"
+        ));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listActive()).thenReturn(List.of(
+                normativeDefinitionWithCodes("phase3-weather", "value", "气温", 0, "L3", "QW")
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"TMPD001":{"L3_QW_1":{"2026-04-23T13:15:20.000Z":{"value":24.6}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(9010L, dto);
+
+        ProductModelGovernanceCompareRowVO row = compareRow(result, "property", "L3_QW_1.value");
+        assertEquals("value", row.getNormativeIdentifier());
+        assertEquals("气温", row.getNormativeName());
+        assertEquals(Boolean.FALSE, row.getRiskReady());
+        assertEquals(List.of("L3_QW_1.value"), row.getRawIdentifiers());
+    }
+
+    @Test
+    void compareGovernanceShouldMarkRawMonitorCodeFallbackAsAmbiguousWhenMultipleNormativeCandidatesExist() {
+        when(productMapper.selectById(9012L)).thenReturn(product(
+                9012L,
+                "future-monitor-mud-level-v2",
+                "未来厂商 L4 NW 多候选设备"
+        ));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listByScenario("phase5-mud-level")).thenReturn(List.of(
+                normativeDefinitionWithCodes("phase5-mud-level", "value", "泥水位高程", 0, "L4", "NW"),
+                normativeDefinitionWithCodes("phase5-mud-level-alt", "value", "泥位高度", 1, "L4", "NW")
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"MUD-AMBIGUOUS-001":{"L4_NW_1":{"2026-04-23T13:20:20.000Z":0.58}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(9012L, dto);
+
+        ProductModelGovernanceCompareRowVO row = compareRow(result, "property", "L4_NW_1");
+        assertEquals("AMBIGUOUS", row.getNormativeMatchStatus());
+        assertEquals("CODE_PREFIX_FALLBACK", row.getNormativeMatchSource());
+        assertEquals("依据 L4/NW + leaf=value 命中多个规范候选，请人工确认", row.getNormativeMatchReason());
+        assertEquals(List.of(
+                "phase5-mud-level / value / 泥水位高程",
+                "phase5-mud-level-alt / value / 泥位高度"
+        ), row.getNormativeCandidates());
+        assertNull(row.getNormativeIdentifier());
+        assertNull(row.getNormativeName());
+        assertEquals(Boolean.FALSE, row.getRiskReady());
+        assertEquals(List.of("L4_NW_1"), row.getRawIdentifiers());
+    }
+
+    @Test
+    void compareGovernanceShouldFallbackNormativeMatchForL3L4ExpandedTypesWhenScenarioUnknown() {
+        when(productMapper.selectById(9011L)).thenReturn(product(
+                9011L,
+                "future-monitor-l3-l4-v1",
+                "未来厂商 L3 L4 综合监测设备"
+        ));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listActive()).thenReturn(List.of(
+                normativeDefinitionWithCodes("phase1-vibration", "PLX", "X 轴振动频率", 0, "L1", "ZD"),
+                normativeDefinitionWithCodes("phase1-vibration", "value", "振动幅度", 0, "L1", "ZD"),
+                normativeDefinitionWithCodes("phase1-vibration", "SJValue", "合方向瞬时位移", 0, "L1", "ZD"),
+                normativeDefinitionWithCodes("phase2-acoustic-emission", "amplitude", "地声幅度", 0, "L2", "SF"),
+                normativeDefinitionWithCodes("phase2-acoustic-emission", "energy", "地声能量", 0, "L2", "SF"),
+                normativeDefinitionWithCodes("phase2-acoustic-emission", "RMS", "有效值电压", 0, "L2", "SF"),
+                normativeDefinitionWithCodes("phase3-water-surface", "temp", "地表水温", 0, "L3", "DB"),
+                normativeDefinitionWithCodes("phase3-water-surface", "value", "地表水位", 0, "L3", "DB"),
+                normativeDefinitionWithCodes("phase3-settlement", "value", "沉降量", 0, "L3", "CJ"),
+                normativeDefinitionWithCodes("phase3-air-pressure", "value", "气压", 0, "L3", "QY"),
+                normativeDefinitionWithCodes("phase5-mud-level", "value", "泥水位高程", 0, "L4", "NW"),
+                normativeDefinitionWithCodes("phase4-surface-flow-speed", "value", "表面流速", 0, "L4", "BMLS"),
+                normativeDefinitionWithCodes("phase6-radar", "X", "雷达 X 坐标", 0, "L4", "LD"),
+                normativeDefinitionWithCodes("phase6-radar", "Y", "雷达 Y 坐标", 0, "L4", "LD"),
+                normativeDefinitionWithCodes("phase6-radar", "Z", "雷达 Z 坐标", 0, "L4", "LD"),
+                normativeDefinitionWithCodes("phase6-radar", "speed", "雷达移动速度", 0, "L4", "LD")
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"FUTURE-L3-L4-001":{
+                    "L1_ZD_1":{"2026-04-23T13:15:20.000Z":{"PLX":12.5,"value":0.66,"SJValue":1.2}},
+                    "L2_SF_1":{"2026-04-23T13:15:20.000Z":{"amplitude":42.0,"energy":3.4,"RMS":2.1}},
+                    "L3_DB_1":{"2026-04-23T13:15:20.000Z":{"temp":15.8,"value":1.26}},
+                    "L3_CJ_1":{"2026-04-23T13:15:20.000Z":8.8},
+                    "L3_QY_1":{"2026-04-23T13:15:20.000Z":101.3},
+                    "L4_NW_1":{"2026-04-23T13:15:20.000Z":0.42},
+                    "L4_BMLS_1":{"2026-04-23T13:15:20.000Z":2.6},
+                    "L4_LD_1":{"2026-04-23T13:15:20.000Z":{"X":1.1,"Y":2.2,"Z":3.3,"speed":0.4}}
+                }}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(9011L, dto);
+
+        assertEquals("PLX", compareRow(result, "property", "L1_ZD_1.PLX").getNormativeIdentifier());
+        assertEquals("振动幅度", compareRow(result, "property", "L1_ZD_1.value").getNormativeName());
+        assertEquals("SJValue", compareRow(result, "property", "L1_ZD_1.SJValue").getNormativeIdentifier());
+        assertEquals("地声幅度", compareRow(result, "property", "L2_SF_1.amplitude").getNormativeName());
+        assertEquals("energy", compareRow(result, "property", "L2_SF_1.energy").getNormativeIdentifier());
+        assertEquals("RMS", compareRow(result, "property", "L2_SF_1.RMS").getNormativeIdentifier());
+        assertEquals("temp", compareRow(result, "property", "L3_DB_1.temp").getNormativeIdentifier());
+        assertEquals("地表水位", compareRow(result, "property", "L3_DB_1.value").getNormativeName());
+        assertEquals("沉降量", compareRow(result, "property", "L3_CJ_1").getNormativeName());
+        assertEquals("气压", compareRow(result, "property", "L3_QY_1").getNormativeName());
+        assertEquals("value", compareRow(result, "property", "L4_NW_1").getNormativeIdentifier());
+        assertEquals("表面流速", compareRow(result, "property", "L4_BMLS_1").getNormativeName());
+        assertEquals("X", compareRow(result, "property", "L4_LD_1.X").getNormativeIdentifier());
+        assertEquals("Y", compareRow(result, "property", "L4_LD_1.Y").getNormativeIdentifier());
+        assertEquals("Z", compareRow(result, "property", "L4_LD_1.Z").getNormativeIdentifier());
+        assertEquals("speed", compareRow(result, "property", "L4_LD_1.speed").getNormativeIdentifier());
+    }
+
+    @Test
     void compareGovernanceShouldDecorateCrackRowsWithNormativeAndRiskMetadata() {
         when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "crack-monitor"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
@@ -878,6 +1078,115 @@ class ProductModelServiceImplTest {
         assertTrue(row.getRiskReady());
         assertEquals(List.of("L1_SW_1.dispsX"), row.getRawIdentifiers());
         verify(productMetricEvidenceService).replaceManualEvidence(eq(4004L), eq("phase3-deep-displacement"), any());
+    }
+
+    @Test
+    void compareGovernanceShouldDecorateWaterSurfaceRowsWithNormativeMetadata() {
+        when(productMapper.selectById(3004L)).thenReturn(waterSurfaceProduct(3004L));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listByScenario("phase3-water-surface")).thenReturn(List.of(
+                normativeDefinition("phase3-water-surface", "temp", "地表水温", 0),
+                normativeDefinition("phase3-water-surface", "value", "地表水位", 1)
+        ));
+        when(vendorMetricMappingRuntimeService.resolveForGovernance(any(Product.class), eq("L3_DB_1.temp"), eq("L3_DB_1")))
+                .thenReturn(new VendorMetricMappingRuntimeService.MappingResolution(
+                        9903001L,
+                        "temp",
+                        "L3_DB_1.temp",
+                        "L3_DB_1"
+                ));
+        when(vendorMetricMappingRuntimeService.resolveForGovernance(any(Product.class), eq("L3_DB_1.value"), eq("L3_DB_1")))
+                .thenReturn(new VendorMetricMappingRuntimeService.MappingResolution(
+                        9903002L,
+                        "value",
+                        "L3_DB_1.value",
+                        "L3_DB_1"
+                ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"device-water-01":{"L3_DB_1":{"2026-04-10T11:00:00.000Z":{"temp":18.2,"value":3.4}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(3004L, dto);
+
+        assertEquals(2, result.getCompareRows().size());
+        ProductModelGovernanceCompareRowVO tempRow = compareRow(result, "property", "temp");
+        ProductModelGovernanceCompareRowVO valueRow = compareRow(result, "property", "value");
+        assertEquals("地表水温", tempRow.getNormativeName());
+        assertEquals(Boolean.FALSE, tempRow.getRiskReady());
+        assertEquals(List.of("L3_DB_1.temp"), tempRow.getRawIdentifiers());
+        assertEquals("地表水位", valueRow.getNormativeName());
+        assertTrue(valueRow.getRiskReady());
+        assertEquals(List.of("L3_DB_1.value"), valueRow.getRawIdentifiers());
+        verify(productMetricEvidenceService).replaceManualEvidence(eq(3004L), eq("phase3-water-surface"), any());
+    }
+
+    @Test
+    void compareGovernanceShouldDecorateRadarRowsWithNormativeMetadata() {
+        when(productMapper.selectById(6008L)).thenReturn(radarProduct(6008L));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listByScenario("phase6-radar")).thenReturn(List.of(
+                normativeDefinition("phase6-radar", "X", "雷达X", 1),
+                normativeDefinition("phase6-radar", "Y", "雷达Y", 1),
+                normativeDefinition("phase6-radar", "Z", "雷达Z", 1),
+                normativeDefinition("phase6-radar", "speed", "雷达速度", 0)
+        ));
+        when(vendorMetricMappingRuntimeService.resolveForGovernance(any(Product.class), eq("L4_LD_1.X"), eq("L4_LD_1")))
+                .thenReturn(new VendorMetricMappingRuntimeService.MappingResolution(
+                        9906001L,
+                        "X",
+                        "L4_LD_1.X",
+                        "L4_LD_1"
+                ));
+        when(vendorMetricMappingRuntimeService.resolveForGovernance(any(Product.class), eq("L4_LD_1.Y"), eq("L4_LD_1")))
+                .thenReturn(new VendorMetricMappingRuntimeService.MappingResolution(
+                        9906002L,
+                        "Y",
+                        "L4_LD_1.Y",
+                        "L4_LD_1"
+                ));
+        when(vendorMetricMappingRuntimeService.resolveForGovernance(any(Product.class), eq("L4_LD_1.Z"), eq("L4_LD_1")))
+                .thenReturn(new VendorMetricMappingRuntimeService.MappingResolution(
+                        9906003L,
+                        "Z",
+                        "L4_LD_1.Z",
+                        "L4_LD_1"
+                ));
+        when(vendorMetricMappingRuntimeService.resolveForGovernance(any(Product.class), eq("L4_LD_1.speed"), eq("L4_LD_1")))
+                .thenReturn(new VendorMetricMappingRuntimeService.MappingResolution(
+                        9906004L,
+                        "speed",
+                        "L4_LD_1.speed",
+                        "L4_LD_1"
+                ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"device-radar-01":{"L4_LD_1":{"2026-04-10T11:05:00.000Z":{"X":1.1,"Y":1.2,"Z":1.3,"speed":0.8}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(6008L, dto);
+
+        assertEquals(4, result.getCompareRows().size());
+        assertEquals("雷达X", compareRow(result, "property", "X").getNormativeName());
+        assertEquals("雷达Y", compareRow(result, "property", "Y").getNormativeName());
+        assertEquals("雷达Z", compareRow(result, "property", "Z").getNormativeName());
+        ProductModelGovernanceCompareRowVO speedRow = compareRow(result, "property", "speed");
+        assertEquals("雷达速度", speedRow.getNormativeName());
+        assertEquals(Boolean.FALSE, speedRow.getRiskReady());
+        assertEquals(List.of("L4_LD_1.speed"), speedRow.getRawIdentifiers());
+        verify(productMetricEvidenceService).replaceManualEvidence(eq(6008L), eq("phase6-radar"), any());
     }
 
     @Test
@@ -1298,6 +1607,84 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void applyGovernanceShouldReturnWaterSurfaceReleaseBatchIdAfterPublishingFormalFields() {
+        when(productMapper.selectById(3004L)).thenReturn(waterSurfaceProduct(3004L));
+        when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("L3_DB_1.temp")))
+                .thenReturn("temp");
+        when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("L3_DB_1.value")))
+                .thenReturn("value");
+        when(productContractReleaseService.createBatch(
+                eq(3004L),
+                eq("phase3-water-surface"),
+                eq("manual_compare_apply"),
+                eq(2),
+                eq(10001L),
+                eq(null),
+                eq("manual_compare_apply")
+        ))
+                .thenReturn(33445L);
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(
+                applyItem("create", null, "property", "L3_DB_1.temp", "地表水温"),
+                applyItem("create", null, "property", "L3_DB_1.value", "地表水位")
+        ));
+
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(3004L, dto, 10001L);
+
+        assertEquals(33445L, result.getReleaseBatchId());
+        assertEquals(
+                List.of("temp", "value"),
+                result.getAppliedItems().stream()
+                        .map(ProductModelGovernanceAppliedItemVO::getIdentifier)
+                        .toList()
+        );
+        verify(productModelMapper, times(2)).insert(any(ProductModel.class));
+    }
+
+    @Test
+    void applyGovernanceShouldReturnRadarReleaseBatchIdAfterPublishingFormalFields() {
+        when(productMapper.selectById(6008L)).thenReturn(radarProduct(6008L));
+        when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("L4_LD_1.X")))
+                .thenReturn("X");
+        when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("L4_LD_1.Y")))
+                .thenReturn("Y");
+        when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("L4_LD_1.Z")))
+                .thenReturn("Z");
+        when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("L4_LD_1.speed")))
+                .thenReturn("speed");
+        when(productContractReleaseService.createBatch(
+                eq(6008L),
+                eq("phase6-radar"),
+                eq("manual_compare_apply"),
+                eq(4),
+                eq(10001L),
+                eq(null),
+                eq("manual_compare_apply")
+        ))
+                .thenReturn(66888L);
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(
+                applyItem("create", null, "property", "L4_LD_1.X", "雷达X"),
+                applyItem("create", null, "property", "L4_LD_1.Y", "雷达Y"),
+                applyItem("create", null, "property", "L4_LD_1.Z", "雷达Z"),
+                applyItem("create", null, "property", "L4_LD_1.speed", "雷达速度")
+        ));
+
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(6008L, dto, 10001L);
+
+        assertEquals(66888L, result.getReleaseBatchId());
+        assertEquals(
+                List.of("X", "Y", "Z", "speed"),
+                result.getAppliedItems().stream()
+                        .map(ProductModelGovernanceAppliedItemVO::getIdentifier)
+                        .toList()
+        );
+        verify(productModelMapper, times(4)).insert(any(ProductModel.class));
+    }
+
+    @Test
     void applyGovernanceShouldNormalizeRainGaugeIdentifiersAndCreateReleaseBatch() {
         when(productMapper.selectById(7007L)).thenReturn(product(
                 7007L,
@@ -1469,6 +1856,18 @@ class ProductModelServiceImplTest {
         return product(id, "nf-collect-rtu-v1", "南方测绘 采集型 遥测终端");
     }
 
+    private Product waterSurfaceProduct(Long id) {
+        Product product = product(id, "nf-monitor-water-surface-v1", "南方测绘 监测型 地表水位监测仪");
+        product.setManufacturer("南方测绘");
+        return product;
+    }
+
+    private Product radarProduct(Long id) {
+        Product product = product(id, "nf-monitor-radar-v1", "南方测绘 监测型 雷达监测仪");
+        product.setManufacturer("南方测绘");
+        return product;
+    }
+
     private Device device(Long id, Long productId, String deviceCode) {
         Device device = new Device();
         device.setId(id);
@@ -1618,6 +2017,19 @@ class ProductModelServiceImplTest {
         definition.setIdentifier(identifier);
         definition.setDisplayName(displayName);
         definition.setRiskEnabled(riskEnabled);
+        return definition;
+    }
+
+    private com.ghlzm.iot.device.entity.NormativeMetricDefinition normativeDefinitionWithCodes(String scenarioCode,
+                                                                                               String identifier,
+                                                                                               String displayName,
+                                                                                               int riskEnabled,
+                                                                                               String monitorContentCode,
+                                                                                               String monitorTypeCode) {
+        com.ghlzm.iot.device.entity.NormativeMetricDefinition definition =
+                normativeDefinition(scenarioCode, identifier, displayName, riskEnabled);
+        definition.setMonitorContentCode(monitorContentCode);
+        definition.setMonitorTypeCode(monitorTypeCode);
         return definition;
     }
 }

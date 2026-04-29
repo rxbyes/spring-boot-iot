@@ -12,6 +12,7 @@ export interface MenuMeta {
   menuHint?: string;
   caption?: string;
   shortLabel?: string;
+  hiddenInSidebar?: boolean;
 }
 
 export interface MenuTreeNode {

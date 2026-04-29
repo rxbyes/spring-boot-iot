@@ -143,13 +143,9 @@
             <el-table-column type="selection" width="48" />
             <StandardTableTextColumn
               prop="roleName"
-              label="角色名称"
-              :width="160"
-            />
-            <StandardTableTextColumn
-              prop="roleCode"
-              label="角色编码"
-              :width="170"
+              label="角色"
+              secondary-prop="roleCode"
+              :min-width="200"
             />
             <StandardTableTextColumn
               prop="description"

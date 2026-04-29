@@ -108,8 +108,12 @@
         <template v-else-if="hasRecords">
           <el-table ref="tableRef" :data="pagedEventList" border stripe @selection-change="handleSelectionChange">
             <el-table-column type="selection" width="48" />
-            <StandardTableTextColumn prop="eventCode" label="事件编号" :width="180" />
-            <StandardTableTextColumn prop="eventTitle" label="事件标题" :min-width="220" />
+            <StandardTableTextColumn
+              prop="eventTitle"
+              label="事件"
+              secondary-prop="eventCode"
+              :min-width="240"
+            />
             <el-table-column prop="riskLevel" label="风险等级" width="100">
               <template #default="{ row }">
                 <el-tag :type="getRiskLevelType(row.riskLevel)" round>{{ getRiskLevelText(row.riskLevel) }}</el-tag>
@@ -117,7 +121,12 @@
             </el-table-column>
             <StandardTableTextColumn prop="regionName" label="区域" :width="120" />
             <StandardTableTextColumn prop="riskPointName" label="风险点" :width="150" />
-            <StandardTableTextColumn prop="deviceName" label="设备名称" :width="150" />
+            <StandardTableTextColumn
+              prop="deviceName"
+              label="设备"
+              secondary-prop="deviceCode"
+              :min-width="180"
+            />
             <StandardTableTextColumn prop="metricName" label="测点名称" :width="150" />
             <StandardTableTextColumn prop="currentValue" label="当前值" :width="120" />
             <el-table-column prop="status" label="状态" width="100">

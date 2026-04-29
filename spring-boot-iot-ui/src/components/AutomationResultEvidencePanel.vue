@@ -29,6 +29,7 @@
                 <span v-if="row.path === selectedPath" class="selected-label">当前预览</span>
                 <StandardButton
                   v-else
+                  v-permission="'system:automation-governance:evidence:evidence-preview'"
                   action="confirm"
                   :link="true"
                   @click="$emit('select-evidence', row.path)"
@@ -60,6 +61,9 @@
         />
         <div v-else-if="!preview" class="empty-block">
           请选择左侧证据查看原文。
+        </div>
+        <div v-else-if="preview?.category === 'image' && imagePreviewSrc" class="preview-image-frame">
+          <img class="preview-image" :src="imagePreviewSrc" :alt="preview.fileName" />
         </div>
         <pre v-else class="preview-content">{{ preview.content }}</pre>
       </section>
@@ -107,6 +111,7 @@ const categoryLabelMap: Record<string, string> = {
   json: 'JSON',
   markdown: 'Markdown',
   text: '文本',
+  image: 'PNG/JPG',
   unknown: '其他'
 };
 
@@ -132,6 +137,13 @@ const previewTitle = computed(() => {
     return '选择证据后可查看原文片段';
   }
   return `${props.preview.fileName} · ${categoryLabelMap[props.preview.category] || props.preview.category}`;
+});
+
+const imagePreviewSrc = computed(() => {
+  if (props.preview?.category !== 'image') {
+    return '';
+  }
+  return props.preview.content.startsWith('data:image/') ? props.preview.content : '';
 });
 </script>
 
@@ -199,6 +211,24 @@ const previewTitle = computed(() => {
   word-break: break-word;
 }
 
+.preview-image-frame {
+  min-height: 19rem;
+  padding: 0.75rem;
+  overflow: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(51, 72, 104, 0.12);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.preview-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 12px 28px rgba(31, 42, 61, 0.12);
+}
+
 .empty-block {
   padding: 0.9rem 1rem;
   border-radius: var(--radius-md);
@@ -224,6 +254,10 @@ const previewTitle = computed(() => {
   }
 
   .preview-content {
+    min-height: 15rem;
+  }
+
+  .preview-image-frame {
     min-height: 15rem;
   }
 }

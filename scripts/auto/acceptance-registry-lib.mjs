@@ -6,7 +6,8 @@ export const VALID_RUNNER_TYPES = new Set([
   'browserPlan',
   'apiSmoke',
   'messageFlow',
-  'riskDrill'
+  'riskDrill',
+  'pythonScript'
 ]);
 
 function normalizeScenario(source = {}) {
@@ -26,7 +27,15 @@ function normalizeScenario(source = {}) {
       ? source.evidence.map((item) => String(item || '').trim()).filter(Boolean)
       : [],
     timeouts: source.timeouts && typeof source.timeouts === 'object' ? { ...source.timeouts } : {},
-    runner: source.runner && typeof source.runner === 'object' ? { ...source.runner } : {}
+    runner: source.runner && typeof source.runner === 'object' ? { ...source.runner } : {},
+    ownerDomain: String(source.ownerDomain || '').trim(),
+    priority: String(source.priority || '').trim(),
+    failureCategory: String(source.failureCategory || '').trim(),
+    dataSetup: source.dataSetup && typeof source.dataSetup === 'object' ? { ...source.dataSetup } : {},
+    cleanupPolicy:
+      source.cleanupPolicy && typeof source.cleanupPolicy === 'object'
+        ? { ...source.cleanupPolicy }
+        : {}
   };
 }
 

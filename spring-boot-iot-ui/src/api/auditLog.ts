@@ -25,6 +25,20 @@ export interface AuditLogRecord {
   createTime?: string
 }
 
+export interface SystemErrorClusterRow {
+  clusterKey: string
+  operationModule?: string
+  exceptionClass?: string
+  errorCode?: string
+  count: number
+  distinctTraceCount: number
+  distinctDeviceCount: number
+  latestOperationTime?: string
+  latestRequestUrl?: string
+  latestRequestMethod?: string
+  latestResultMessage?: string
+}
+
 export interface AuditLogQueryParams {
   userName?: string
   operationType?: string
@@ -69,6 +83,14 @@ export function getSystemErrorStats(params: AuditLogQueryParams = {}): Promise<A
   const query = toQueryString(params)
   const path = `/api/system/audit-log/system-error/stats${query ? `?${query}` : ''}`
   return request<SystemErrorStats>(path, { method: 'GET' })
+}
+
+export function pageSystemErrorClusters(
+  params: AuditLogQueryParams = {}
+): Promise<ApiEnvelope<PageResult<SystemErrorClusterRow>>> {
+  const query = toQueryString(params)
+  const path = `/api/system/audit-log/system-error/clusters/page${query ? `?${query}` : ''}`
+  return request<PageResult<SystemErrorClusterRow>>(path, { method: 'GET' })
 }
 
 export function getBusinessAuditStats(params: AuditLogQueryParams = {}): Promise<ApiEnvelope<BusinessAuditStats>> {

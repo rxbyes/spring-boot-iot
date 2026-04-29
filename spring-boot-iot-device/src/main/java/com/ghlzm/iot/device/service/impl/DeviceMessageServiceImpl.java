@@ -75,7 +75,7 @@ import java.util.stream.Collectors;
 public class DeviceMessageServiceImpl implements DeviceMessageService {
 
     private static final Logger log = LoggerFactory.getLogger(DeviceMessageServiceImpl.class);
-    private static final String TABLE_NAME = "iot_device_message_log";
+    private static final String TABLE_NAME = "iot_message_log";
     private static final Long DEFAULT_TENANT_ID = 1L;
     private static final Long UNKNOWN_DEVICE_ID = 0L;
     private static final int MAX_PAGE_SIZE = 100;

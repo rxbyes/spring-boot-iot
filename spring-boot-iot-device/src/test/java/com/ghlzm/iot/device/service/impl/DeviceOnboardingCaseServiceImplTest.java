@@ -16,7 +16,10 @@ import com.ghlzm.iot.device.mapper.OnboardingTemplatePackMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.vo.DeviceOnboardingCaseBatchResultVO;
 import com.ghlzm.iot.device.vo.DeviceOnboardingCaseVO;
+import com.ghlzm.iot.framework.observability.evidence.BusinessEventLogRecord;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceRecorder;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -36,6 +39,15 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class DeviceOnboardingCaseServiceImplTest {
+
+    private static final class RecordingEvidenceRecorder implements ObservabilityEvidenceRecorder {
+        private final AtomicReference<BusinessEventLogRecord> lastEvent = new AtomicReference<>();
+
+        @Override
+        public void recordBusinessEvent(BusinessEventLogRecord event) {
+            lastEvent.set(event);
+        }
+    }
 
     @Mock
     private DeviceOnboardingCaseMapper mapper;
@@ -247,6 +259,8 @@ class DeviceOnboardingCaseServiceImplTest {
                 .thenReturn(new DeviceOnboardingAcceptanceLaunch("job-onboarding-1"));
 
         DeviceOnboardingCaseServiceImpl service = new DeviceOnboardingCaseServiceImpl(mapper, productMapper, acceptanceGateway);
+        RecordingEvidenceRecorder evidenceRecorder = new RecordingEvidenceRecorder();
+        service.setObservabilityEvidenceRecorder(evidenceRecorder);
 
         DeviceOnboardingCaseVO result = service.startAcceptance(9101L, 10001L);
 
@@ -257,6 +271,14 @@ class DeviceOnboardingCaseServiceImplTest {
         assertEquals("RUNNING", result.getAcceptance().getStatus());
         assertEquals("job-onboarding-1", result.getAcceptance().getJobId());
         assertEquals("标准接入验收执行中", result.getAcceptance().getSummary());
+
+        BusinessEventLogRecord event = evidenceRecorder.lastEvent.get();
+        assertNotNull(event);
+        assertEquals("acceptance.onboarding_case.launched", event.getEventCode());
+        assertEquals("9101", event.getObjectId());
+        assertEquals("job-onboarding-1", event.getMetadata().get("acceptanceJobId"));
+        assertEquals("DEV-9101", event.getMetadata().get("deviceCode"));
+        assertEquals(88001L, event.getMetadata().get("releaseBatchId"));
     }
 
     @Test

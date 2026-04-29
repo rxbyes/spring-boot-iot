@@ -459,6 +459,68 @@ export interface ProductGovernanceConfig {
   productCapabilityType?: ProductGovernanceCapabilityType | string | null;
 }
 
+export interface DeviceCapabilityParamSchemaField {
+  type?: 'string' | 'integer' | string | null;
+  label?: string | null;
+  required?: boolean | null;
+  min?: number | string | null;
+  max?: number | string | null;
+}
+
+export type DeviceCapabilityType = 'COLLECTING' | 'MONITORING' | 'WARNING' | 'VIDEO' | 'UNKNOWN';
+
+export interface DeviceCapability {
+  code: string;
+  name: string;
+  group?: string | null;
+  enabled?: boolean | null;
+  requiresOnline?: boolean | null;
+  disabledReason?: string | null;
+  paramsSchema?: Record<string, DeviceCapabilityParamSchemaField> | null;
+}
+
+export interface DeviceCapabilityOverview {
+  deviceCode: string;
+  productId?: IdType | null;
+  productKey?: string | null;
+  productCapabilityType?: DeviceCapabilityType | string | null;
+  subType?: string | null;
+  onlineExecutable?: boolean | null;
+  disabledReason?: string | null;
+  capabilities: DeviceCapability[];
+}
+
+export interface DeviceCapabilityExecutePayload {
+  params: Record<string, unknown>;
+}
+
+export interface DeviceCapabilityExecuteResult {
+  commandId: string;
+  deviceCode: string;
+  capabilityCode: string;
+  status: string;
+  topic?: string | null;
+  sentAt?: string | null;
+}
+
+export interface CommandRecordPageItem {
+  id: IdType;
+  commandId?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  topic?: string | null;
+  commandType?: string | null;
+  serviceIdentifier?: string | null;
+  status?: string | null;
+  sendTime?: string | null;
+  ackTime?: string | null;
+  timeoutTime?: string | null;
+  errorMessage?: string | null;
+  replyPayload?: string | null;
+  createTime?: string | null;
+  updateTime?: string | null;
+}
+
 export interface ProductMetadata {
   objectInsight?: ProductObjectInsightConfig | null;
   governance?: ProductGovernanceConfig | null;
@@ -603,6 +665,10 @@ export interface ProductModelGovernanceCompareRow {
   identifier: string;
   normativeIdentifier?: string | null;
   normativeName?: string | null;
+  normativeMatchStatus?: string | null;
+  normativeMatchSource?: string | null;
+  normativeMatchReason?: string | null;
+  normativeCandidates?: string[] | null;
   riskReady?: boolean | null;
   rawIdentifiers?: string[] | null;
   manualCandidate?: ProductModelGovernanceEvidence | null;
@@ -874,6 +940,56 @@ export interface RuntimeMetricDisplayRuleUpsertPayload {
   displayName: string;
   unit?: string | null;
   status?: RuntimeMetricDisplayRuleStatus | null;
+}
+
+export interface NormativeMetricDefinitionImportItem {
+  id?: IdType | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  identifier?: string | null;
+  displayName?: string | null;
+  unit?: string | null;
+  precisionDigits?: number | null;
+  monitorContentCode?: string | null;
+  monitorTypeCode?: string | null;
+  riskEnabled?: number | null;
+  trendEnabled?: number | null;
+  metricDimension?: string | null;
+  thresholdType?: string | null;
+  semanticDirection?: string | null;
+  gisEnabled?: number | null;
+  insightEnabled?: number | null;
+  analyticsEnabled?: number | null;
+  status?: string | null;
+  versionNo?: number | null;
+  metadataJson?: unknown;
+}
+
+export interface NormativeMetricDefinitionImportPayload {
+  items: NormativeMetricDefinitionImportItem[];
+}
+
+export interface NormativeMetricDefinitionImportRow {
+  rowIndex?: number | null;
+  id?: IdType | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  identifier?: string | null;
+  displayName?: string | null;
+  monitorContentCode?: string | null;
+  monitorTypeCode?: string | null;
+  fallbackKey?: string | null;
+  action?: string | null;
+  status?: string | null;
+  message?: string | null;
+}
+
+export interface NormativeMetricDefinitionImportResult {
+  totalCount?: number | null;
+  readyCount?: number | null;
+  conflictCount?: number | null;
+  appliedCount?: number | null;
+  rows?: NormativeMetricDefinitionImportRow[] | null;
 }
 
 export interface ProtocolGovernancePageQuery {
@@ -1367,6 +1483,40 @@ export interface Device {
   updateTime?: string | null;
 }
 
+export interface DeviceThresholdRule {
+  ruleId?: IdType | null;
+  ruleName?: string | null;
+  ruleScope?: string | null;
+  ruleScopeText?: string | null;
+  expression?: string | null;
+  alarmLevel?: string | null;
+  sourceLabel?: string | null;
+  targetLabel?: string | null;
+  riskPointDeviceId?: IdType | null;
+}
+
+export interface DeviceThresholdMetricItem {
+  riskMetricId?: IdType | null;
+  metricIdentifier: string;
+  metricName?: string | null;
+  effectiveRules: DeviceThresholdRule[];
+  bindingRules: DeviceThresholdRule[];
+  deviceRules: DeviceThresholdRule[];
+  productRules: DeviceThresholdRule[];
+  fallbackRules: DeviceThresholdRule[];
+}
+
+export interface DeviceThresholdOverview {
+  deviceId: IdType;
+  deviceCode?: string | null;
+  deviceName?: string | null;
+  productId?: IdType | null;
+  productName?: string | null;
+  matchedMetricCount: number;
+  missingMetricCount: number;
+  items: DeviceThresholdMetricItem[];
+}
+
 export interface DeviceOnboardingSuggestion {
   traceId: string;
   deviceCode?: string | null;
@@ -1447,6 +1597,13 @@ export interface DeviceProperty {
   updateTime?: string | null;
 }
 
+export type DeviceTopologyRole = 'COLLECTOR_PARENT' | 'COLLECTOR_CHILD' | 'STANDALONE';
+
+export interface DevicePropertyInsight {
+  topologyRole?: DeviceTopologyRole | null;
+  properties: DeviceProperty[];
+}
+
 export interface CollectorChildInsightMetric {
   identifier: string;
   displayName?: string | null;
@@ -1463,6 +1620,7 @@ export interface CollectorChildInsightChild {
   childProductKey?: string | null;
   collectorLinkState: string;
   sensorStateValue?: string | null;
+  sensorStateHealth?: 'REPORTED_NORMAL' | 'REPORTED_ABNORMAL' | 'MISSING' | 'STALE' | null;
   lastReportTime?: string | null;
   recommendedMetricIdentifiers?: string[] | null;
   metrics: CollectorChildInsightMetric[];
@@ -1474,6 +1632,8 @@ export interface CollectorChildInsightOverview {
   childCount: number;
   reachableChildCount: number;
   sensorStateReportedCount: number;
+  missingChildCount?: number | null;
+  staleChildCount?: number | null;
   recommendedMetricCount?: number | null;
   children: CollectorChildInsightChild[];
 }

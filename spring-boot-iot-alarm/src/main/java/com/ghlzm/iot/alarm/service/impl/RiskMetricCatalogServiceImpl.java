@@ -13,7 +13,6 @@ import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
 import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
-import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -42,7 +41,6 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
     private final NormativeMetricDefinitionService normativeMetricDefinitionService;
     private final List<RiskMetricScenarioResolver> scenarioResolvers;
     private final ApplicationEventPublisher applicationEventPublisher;
-    private final PublishedProductContractSnapshotService snapshotService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public RiskMetricCatalogServiceImpl(RiskMetricCatalogMapper riskMetricCatalogMapper,
@@ -72,7 +70,6 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         this.normativeMetricDefinitionService = normativeMetricDefinitionService;
         this.scenarioResolvers = scenarioResolvers == null ? List.of() : List.copyOf(scenarioResolvers);
         this.applicationEventPublisher = applicationEventPublisher;
-        this.snapshotService = snapshotService;
     }
 
     @Override
@@ -83,21 +80,18 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         if (productId == null || releasedContracts == null || releasedContracts.isEmpty()) {
             return;
         }
-        PublishedProductContractSnapshot snapshot = loadPublishedSnapshot(productId);
-        Set<String> enabledIdentifiers = normalizeIdentifiers(riskEnabledIdentifiers, snapshot);
-        if (enabledIdentifiers.isEmpty()) {
-            return;
-        }
+        Set<String> enabledIdentifiers = normalizeIdentifiers(riskEnabledIdentifiers);
         Map<String, RiskMetricCatalog> existingByIdentifier = listAllByProduct(productId).stream()
                 .filter(row -> StringUtils.hasText(row.getContractIdentifier()))
-                .collect(LinkedHashMap::new, (map, row) -> map.put(normalizeIdentifier(row.getContractIdentifier(), snapshot), row), Map::putAll);
-        Map<String, MetricSemanticProfile> semanticByIdentifier =
-                resolveSemanticProfiles(productId, releasedContracts, enabledIdentifiers, snapshot);
+                .collect(LinkedHashMap::new, (map, row) -> map.put(normalize(row.getContractIdentifier()), row), Map::putAll);
+        Map<String, MetricSemanticProfile> semanticByIdentifier = enabledIdentifiers.isEmpty()
+                ? Map.of()
+                : resolveSemanticProfiles(productId, releasedContracts, enabledIdentifiers);
         Set<String> publishedIdentifiers = new LinkedHashSet<>();
         List<Long> publishedRiskMetricIds = new ArrayList<>();
         List<Long> retiredRiskMetricIds = new ArrayList<>();
         for (ProductModel contract : releasedContracts) {
-            String identifier = normalizeIdentifier(contract == null ? null : contract.getIdentifier(), snapshot);
+            String identifier = normalize(contract == null ? null : contract.getIdentifier());
             if (!StringUtils.hasText(identifier) || !enabledIdentifiers.contains(identifier)) {
                 continue;
             }
@@ -218,22 +212,30 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
 
     private Map<String, MetricSemanticProfile> resolveSemanticProfiles(Long productId,
                                                                        List<ProductModel> releasedContracts,
-                                                                       Set<String> enabledIdentifiers,
-                                                                       PublishedProductContractSnapshot snapshot) {
+                                                                       Set<String> enabledIdentifiers) {
         if (releasedContracts == null || releasedContracts.isEmpty() || enabledIdentifiers == null || enabledIdentifiers.isEmpty()) {
             return Map.of();
         }
         Product product = productMapper.selectById(productId);
-        String scenarioCode = resolveScenarioCode(product);
-        Map<String, NormativeMetricDefinition> normativeByIdentifier = loadNormativeByIdentifier(scenarioCode);
+        String fallbackScenarioCode = resolveScenarioCode(product);
+        Map<String, Map<String, NormativeMetricDefinition>> normativeCache = new LinkedHashMap<>();
         Map<String, MetricSemanticProfile> semanticByIdentifier = new LinkedHashMap<>();
         for (ProductModel contract : releasedContracts) {
-            String identifier = normalizeIdentifier(contract == null ? null : contract.getIdentifier(), snapshot);
+            String identifier = normalize(contract == null ? null : contract.getIdentifier());
             if (!StringUtils.hasText(identifier) || !enabledIdentifiers.contains(identifier)) {
                 continue;
             }
-            NormativeMetricDefinition definition = normativeByIdentifier.get(identifier);
-            semanticByIdentifier.put(identifier, buildSemanticProfile(contract, definition, scenarioCode, identifier));
+            MetricSemanticReference reference = resolveSemanticReference(identifier, fallbackScenarioCode);
+            Map<String, NormativeMetricDefinition> normativeByIdentifier = StringUtils.hasText(reference.scenarioCode())
+                    ? normativeCache.computeIfAbsent(reference.scenarioCode(), this::loadNormativeByIdentifier)
+                    : Map.of();
+            NormativeMetricDefinition definition = normativeByIdentifier.get(reference.normativeIdentifier());
+            semanticByIdentifier.put(identifier, buildSemanticProfile(
+                    contract,
+                    definition,
+                    reference.scenarioCode(),
+                    reference.normativeIdentifier()
+            ));
         }
         return semanticByIdentifier;
     }
@@ -389,14 +391,6 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         row.setAnalyticsEnabled(profile.analyticsEnabled());
     }
 
-    private PublishedProductContractSnapshot loadPublishedSnapshot(Long productId) {
-        if (snapshotService == null || productId == null) {
-            return PublishedProductContractSnapshot.empty(productId);
-        }
-        PublishedProductContractSnapshot snapshot = snapshotService.getRequiredSnapshot(productId);
-        return snapshot == null ? PublishedProductContractSnapshot.empty(productId) : snapshot;
-    }
-
     private void publishCatalogEvent(Long productId,
                                      Long releaseBatchId,
                                      List<Long> publishedRiskMetricIds,
@@ -444,7 +438,10 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         if (!StringUtils.hasText(normalizedIdentifier)) {
             return null;
         }
-        return "RM_" + (productId == null ? "GLOBAL" : productId) + "_" + normalizedIdentifier.toUpperCase(Locale.ROOT);
+        String codeIdentifier = normalizedIdentifier.toUpperCase(Locale.ROOT)
+                .replaceAll("[^A-Z0-9]+", "_")
+                .replaceAll("^_+|_+$", "");
+        return "RM_" + (productId == null ? "GLOBAL" : productId) + "_" + codeIdentifier;
     }
 
     private String resolveDefaultThresholdDirection(ProductModel contract) {
@@ -477,13 +474,13 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         return Set.of("double", "float", "int", "integer", "long", "short", "decimal").contains(lower);
     }
 
-    private Set<String> normalizeIdentifiers(Set<String> identifiers, PublishedProductContractSnapshot snapshot) {
+    private Set<String> normalizeIdentifiers(Set<String> identifiers) {
         if (identifiers == null || identifiers.isEmpty()) {
             return Set.of();
         }
         Set<String> normalized = new LinkedHashSet<>();
         for (String identifier : identifiers) {
-            String value = normalizeIdentifier(identifier, snapshot);
+            String value = normalize(identifier);
             if (StringUtils.hasText(value)) {
                 normalized.add(value);
             }
@@ -491,12 +488,40 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         return normalized;
     }
 
-    private String normalizeIdentifier(String identifier, PublishedProductContractSnapshot snapshot) {
+    private MetricSemanticReference resolveSemanticReference(String identifier, String fallbackScenarioCode) {
         String normalized = normalize(identifier);
-        if (!StringUtils.hasText(normalized) || snapshot == null) {
-            return normalized;
+        if (!StringUtils.hasText(normalized)) {
+            return new MetricSemanticReference(fallbackScenarioCode, normalized);
         }
-        return snapshot.canonicalAliasOf(normalized).orElse(normalized);
+        String leaf = normalized;
+        String prefix = null;
+        int dotIndex = normalized.lastIndexOf('.');
+        if (dotIndex > 0 && dotIndex < normalized.length() - 1) {
+            prefix = normalized.substring(0, dotIndex);
+            leaf = normalized.substring(dotIndex + 1);
+        } else if (normalized.toUpperCase(Locale.ROOT).matches("L\\d+_[A-Z]+_\\d+")) {
+            prefix = normalized;
+            leaf = null;
+        }
+        if (StringUtils.hasText(prefix)) {
+            String upperPrefix = prefix.toUpperCase(Locale.ROOT);
+            if (upperPrefix.matches("L1_LF_\\d+") && (!StringUtils.hasText(leaf) || "value".equals(leaf))) {
+                return new MetricSemanticReference("phase1-crack", "value");
+            }
+            if (upperPrefix.matches("L1_GP_\\d+") && Set.of("gpsTotalX", "gpsTotalY", "gpsTotalZ").contains(leaf)) {
+                return new MetricSemanticReference("phase2-gnss", leaf);
+            }
+        }
+        if (Set.of("gpsTotalX", "gpsTotalY", "gpsTotalZ").contains(normalized)) {
+            return new MetricSemanticReference("phase2-gnss", normalized);
+        }
+        if (Set.of("dispsX", "dispsY").contains(normalized)) {
+            return new MetricSemanticReference("phase3-deep-displacement", normalized);
+        }
+        if ("value".equals(normalized)) {
+            return new MetricSemanticReference(fallbackScenarioCode, "value");
+        }
+        return new MetricSemanticReference(fallbackScenarioCode, normalized);
     }
 
     private Map<String, Object> parseJsonObject(String json) {
@@ -635,5 +660,8 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         static MetricSemanticProfile empty() {
             return new MetricSemanticProfile(null, null, null, "PRIMARY", "ACTIVE", null, null, null, null, null, 0, 0, 1, 0);
         }
+    }
+
+    private record MetricSemanticReference(String scenarioCode, String normativeIdentifier) {
     }
 }

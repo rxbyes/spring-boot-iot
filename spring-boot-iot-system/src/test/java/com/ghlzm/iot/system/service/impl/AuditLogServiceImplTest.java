@@ -5,10 +5,13 @@ import com.ghlzm.iot.system.entity.AuditLog;
 import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
+import com.ghlzm.iot.system.vo.SystemErrorClusterRowVO;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.Timestamp;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -111,6 +114,61 @@ class AuditLogServiceImplTest {
         assertTrue(!containsValue(argsCaptor.getValue(), 2L));
     }
 
+    @Test
+    void pageSystemErrorClustersShouldGroupByModuleExceptionAndErrorCode() throws Exception {
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 1L, 7101L, DataScopeType.TENANT, false));
+        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Long.class), any(Object[].class)))
+                .thenReturn(2L);
+        when(jdbcTemplate.queryForList(anyString(), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    String sql = invocation.getArgument(0, String.class);
+                    if (sql.contains("GROUP BY")) {
+                        return List.of(Map.of(
+                                "operation_module", "PROTOCOL_DECODE",
+                                "exception_class", "DecodeException",
+                                "error_code", "payload_invalid",
+                                "cluster_count", 12L,
+                                "distinct_trace_count", 4L,
+                                "distinct_device_count", 3L,
+                                "latest_operation_time", Timestamp.valueOf("2026-04-27 09:00:00")
+                        ));
+                    }
+                    return List.of(Map.of(
+                            "request_url", "/mqtt/up",
+                            "request_method", "MQTT",
+                            "result_message", "payload schema mismatch"
+                    ));
+                });
+
+        AuditLog log = new AuditLog();
+        log.setTenantId(2L);
+        log.setRequestMethod("MQTT");
+
+        PageResult<SystemErrorClusterRowVO> page = invokeClusterPageLogs(99L, log, 1, 10);
+
+        assertEquals(2L, page.getTotal());
+        assertEquals(1, page.getRecords().size());
+        SystemErrorClusterRowVO row = page.getRecords().get(0);
+        assertEquals("PROTOCOL_DECODE", row.getOperationModule());
+        assertEquals("DecodeException", row.getExceptionClass());
+        assertEquals("payload_invalid", row.getErrorCode());
+        assertEquals(12L, row.getCount());
+        assertEquals(4L, row.getDistinctTraceCount());
+        assertEquals(3L, row.getDistinctDeviceCount());
+        assertEquals("2026-04-27 09:00:00", row.getLatestOperationTime());
+        assertEquals("/mqtt/up", row.getLatestRequestUrl());
+        assertEquals("MQTT", row.getLatestRequestMethod());
+        assertEquals("payload schema mismatch", row.getLatestResultMessage());
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Object[]> argsCaptor = ArgumentCaptor.forClass(Object[].class);
+        verify(jdbcTemplate).queryForObject(sqlCaptor.capture(), org.mockito.ArgumentMatchers.eq(Long.class), argsCaptor.capture());
+        assertTrue(sqlCaptor.getValue().contains("tenant_id = ?"));
+        assertTrue(containsValue(argsCaptor.getValue(), 1L));
+        assertTrue(!containsValue(argsCaptor.getValue(), 2L));
+    }
+
     private Set<String> mockColumns() {
         Set<String> columns = new LinkedHashSet<>();
         columns.add("id");
@@ -190,5 +248,33 @@ class AuditLogServiceImplTest {
             return target;
         }
         throw exception;
+    }
+
+    private PageResult<SystemErrorClusterRowVO> invokeClusterPageLogs(Long currentUserId,
+                                                                      AuditLog log,
+                                                                      Integer pageNum,
+                                                                      Integer pageSize) throws Exception {
+        try {
+            Method method = AuditLogServiceImpl.class.getMethod(
+                    "pageSystemErrorClusters",
+                    Long.class,
+                    AuditLog.class,
+                    Integer.class,
+                    Integer.class
+            );
+            @SuppressWarnings("unchecked")
+            PageResult<SystemErrorClusterRowVO> result = (PageResult<SystemErrorClusterRowVO>) method.invoke(
+                    auditLogService,
+                    currentUserId,
+                    log,
+                    pageNum,
+                    pageSize
+            );
+            return result;
+        } catch (NoSuchMethodException exception) {
+            throw new AssertionError("scoped pageSystemErrorClusters overload is missing", exception);
+        } catch (InvocationTargetException exception) {
+            throw unwrap(exception);
+        }
     }
 }
